@@ -8,7 +8,15 @@ import { coordinateParser } from "./parsers/coordinateParser.ts";
 // MGRS yields a grid square rather than a latitude/longitude pair, so its result carries a
 // different shape; the examples walk down its precision ladder, since dropping digits
 // coarsens the reference instead of moving it.
-const examples = [
+type ExampleGroup = {
+  system: string;
+  description: string;
+  /** The document the format is defined by, where one is worth linking. */
+  spec?: { href: string; label: string };
+  inputs: { input: string; note: string }[];
+};
+
+const examples: ExampleGroup[] = [
   {
     system: "WGS84",
     description: "широта, потім довгота",
@@ -29,12 +37,29 @@ const examples = [
   {
     system: "MGRS",
     description: "квадрат сітки, а не пара координат",
+    // BASE_URL, not a bare "/": vite.config.ts sets base to "/coordinate-parser/", so an absolute
+    // path would 404 once the app is served from GitHub Pages.
+    spec: {
+      href: `${import.meta.env.BASE_URL}NGA_STND_0037_2.0.0_GRIDS.pdf`,
+      label: "NGA.STND.0037",
+    },
     inputs: [
       { input: "4QFJ1234567890", note: "точність 1 м" },
       { input: "4Q FJ 12345 67890", note: "те саме, через пробіли" },
       { input: "4QFJ12346789", note: "точність 10 м" },
       { input: "4QFJ1267", note: "точність 1 км" },
       { input: "4QFJ", note: "лише квадрат 100 км" },
+    ],
+  },
+  {
+    system: "UCS-2000",
+    description: "прямокутні координати, зона в Y",
+    spec: { href: "https://epsg.io/5564", label: "EPSG:5564" },
+    inputs: [
+      { input: "5591000 6325000", note: "зона 6, повна форма" },
+      { input: "55-91000 63-25000", note: "те саме, з групуванням" },
+      { input: "5591000, 6325000", note: "через кому" },
+      { input: "4985000 4380000", note: "зона 4 — захід України" },
     ],
   },
 ];
@@ -53,11 +78,24 @@ const CoordinateInput = () => {
         onChange={(e) => setText(e.target.value)}
       />
       <p className="mt-3 text-sm">Ви можете вводити координати в наступних форматах:</p>
-      {examples.map(({ system, description, inputs }) => (
+      {examples.map(({ system, description, spec, inputs }) => (
         <section key={system} className="mt-2 text-sm">
           <h3>
             <span className="font-bold">{system}</span>
             <span className="opacity-60"> — {description}</span>
+            {spec && (
+              <>
+                <span className="opacity-60"> · </span>
+                <a
+                  href={spec.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline underline-offset-2 hover:no-underline"
+                >
+                  {spec.label}
+                </a>
+              </>
+            )}
           </h3>
           <ul className="mt-1 flex flex-col gap-1">
             {inputs.map(({ input, note }) => (
@@ -75,7 +113,9 @@ const CoordinateInput = () => {
           </ul>
         </section>
       ))}
-      <div className="whitespace-pre-wrap font-mono">{JSON.stringify(result, null, 2)}</div>
+      <div className="mt-4 whitespace-pre-wrap text-sm font-mono">
+        {JSON.stringify(result, null, 2)}
+      </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-export const SK42 = /^(-?\d{2}-?\d{5})[ ,]+(-?\d{2}-?\d{5})$/;
+export const UCS2000 = /^(-?\d{2}-?\d{5})[ ,]+(-?\d{2}-?\d{5})$/;
 export const MGRS = /^(\d{2}[A-Za-z])\s?([A-Za-z]{2})\s?(\d{5,8})\s?(\d{5,8})$/;
 export const USNG = /^(\d{1,2}[A-Za-z])\s?([A-Za-z]{2})\s?(\d{0,8})\s?(\d{0,8})$/;
 export const UTM = /^(\d{1,2}[A-Za-z])\s?\s?(\d{6})\s?(\d{7})$/;
