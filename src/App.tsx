@@ -22,7 +22,7 @@ const CoordinateInput = () => {
 function App() {
   return (
     <main className="max-w-[60ch] p-4 m-auto">
-      <h2>Тестовий опис</h2>
+      <h2>Парсер координат</h2>
       <CoordinateInput />
     </main>
   );
