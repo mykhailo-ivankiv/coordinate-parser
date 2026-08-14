@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { coordinateParser } from "./parser.ts";
+import { coordinateParser } from "./parsers/coordinateParser.ts";
 
 const CoordinateInput = () => {
   const [text, setText] = useState("");
