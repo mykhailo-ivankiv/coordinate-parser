@@ -83,7 +83,7 @@ export const whitespaceOnly = whitespace.errorMap(
   ({ index }) => `ParseError (position ${index}): Expecting whitespace between the two values`,
 );
 
-const wholeInput = <T>(parser: Parser<T>) =>
+export const wholeInput = <T>(parser: Parser<T>) =>
   sequenceOf([startOfInput, optionalWhitespace, parser, optionalWhitespace, endOfInput]).map(
     ([, , value]) => value,
   );
