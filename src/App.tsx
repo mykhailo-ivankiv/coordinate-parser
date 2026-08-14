@@ -1,12 +1,10 @@
 import { useState } from "react";
+import { coordinateParser } from "./parser.ts";
 
 const CoordinateInput = () => {
   const [text, setText] = useState("");
-  const result = {
-    text,
-    result: { latitude: 0, longitude: 0 },
-    errors: null,
-  };
+  const result = coordinateParser.run(text);
+
   return (
     <div>
       <input

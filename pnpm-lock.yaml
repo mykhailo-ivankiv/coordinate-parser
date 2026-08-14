@@ -17,6 +17,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.2.1(@types/node@24.13.3)(jiti@2.7.0))
+      arcsecond:
+        specifier: ^5.0.0
+        version: 5.0.0
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -641,6 +644,9 @@ packages:
         optional: true
       babel-plugin-react-compiler:
         optional: true
+
+  arcsecond@5.0.0:
+    resolution: {integrity: sha512-J/fHdyadnsIencRsM6oUSsraCKG+Ni9Udcgr/eusxjTzX3SEQtCUQSpP0YtImFPfIK6DdT1nqwN0ng4FqNmwgA==}
 
   babel-plugin-react-compiler@1.0.0:
     resolution: {integrity: sha512-Ixm8tFfoKKIPYdCCKYTsqv+Fd4IJ0DQqMyEimo+pxUOMUR9cVPlwTrFt9Avu+3cb6Zp3mAzl+t1MrG2fxxKsxw==}
@@ -1430,6 +1436,8 @@ snapshots:
     optionalDependencies:
       '@rolldown/plugin-babel': 0.2.3(@babel/core@7.29.7)(rolldown@1.2.4)(vite@8.2.1(@types/node@24.13.3)(jiti@2.7.0))
       babel-plugin-react-compiler: 1.0.0
+
+  arcsecond@5.0.0: {}
 
   babel-plugin-react-compiler@1.0.0:
     dependencies:

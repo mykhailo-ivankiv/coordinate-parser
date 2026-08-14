@@ -6,12 +6,12 @@
 @import "@fontsource/ia-writer-mono/700.css";
 
 @theme {
-    --font-sans: "iA Writer Quattro", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "iA Writer Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "iA Writer Quattro", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "iA Writer Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @layer base {
-    body {
-        font-family: var(--font-sans);
-    }
+  body {
+    font-family: var(--font-sans);
+  }
 }
