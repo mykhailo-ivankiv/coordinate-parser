@@ -19,8 +19,8 @@ export const coordinateSystems = [
   "WGS84",
   "WGS84R",
   "MGRS",
-  //
   "UCS-2000",
+  //
   "USNG",
   "UTM",
   "DD",

@@ -13,6 +13,8 @@ type ExampleGroup = {
   description: string;
   /** The document the format is defined by, where one is worth linking. */
   spec?: { href: string; label: string };
+  /** Prose for a group that needs more than the one-line description. */
+  note?: string;
   inputs: { input: string; note: string }[];
 };
 
@@ -48,7 +50,28 @@ const examples: ExampleGroup[] = [
       { input: "4Q FJ 12345 67890", note: "те саме, через пробіли" },
       { input: "4QFJ12346789", note: "точність 10 м" },
       { input: "4QFJ1267", note: "точність 1 км" },
-      { input: "4QFJ", note: "лише квадрат 100 км" },
+      { input: "4QFJ", note: "лише квадрат 100 км — MGRS так уміє, USNG ні" },
+    ],
+  },
+  {
+    system: "USNG",
+    description: "та сама сітка, що й MGRS",
+    spec: {
+      href: "https://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf",
+      label: "FGDC-STD-011-2001",
+    },
+    note:
+      "USNG переймає сітку MGRS без змін, тож ці приклади розбираються обома парсерами й " +
+      "позначаються як MGRS: системи різняться датумом (USNG на NAD 83, MGRS на WGS 84), а датум " +
+      "у рядку не записаний — саме тому стандарт FGDC передбачив окремий суфікс «(NAD 27)». " +
+      "Єдина відмінність, помітна в самому рядку: USNG вимагає щонайменше одну цифру на вісь, " +
+      "тож найгрубіше USNG-посилання — квадрат 10 км, а голий квадрат 100 км є MGRS, але не USNG.",
+    inputs: [
+      { input: "10S GJ 06832 44683", note: "точність 1 м" },
+      { input: "10SGJ0683244683", note: "та сама точка, формальний запис без пробілів" },
+      { input: "10S GJ 06 44", note: "точність 1 км" },
+      { input: "10S GJ 0 4", note: "квадрат 10 км — найгрубіше, що допускає USNG" },
+      { input: "10S GJ", note: "вже не USNG: немає жодної цифри" },
     ],
   },
   {
@@ -78,7 +101,7 @@ const CoordinateInput = () => {
         onChange={(e) => setText(e.target.value)}
       />
       <p className="mt-3 text-sm">Ви можете вводити координати в наступних форматах:</p>
-      {examples.map(({ system, description, spec, inputs }) => (
+      {examples.map(({ system, description, spec, note, inputs }) => (
         <section key={system} className="mt-2 text-sm">
           <h3>
             <span className="font-bold">{system}</span>
@@ -97,6 +120,7 @@ const CoordinateInput = () => {
               </>
             )}
           </h3>
+          {note && <p className="mt-1 opacity-60">{note}</p>}
           <ul className="mt-1 flex flex-col gap-1">
             {inputs.map(({ input, note }) => (
               <li key={input}>
