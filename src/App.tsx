@@ -233,11 +233,90 @@ const CoordinateInput = () => {
   );
 };
 
+type Reference = { href: string; label: string; note: string };
+
+// Read these to understand the systems; the standards below are what the parsers were written
+// against. No single document covers all nine formats — they come from four separate traditions,
+// and UCS-2000 in particular has no English-language treatment alongside the others.
+const reading: Reference[] = [
+  {
+    href: "https://www.movable-type.co.uk/scripts/latlong-utm-mgrs.html",
+    label: "Chris Veness — Latitude/Longitude, UTM & MGRS",
+    note: "розбір із геодезією під ним і робочим кодом; найближче до «все в одному»",
+  },
+  {
+    href: "https://github.com/chrisveness/geodesy",
+    label: "chrisveness/geodesy",
+    note: "той самий код на GitHub, MIT — знадобиться для конверсії в широту й довготу",
+  },
+  {
+    href: "https://www.ordnancesurvey.co.uk/documents/resources/guide-coordinate-systems-great-britain.pdf",
+    label: "Ordnance Survey — A Guide to Coordinate Systems in Great Britain",
+    note: "еліпсоїди, датуми, проєкції та трансформації — шар, який оглядові статті пропускають",
+  },
+];
+
+const sources: Reference[] = [
+  {
+    href: `${import.meta.env.BASE_URL}NGA_STND_0037_2.0.0_GRIDS.pdf`,
+    label: "NGA.STND.0037",
+    note: "UTM, UPS і MGRS в одному документі",
+  },
+  {
+    href: "https://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf",
+    label: "FGDC-STD-011-2001",
+    note: "USNG",
+  },
+  {
+    href: "https://www.iso.org/standard/75147.html",
+    label: "ISO 6709",
+    note: "DD, DDM і DMS",
+  },
+  {
+    href: "https://epsg.io/5561",
+    label: "EPSG:5561",
+    note: "датум УСК-2000; зони Гаусса-Крюгера — EPSG:5562–5565",
+  },
+  {
+    href: "https://sprotyvg7.com.ua/wp-content/uploads/2024/02/topo_red_15_%D1%81%D1%96%D1%87%D0%B5%D0%BD%D1%8C_2023.pdf",
+    label: "Довідник з військової топографії (ЗСУ)",
+    note: "формат запису прямокутних координат УСК-2000",
+  },
+  {
+    href: "https://www.kmu.gov.ua/npas/9103399",
+    label: "Постанова КМУ №1259 від 22.09.2004",
+    note: "запровадила УСК-2000 замість СК-42 з 1 січня 2007 року",
+  },
+];
+
+const ReferenceList = ({ title, items }: { title: string; items: Reference[] }) => (
+  <section className="mt-4 text-sm">
+    <h2 className="font-bold text-lg">{title}</h2>
+    <ul className="mt-1 flex flex-col gap-1">
+      {items.map(({ href, label, note }) => (
+        <li key={href}>
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 hover:no-underline"
+          >
+            {label}
+          </a>
+          <span className="opacity-60"> — {note}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+);
+
 function App() {
   return (
     <main className="max-w-[60ch] p-4 m-auto">
       <h2>Парсер координат</h2>
       <CoordinateInput />
+      <ReferenceList title="Матеріали" items={reading} />
+      <ReferenceList title="Першоджерела" items={sources} />
     </main>
   );
 }
