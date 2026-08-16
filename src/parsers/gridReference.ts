@@ -1,5 +1,4 @@
 import {
-  anyOfString,
   digits,
   fail,
   type Parser,
@@ -9,12 +8,14 @@ import {
   takeRight,
   whitespace,
 } from "arcsecond";
-import { commaOrWhitespace } from "./commonParsers.ts";
+import { commaOrWhitespace, letterFrom } from "./commonParsers.ts";
 
 // Grammar shared by the grid reference systems. MGRS defines the grid (NGA.STND.0037) and USNG
 // adopts it wholesale (FGDC-STD-011-2001), so the letter sets, the zone number and the numeric
 // location are one grammar with a couple of parameters rather than two near-copies. UTM, the
 // projection all three sit on, shares the zone number and the band letters from here too.
+
+export { letterFrom };
 
 export const LATITUDE_BANDS = "CDEFGHJKLMNPQRSTUVWX";
 export const COLUMN_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -30,15 +31,6 @@ export type GridLocation = {
   /** Size of the referenced square in metres: 100000 down to 1. */
   precision: number;
 };
-
-// References are conventionally uppercase; lowercase is accepted and normalised, since no
-// part of a reference is case-sensitive.
-export const letterFrom = (allowed: string, expected: string) =>
-  anyOfString(`${allowed}${allowed.toLowerCase()}`)
-    .errorMap(
-      ({ index }) => `ParseError (position ${index}): Expecting ${expected}, one of ${allowed}`,
-    )
-    .map((letter) => letter.toUpperCase());
 
 // A letter always follows the zone number, so greedy digits cannot overrun into it.
 export const zoneNumber = (system: string, note = "") =>
