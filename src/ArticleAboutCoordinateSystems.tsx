@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import latitudeLongitudeSvg from "./assets/latitude-longitude.svg?raw";
+import utmZonesSvg from "./assets/utm-zones.svg?raw";
 
 // A guide to every format this library parses. Written because no single source covers all nine:
 // they come from four separate traditions — ISO, NGA/NATO, FGDC and Soviet-Ukrainian geodesy — and
@@ -155,6 +157,51 @@ const GridSquare = ({
   );
 };
 
+// An illustration someone else drew. Inlined into the page rather than loaded through <img>: an
+// <img> is an isolated document that cannot see the page's webfonts or inherit currentColor, so a
+// map referenced that way would always fall back to a system font. Inlined, its labels pick up
+// iA Writer Quattro from the page and its ink follows the text colour, exactly like the diagrams
+// drawn by hand above. The source files keep their geometry; only palette, line weights and the
+// font declaration were changed.
+//
+// `fullBleed` lets a wide illustration escape the 60ch reading column and span the viewport, less a
+// margin on each side. `left-1/2` moves it to the column's centre, which is also the viewport's
+// centre because <main> is centred; the negative translate then pulls back half its own width.
+// Subtracting 2rem from 100vw also absorbs a classic scrollbar, so the page never scrolls sideways.
+// Only the drawing breaks out — the caption stays in the column, where its lines remain readable.
+const FULL_BLEED = "relative left-1/2 w-[calc(100vw-2rem)] max-w-none -translate-x-1/2";
+
+// innerHTML parses as HTML, which has no use for an XML prolog or a DOCTYPE.
+const svgBody = (markup: string) => markup.slice(markup.indexOf("<svg"));
+
+const Illustration = ({
+  markup,
+  label,
+  caption,
+  credit,
+  fullBleed,
+}: {
+  markup: string;
+  label: string;
+  caption: ReactNode;
+  credit: ReactNode;
+  fullBleed?: boolean;
+}) => (
+  <figure className="mt-4">
+    <div
+      role="img"
+      aria-label={label}
+      className={`[&>svg]:h-auto [&>svg]:w-full ${fullBleed ? `my-4 ${FULL_BLEED}` : ""}`}
+      // Both files were downloaded, read and edited by hand; neither contains script or external
+      // references, and nothing here comes from user input.
+      dangerouslySetInnerHTML={{ __html: svgBody(markup) }}
+    />
+    <figcaption className="mt-2 opacity-60">
+      {caption} <span className="opacity-80">{credit}</span>
+    </figcaption>
+  </figure>
+);
+
 const Table = ({
   headers,
   rows,
@@ -237,6 +284,46 @@ export const ArticleAboutCoordinateSystems = () => (
     </P>
 
     <Heading>Родина перша: широта й довгота</Heading>
+    <P>
+      Перш ніж говорити про записи, варто пам'ятати, що саме записується. Широта й довгота — це не
+      відстані, а <b>два кути</b>. Усе інше в цій статті — лише способи ці два кути записати.
+    </P>
+    <Illustration
+      markup={latitudeLongitudeSvg}
+      label="Куля з сіткою паралелей і меридіанів: широта φ — кут від площини екватора, довгота λ — кут від Гринвіцького меридіана"
+      caption={
+        <>
+          Широта <Code>φ</Code> — кут від площини екватора, довгота <Code>λ</Code> — кут у площині
+          екватора від Гринвіцького меридіана. Сітка проведена через 10°. Земля тут показана кулею,
+          тож обидва кути мають вершину в центрі; на справжньому еліпсоїді широта відлічується
+          інакше — про це наступний підрозділ.
+        </>
+      }
+      credit={
+        <>
+          Ілюстрація:{" "}
+          <Link href="https://commons.wikimedia.org/wiki/File:Latitude_and_longitude_graticule_on_a_sphere.svg">
+            Latitude and longitude graticule on a sphere
+          </Link>{" "}
+          — Peter Mercator, Wikimedia Commons, суспільне надбання. Перефарбовано під стиль статті,
+          лінії потоншено; геометрія й підписи оригіналу збережені.
+        </>
+      }
+    />
+    <Subheading>Від нормалі, а не від центру</Subheading>
+    <P>
+      Здається природним, що широта — це кут радіуса, проведеного з центру Землі. На кулі так і є,
+      але Земля не куля, а сплюснутий еліпсоїд, і всі системи в цій статті користуються{" "}
+      <b>геодезичною</b> широтою: кутом між <b>нормаллю до поверхні</b> й площиною екватора. Нормаль
+      до еліпсоїда не проходить через центр — крім екватора й полюсів.
+    </P>
+    <P>
+      Різниця не косметична. Кут від центру (геоцентрична широта) відхиляється від геодезичної
+      максимум на 11.55′ поблизу 45°, а це <b>близько 21 кілометра</b> на місцевості. На широті
+      Києва — 11.34′, майже ті самі 21 км. Довготи це не стосується: вона вимірюється в площині
+      екватора, де обидва означення збігаються.
+    </P>
+
     <P>
       Чотири з дев'яти форматів — це одна пара чисел, записана чотирма способами. Усі описані в{" "}
       <Link href="https://www.iso.org/standard/75147.html">ISO 6709</Link>, і стандарт містить{" "}
@@ -401,6 +488,34 @@ export const ArticleAboutCoordinateSystems = () => (
     </P>
     <P>Контрольна точка (Київ, 50.4501°N 30.5234°E) в UTM:</P>
     <Sample>36U 324182 5591608</Sample>
+    <Illustration
+      markup={utmZonesSvg}
+      label="Сітка зон UTM на карті світу: 60 пронумерованих колонок по 6° довготи та смуги широти, позначені літерами від C до X"
+      fullBleed
+      caption={
+        <>
+          Уся сітка: 60 колонок по 6° довготи та смуги широти, позначені літерами <Code>C</Code>–
+          <Code>X</Code> без <Code>I</Code> та <Code>O</Code>. Перетин колонки й смуги дає ту пару
+          «36U», з якої починається і UTM-запис, і посилання MGRS. Помітні й винятки, яких у
+          правильній сітці не мало б бути: розширена зона 32V біля Норвегії та перекроєні зони смуги
+          X над Шпіцбергеном. Полярні шапки за 84° пн.ш. і 80° пд.ш. до UTM не входять — там працює
+          UPS.
+        </>
+      }
+      credit={
+        <>
+          Ілюстрація:{" "}
+          <Link href="https://commons.wikimedia.org/wiki/File:Universal_Transverse_Mercator_zones.svg">
+            Universal Transverse Mercator zones
+          </Link>{" "}
+          — cmglee, STyx, Wikialine, Goran tek-en, Wikimedia Commons,{" "}
+          <Link href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</Link>. Змінено:
+          палітру приведено до нейтральних сірих з одним акцентним кольором, лінії сітки освітлено й
+          потоншено, шрифт підписів замінено на системний. Геометрія, підписи та зміст оригіналу
+          збережені. Цей похідний твір поширюється на тих самих умовах — CC BY-SA 4.0.
+        </>
+      }
+    />
 
     <Subheading>Пастка: літера після номера зони</Subheading>
     <P>
