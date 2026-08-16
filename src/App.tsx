@@ -10,6 +10,8 @@ import { coordinateParser } from "./parsers/coordinateParser.ts";
 // coarsens the reference instead of moving it.
 type ExampleGroup = {
   system: string;
+  /** What the acronym stands for. */
+  fullName: string;
   description: string;
   /** The document the format is defined by, where one is worth linking. */
   spec?: { href: string; label: string };
@@ -21,6 +23,7 @@ type ExampleGroup = {
 const examples: ExampleGroup[] = [
   {
     system: "WGS84",
+    fullName: "World Geodetic System 1984",
     description: "широта, потім довгота",
     inputs: [
       { input: "50.4501, 30.5234", note: "через кому" },
@@ -30,7 +33,11 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "WGS84R",
+    fullName: "World Geodetic System 1984, зворотний порядок",
     description: "довгота, потім широта",
+    note:
+      "«R» тут — не частина назви стандарту, а позначення цієї бібліотеки для зворотного порядку " +
+      "значень: сама система координат та сама, що й у WGS84.",
     inputs: [
       { input: "151.2093, -33.8688", note: "через кому" },
       { input: "151,2093 -33,8688", note: "кома як десятковий знак, роздільник лише пробіл" },
@@ -38,6 +45,7 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "DD",
+    fullName: "Decimal Degrees",
     description: "десяткові градуси з літерою півкулі",
     spec: { href: "https://www.iso.org/standard/75147.html", label: "ISO 6709" },
     note:
@@ -56,6 +64,7 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "DDM",
+    fullName: "Degrees and Decimal Minutes",
     description: "градуси й десяткові хвилини",
     spec: { href: "https://www.iso.org/standard/75147.html", label: "ISO 6709" },
     note:
@@ -72,6 +81,7 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "DMS",
+    fullName: "Degrees, Minutes, Seconds",
     description: "градуси, хвилини й секунди",
     spec: { href: "https://www.iso.org/standard/75147.html", label: "ISO 6709" },
     note:
@@ -89,6 +99,7 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "MGRS",
+    fullName: "Military Grid Reference System",
     description: "квадрат сітки, а не пара координат",
     // BASE_URL, not a bare "/": vite.config.ts sets base to "/coordinate-parser/", so an absolute
     // path would 404 once the app is served from GitHub Pages.
@@ -106,6 +117,7 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "USNG",
+    fullName: "United States National Grid",
     description: "та сама сітка, що й MGRS",
     spec: {
       href: "https://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf",
@@ -127,6 +139,7 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "UTM",
+    fullName: "Universal Transverse Mercator",
     description: "проєкція, на якій стоять MGRS і USNG",
     spec: {
       href: `${import.meta.env.BASE_URL}NGA_STND_0037_2.0.0_GRIDS.pdf`,
@@ -148,6 +161,7 @@ const examples: ExampleGroup[] = [
   },
   {
     system: "UCS-2000",
+    fullName: "Ukrainian Coordinate System 2000 · УСК-2000",
     description: "прямокутні координати, зона в Y",
     spec: { href: "https://epsg.io/5564", label: "EPSG:5564" },
     inputs: [
@@ -172,12 +186,15 @@ const CoordinateInput = () => {
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
+      <div className="mt-4 whitespace-pre-wrap text-sm font-mono">
+        {JSON.stringify(result, null, 2)}
+      </div>
+
       <p className="mt-3 text-sm">Ви можете вводити координати в наступних форматах:</p>
-      {examples.map(({ system, description, spec, note, inputs }) => (
+      {examples.map(({ system, fullName, description, spec, note, inputs }) => (
         <section key={system} className="mt-2 text-sm">
           <h3>
             <span className="font-bold">{system}</span>
-            <span className="opacity-60"> — {description}</span>
             {spec && (
               <>
                 <span className="opacity-60"> · </span>
@@ -192,6 +209,9 @@ const CoordinateInput = () => {
               </>
             )}
           </h3>
+          <p className="opacity-60">
+            {fullName} — {description}
+          </p>
           {note && <p className="mt-1 opacity-60">{note}</p>}
           <ul className="mt-1 flex flex-col gap-1">
             {inputs.map(({ input, note }) => (
@@ -209,9 +229,6 @@ const CoordinateInput = () => {
           </ul>
         </section>
       ))}
-      <div className="mt-4 whitespace-pre-wrap text-sm font-mono">
-        {JSON.stringify(result, null, 2)}
-      </div>
     </div>
   );
 };
