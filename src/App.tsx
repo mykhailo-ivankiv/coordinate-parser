@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArticleAboutCoordinateSystems } from "./ArticleAboutCoordinateSystems.tsx";
 import { coordinateParser } from "./parsers/coordinateParser.ts";
 
 // Grouped by the `system` coordinateParser actually reports, not by which parser module
@@ -124,7 +125,7 @@ const examples: ExampleGroup[] = [
       label: "FGDC-STD-011-2001",
     },
     note:
-      "USNG переймає сітку MGRS без змін, тож ці приклади розбираються обома парсерами й " +
+      "USNG переймає сітку MGRS без змін, тож ці приклади парсяться обома парсерами й " +
       "позначаються як MGRS: системи різняться датумом (USNG на NAD 83, MGRS на WGS 84), а датум " +
       "у рядку не записаний — саме тому стандарт FGDC передбачив окремий суфікс «(NAD 27)». " +
       "Єдина відмінність, помітна в самому рядку: USNG вимагає щонайменше одну цифру на вісь, " +
@@ -152,7 +153,7 @@ const examples: ExampleGroup[] = [
       "той самий запис означає південну півкулю. Обидва прочитання реалізовані окремими " +
       "парсерами, і порядок у choice вирішує, яке переможе.",
     inputs: [
-      { input: "36U 324000 5591000", note: "смуга U — Україна" },
+      { input: "36U 324182 5591608", note: "смуга U — Київ, пораховано прямою проєкцією" },
       { input: "17T 630084 4833438", note: "смуга T, північ" },
       { input: "17M 630084 4833438", note: "смуга M, південь" },
       { input: "31N 630084 553000", note: "біля екватора — northing коротший за 7 цифр" },
@@ -247,7 +248,7 @@ const reading: Reference[] = [
   {
     href: "https://github.com/chrisveness/geodesy",
     label: "chrisveness/geodesy",
-    note: "той самий код на GitHub, MIT — знадобиться для конверсії в широту й довготу",
+    note: "той самий код на GitHub, MIT — знадобиться для конвертації в широту й довготу",
   },
   {
     href: "https://www.ordnancesurvey.co.uk/documents/resources/guide-coordinate-systems-great-britain.pdf",
@@ -315,8 +316,11 @@ function App() {
     <main className="max-w-[60ch] p-4 m-auto">
       <h2>Парсер координат</h2>
       <CoordinateInput />
-      <ReferenceList title="Матеріали" items={reading} />
-      <ReferenceList title="Першоджерела" items={sources} />
+      <ArticleAboutCoordinateSystems />
+      <section className="mt-12">
+        <ReferenceList title="Матеріали" items={reading} />
+        <ReferenceList title="Першоджерела" items={sources} />
+      </section>
     </main>
   );
 }
