@@ -38,6 +38,123 @@ const Link = ({ href, children }: { href: string; children: ReactNode }) => (
   </a>
 );
 
+// Every stroke and label is currentColor so the drawings follow the page foreground. The one
+// literal hue marks the element each figure is actually about — the fractional component, the
+// square being named, the zone the reference point falls in — and reads on both light and dark.
+const ACCENT = "#d97757";
+
+const Diagram = ({
+  viewBox,
+  label,
+  caption,
+  children,
+}: {
+  viewBox: string;
+  label: string;
+  caption: ReactNode;
+  children: ReactNode;
+}) => (
+  <figure className="mt-4">
+    <svg viewBox={viewBox} role="img" aria-label={label} className="h-auto w-full">
+      {children}
+    </svg>
+    <figcaption className="mt-2 opacity-60">{caption}</figcaption>
+  </figure>
+);
+
+const Boxed = ({
+  x,
+  y,
+  width,
+  text,
+  accent,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  text: string;
+  accent?: boolean;
+}) => (
+  <>
+    <rect
+      x={x}
+      y={y - 15}
+      width={width}
+      height={30}
+      rx={3}
+      fill={accent ? ACCENT : "none"}
+      fillOpacity={accent ? 0.18 : 0}
+      stroke={accent ? ACCENT : "currentColor"}
+      strokeOpacity={accent ? 1 : 0.45}
+    />
+    <text
+      x={x + width / 2}
+      y={y + 5}
+      textAnchor="middle"
+      fontSize={14}
+      fontFamily="monospace"
+      fill="currentColor"
+    >
+      {text}
+    </text>
+  </>
+);
+
+// A 10 x 10 subdivision of one square, with a single cell picked out. Column counts east from the
+// left; row counts north from the bottom, which is why the y is measured up from the base.
+const GridSquare = ({
+  x,
+  y,
+  side,
+  column,
+  row,
+}: {
+  x: number;
+  y: number;
+  side: number;
+  column: number;
+  row: number;
+}) => {
+  const cell = side / 10;
+  const ticks = Array.from({ length: 9 }, (_, index) => index + 1);
+  return (
+    <>
+      {ticks.map((index) => (
+        <line
+          key={`v${index}`}
+          x1={x + index * cell}
+          y1={y}
+          x2={x + index * cell}
+          y2={y + side}
+          stroke="currentColor"
+          strokeOpacity={0.2}
+        />
+      ))}
+      {ticks.map((index) => (
+        <line
+          key={`h${index}`}
+          x1={x}
+          y1={y + index * cell}
+          x2={x + side}
+          y2={y + index * cell}
+          stroke="currentColor"
+          strokeOpacity={0.2}
+        />
+      ))}
+      <rect
+        x={x + column * cell}
+        y={y + side - (row + 1) * cell}
+        width={cell}
+        height={cell}
+        fill={ACCENT}
+        fillOpacity={0.3}
+        stroke={ACCENT}
+      />
+      <rect x={x} y={y} width={side} height={side} fill="none" stroke="currentColor" />
+    </>
+  );
+};
+
 const Table = ({
   headers,
   rows,
@@ -147,6 +264,89 @@ export const ArticleAboutCoordinateSystems = () => (
       Перехід механічний: <Code>0.4501° × 60 = 27.006′</Code>, далі <Code>0.006′ × 60 = 0.36″</Code>
       . Кожна сходинка додає один цілий компонент і зсуває дріб на рівень нижче.
     </P>
+    <Diagram
+      viewBox="0 0 400 190"
+      label="Одна широта 50.4501° у трьох нотаціях: дробова частина щоразу множиться на 60 і переходить у наступний компонент"
+      caption={
+        <>
+          Та сама широта 50.4501°. Дробова частина (виділена) нікуди не дівається — вона множиться
+          на 60 і стає наступним компонентом, а цілі частини накопичуються зліва. Тому всі три
+          записи дають однакове число, а не три різні точки.
+        </>
+      }
+    >
+      <defs>
+        <marker
+          id="cascade-arrow"
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="6"
+          markerHeight="6"
+          orient="auto"
+        >
+          <polygon points="0,0 10,5 0,10" fill={ACCENT} />
+        </marker>
+      </defs>
+
+      <text x={4} y={47} fontSize={12} fill="currentColor" fillOpacity={0.7}>
+        DD
+      </text>
+      <Boxed x={44} y={42} width={40} text="50" />
+      <Boxed x={84} y={42} width={68} text=".4501" accent />
+      <text x={158} y={47} fontSize={14} fill="currentColor">
+        °
+      </text>
+
+      <text x={4} y={105} fontSize={12} fill="currentColor" fillOpacity={0.7}>
+        DDM
+      </text>
+      <Boxed x={44} y={100} width={40} text="50" />
+      <text x={90} y={105} fontSize={14} fill="currentColor">
+        °
+      </text>
+      <Boxed x={106} y={100} width={40} text="27" />
+      <Boxed x={146} y={100} width={56} text=".006" accent />
+      <text x={208} y={105} fontSize={14} fill="currentColor">
+        ′
+      </text>
+
+      <text x={4} y={163} fontSize={12} fill="currentColor" fillOpacity={0.7}>
+        DMS
+      </text>
+      <Boxed x={44} y={158} width={40} text="50" />
+      <text x={90} y={163} fontSize={14} fill="currentColor">
+        °
+      </text>
+      <Boxed x={106} y={158} width={40} text="27" />
+      <text x={152} y={163} fontSize={14} fill="currentColor">
+        ′
+      </text>
+      <Boxed x={168} y={158} width={30} text="0" />
+      <Boxed x={198} y={158} width={48} text=".36" accent />
+      <text x={252} y={163} fontSize={14} fill="currentColor">
+        ″
+      </text>
+
+      <path
+        d="M 118 60 C 118 78, 174 66, 174 83"
+        fill="none"
+        stroke={ACCENT}
+        markerEnd="url(#cascade-arrow)"
+      />
+      <text x={196} y={78} fontSize={12} fill={ACCENT}>
+        × 60
+      </text>
+      <path
+        d="M 174 118 C 174 136, 222 124, 222 141"
+        fill="none"
+        stroke={ACCENT}
+        markerEnd="url(#cascade-arrow)"
+      />
+      <text x={244} y={136} fontSize={12} fill={ACCENT}>
+        × 60
+      </text>
+    </Diagram>
 
     <Subheading>Скільки знаків має сенс</Subheading>
     <P>Бібліотека обмежує точність сімома знаками після коми в градусах. Ось чому:</P>
@@ -266,6 +466,74 @@ export const ArticleAboutCoordinateSystems = () => (
     <P>
       <Code>4QFJ16</Code> — це квадрат 10 км з кутом на 10000E 60000N, а не точка 1E 6N.
     </P>
+    <Diagram
+      viewBox="0 0 560 300"
+      label="Квадрат 100 км ділиться на сто квадратів по 10 км; кожна пара доданих цифр обирає один з них, і наступна пара ділить уже його"
+      caption={
+        <>
+          Кожна пара доданих цифр обирає один із ста квадратів усередині попереднього. Праворуч —
+          той самий квадрат <Code>4QFJ16</Code>, збільшений: <Code>4QFJ1267</Code> лежить усередині
+          нього, а не деінде. Тому коротший запис ніколи не суперечить довшому — він просто менш
+          точний. Відлік іде на схід від лівого краю і на північ від нижнього, тож кут квадрата
+          завжди південно-західний.
+        </>
+      }
+    >
+      <text x={40} y={38} fontSize={17} fontFamily="monospace" fill="currentColor">
+        4QFJ16
+      </text>
+      <text x={40} y={54} fontSize={14} fill="currentColor" fillOpacity={0.6}>
+        квадрат 100 км
+      </text>
+      <GridSquare x={40} y={66} side={180} column={1} row={6} />
+      <text x={130} y={264} fontSize={14} textAnchor="middle" fill="currentColor" fillOpacity={0.6}>
+        easting →
+      </text>
+      <text
+        x={30}
+        y={156}
+        fontSize={14}
+        textAnchor="middle"
+        fill="currentColor"
+        fillOpacity={0.6}
+        transform="rotate(-90 30 156)"
+      >
+        northing ↑
+      </text>
+
+      {/* Both ends are derived from the same numbers GridSquare uses: the picked cell spans
+          y 120..138 (square top 66 + side 180 - (row + 1) * cell), and the right square is the
+          blow-up of exactly that cell. */}
+      <line
+        x1={76}
+        y1={120}
+        x2={340}
+        y2={66}
+        stroke={ACCENT}
+        strokeOpacity={0.5}
+        strokeDasharray="4 3"
+      />
+      <line
+        x1={76}
+        y1={138}
+        x2={340}
+        y2={246}
+        stroke={ACCENT}
+        strokeOpacity={0.5}
+        strokeDasharray="4 3"
+      />
+
+      <text x={340} y={38} fontSize={17} fontFamily="monospace" fill="currentColor">
+        4QFJ1267
+      </text>
+      <text x={340} y={54} fontSize={14} fill="currentColor" fillOpacity={0.6}>
+        той самий, збільшений
+      </text>
+      <GridSquare x={340} y={66} side={180} column={2} row={7} />
+      <text x={430} y={264} fontSize={14} textAnchor="middle" fill="currentColor" fillOpacity={0.6}>
+        квадрат 1 км
+      </text>
+    </Diagram>
 
     <Subheading>USNG: MGRS, звужений</Subheading>
     <P>
@@ -330,6 +598,88 @@ export const ArticleAboutCoordinateSystems = () => (
       Київ лежить у зоні 36 за UTM і в зоні 6 за УСК-2000 — це одна й та сама смуга землі. Побачивши
       обидва числа в різних джерелах, легко вирішити, що одне з них помилкове.
     </P>
+    <Diagram
+      viewBox="0 0 560 200"
+      label="Чотири шестиградусні зони покривають Україну; межі зон і центральні меридіани в УСК-2000 та UTM збігаються, а номери відрізняються на тридцять"
+      caption={
+        <>
+          Межі зон і центральні меридіани в обох системах ті самі — різняться лише номери, рівно на
+          30. Київ на 30.52°E потрапляє в зону відразу за межею 30°, тож у наших даних вона зветься
+          шостою, а в міжнародних тридцять шостою. Це одна й та сама смуга землі.
+        </>
+      }
+    >
+      {[
+        { x: 40, ucs: "4", utm: "34", cm: "21°E" },
+        { x: 160, ucs: "5", utm: "35", cm: "27°E" },
+        { x: 280, ucs: "6", utm: "36", cm: "33°E" },
+        { x: 400, ucs: "7", utm: "37", cm: "39°E" },
+      ].map((zone) => (
+        <g key={zone.ucs}>
+          <rect
+            x={zone.x}
+            y={52}
+            width={120}
+            height={52}
+            fill={zone.ucs === "6" ? ACCENT : "none"}
+            fillOpacity={zone.ucs === "6" ? 0.14 : 0}
+            stroke="currentColor"
+            strokeOpacity={0.6}
+          />
+          <text x={zone.x + 60} y={72} fontSize={15} textAnchor="middle" fill="currentColor">
+            УСК-2000 · {zone.ucs}
+          </text>
+          <text
+            x={zone.x + 60}
+            y={92}
+            fontSize={15}
+            textAnchor="middle"
+            fill="currentColor"
+            fillOpacity={0.6}
+          >
+            UTM · {zone.utm}
+          </text>
+          <line
+            x1={zone.x + 60}
+            y1={104}
+            x2={zone.x + 60}
+            y2={118}
+            stroke="currentColor"
+            strokeOpacity={0.5}
+            strokeDasharray="3 3"
+          />
+          <text
+            x={zone.x + 60}
+            y={132}
+            fontSize={14}
+            textAnchor="middle"
+            fill="currentColor"
+            fillOpacity={0.6}
+          >
+            {zone.cm}
+          </text>
+        </g>
+      ))}
+
+      <text x={40} y={40} fontSize={14} fill="currentColor" fillOpacity={0.6}>
+        18°E
+      </text>
+      <text x={520} y={40} fontSize={14} textAnchor="end" fill="currentColor" fillOpacity={0.6}>
+        42°E
+      </text>
+
+      <circle cx={290} cy={52} r={4} fill={ACCENT} />
+      <text x={290} y={40} fontSize={14} textAnchor="middle" fill={ACCENT}>
+        Київ 30.52°E
+      </text>
+
+      <line x1={123} y1={158} x2={484} y2={158} stroke="currentColor" strokeOpacity={0.6} />
+      <line x1={123} y1={152} x2={123} y2={164} stroke="currentColor" strokeOpacity={0.6} />
+      <line x1={484} y1={152} x2={484} y2={164} stroke="currentColor" strokeOpacity={0.6} />
+      <text x={303} y={180} fontSize={14} textAnchor="middle" fill="currentColor" fillOpacity={0.6}>
+        Україна, 22.15°–40.18°E
+      </text>
+    </Diagram>
 
     <Heading>Одна точка в усіх записах</Heading>
     <P>Київ, 50.4501°N 30.5234°E:</P>
