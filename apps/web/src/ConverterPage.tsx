@@ -19,13 +19,14 @@ import {
   ddmParser,
   ddParser,
   dmsParser,
-  latitudeLongitudeParser,
   mgrsParser,
   ucs2000Parser,
   usngParser,
   utmParser,
   wgs84rParser,
+  wgs84Parser,
 } from "@coordinate-parser/parser";
+import { choice } from "arcsecond";
 
 const AUTO = "auto";
 
@@ -62,7 +63,7 @@ const groups: { label: string; systems: CoordinateSystem[] }[] = [
 // same latitude and longitude written differently; they are still read on input.
 const EXAMPLE_SYSTEMS: CoordinateSystem[] = ["WGS84", ...GRID_SYSTEMS];
 
-// WGS 84 is offered once, and reads every latitude-first notation of it; see latitudeLongitudeParser.
+// WGS 84 is offered once, and reads every latitude-first notation of it; see `parsers` below.
 const notationLabels: Partial<Record<CoordinateSystem, string>> = {
   WGS84: "десяткові, DD, DDM або DMS, широта першою",
 };
@@ -81,10 +82,11 @@ type Outcome =
   | { kind: "converted"; system: CoordinateSystem; area: Area };
 
 // The parser behind each choice in the system select. WGS 84 reads every latitude-first notation,
-// since the select offers it once for all of them.
+// since the select offers it once for all of them; WGS84R is left out, as a longitude-first pair is
+// far likelier a mistake there than a choice.
 const parsers = {
   [AUTO]: coordinateParser,
-  WGS84: latitudeLongitudeParser,
+  WGS84: choice([wgs84Parser, ddParser, ddmParser, dmsParser]),
   WGS84R: wgs84rParser,
   DD: ddParser,
   DDM: ddmParser,
@@ -153,13 +155,7 @@ const SystemSelect = ({
   </select>
 );
 
-const ConversionValue = ({
-  conversion,
-  onPick,
-}: {
-  conversion: Conversion;
-  onPick: (conversion: { system: CoordinateSystem; value: string }) => void;
-}) =>
+const ConversionValue = ({ conversion, onPick }: { conversion: Conversion; onPick: Pick }) =>
   "value" in conversion ? (
     <button
       type="button"
@@ -177,9 +173,18 @@ const ConversionValue = ({
 // leaving room outside its corners for their coordinates.
 const DIAGRAM_WIDTH = 360;
 const DIAGRAM_HEIGHT = 250;
+const DIAGRAM_MIDDLE = { x: DIAGRAM_WIDTH / 2, y: DIAGRAM_HEIGHT / 2 };
 const SQUARE_SIZE = 150;
 
-/** A coordinate as two SVG text lines, latitude over longitude, anchored at (x, y). */
+// Each corner's label set diagonally off it, away from the square: `dx` and `dy` in SVG units.
+const CORNER_LABELS = [
+  { corner: "northWest", dx: -6, dy: -22, anchor: "end" },
+  { corner: "northEast", dx: 6, dy: -22, anchor: "start" },
+  { corner: "southWest", dx: -6, dy: 16, anchor: "end" },
+  { corner: "southEast", dx: 6, dy: 16, anchor: "start" },
+] as const;
+
+/** Puts a value into the input, with the system it is written in. */
 type Pick = (conversion: { system: CoordinateSystem; value: string }) => void;
 
 /**
@@ -256,19 +261,8 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
   const scale = SQUARE_SIZE / 2 / extent;
   const toSvg = (coords: Coordinates) => {
     const { x, y } = local(coords);
-    return { x: DIAGRAM_WIDTH / 2 + x * scale, y: DIAGRAM_HEIGHT / 2 - y * scale };
+    return { x: DIAGRAM_MIDDLE.x + x * scale, y: DIAGRAM_MIDDLE.y - y * scale };
   };
-
-  const path = `${outline
-    .map(toSvg)
-    .map(({ x, y }, index) => `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`)
-    .join(" ")} Z`;
-
-  const nw = toSvg(corners.northWest);
-  const ne = toSvg(corners.northEast);
-  const sw = toSvg(corners.southWest);
-  const se = toSvg(corners.southEast);
-  const middle = { x: DIAGRAM_WIDTH / 2, y: DIAGRAM_HEIGHT / 2 };
 
   return (
     <figure className="mt-2">
@@ -279,48 +273,34 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
         aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${format({ ...centre, system: "WGS84" })}`}
       >
         <path
-          d={path}
+          d={`${outline
+            .map(toSvg)
+            .map(({ x, y }, index) => `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`)
+            .join(" ")} Z`}
           fill={OUTPUT_COLOUR}
           fillOpacity={0.15}
           stroke={OUTPUT_COLOUR}
           strokeWidth={2}
         />
-        {[nw, ne, sw, se].map(({ x, y }, index) => (
-          <circle key={index} cx={x} cy={y} r={4} fill={OUTPUT_COLOUR} />
-        ))}
-
-        <CoordinateLabel
-          coords={corners.northWest}
-          x={nw.x - 6}
-          y={nw.y - 22}
-          anchor="end"
-          onPick={onPick}
-        />
-        <CoordinateLabel
-          coords={corners.northEast}
-          x={ne.x + 6}
-          y={ne.y - 22}
-          anchor="start"
-          onPick={onPick}
-        />
-        <CoordinateLabel
-          coords={corners.southWest}
-          x={sw.x - 6}
-          y={sw.y + 16}
-          anchor="end"
-          onPick={onPick}
-        />
-        <CoordinateLabel
-          coords={corners.southEast}
-          x={se.x + 6}
-          y={se.y + 16}
-          anchor="start"
-          onPick={onPick}
-        />
+        {CORNER_LABELS.map(({ corner, dx, dy, anchor }) => {
+          const at = toSvg(corners[corner]);
+          return (
+            <g key={corner}>
+              <circle cx={at.x} cy={at.y} r={4} fill={OUTPUT_COLOUR} />
+              <CoordinateLabel
+                coords={corners[corner]}
+                x={at.x + dx}
+                y={at.y + dy}
+                anchor={anchor}
+                onPick={onPick}
+              />
+            </g>
+          );
+        })}
 
         <text
-          x={middle.x}
-          y={middle.y - 14}
+          x={DIAGRAM_MIDDLE.x}
+          y={DIAGRAM_MIDDLE.y - 14}
           textAnchor="middle"
           className="fill-current"
           fontSize={11}
@@ -328,17 +308,17 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
         >
           {sizeLabel(size)} × {sizeLabel(size)}
         </text>
-        <circle cx={middle.x} cy={middle.y} r={4} fill={OUTPUT_COLOUR} />
+        <circle cx={DIAGRAM_MIDDLE.x} cy={DIAGRAM_MIDDLE.y} r={4} fill={OUTPUT_COLOUR} />
         <CoordinateLabel
           coords={centre}
-          x={middle.x}
-          y={middle.y + 20}
+          x={DIAGRAM_MIDDLE.x}
+          y={DIAGRAM_MIDDLE.y + 20}
           anchor="middle"
           onPick={onPick}
         />
         <text
-          x={middle.x}
-          y={middle.y + 48}
+          x={DIAGRAM_MIDDLE.x}
+          y={DIAGRAM_MIDDLE.y + 48}
           textAnchor="middle"
           className="fill-current"
           fontSize={11}
@@ -370,7 +350,7 @@ const CoverageList = ({
 }: {
   coverage: Coverage | null;
   system: CoordinateSystem;
-  onPick: (conversion: { system: CoordinateSystem; value: string }) => void;
+  onPick: Pick;
 }) => {
   if (coverage?.kind === "tooMany") {
     return (
@@ -550,52 +530,49 @@ const SectionBody = ({
   result: SectionResult | null;
   precision: GridPrecision;
   onPrecision: (precision: GridPrecision) => void;
-  onPick: (conversion: { system: CoordinateSystem; value: string }) => void;
-}) => {
-  const [first] = result?.conversions ?? [];
+  onPick: Pick;
+}) => (
+  <>
+    {section.hasPrecision && <PrecisionRange value={precision} onChange={onPrecision} />}
 
-  return (
-    <>
-      {section.hasPrecision && <PrecisionRange value={precision} onChange={onPrecision} />}
+    {result === null ? (
+      <p className="mt-1 opacity-60">Введіть координати, щоб побачити значення.</p>
+    ) : (
+      <>
+        <table className={section.hasPrecision ? "mt-2" : ""}>
+          <tbody>
+            {result.conversions.map((conversion) => (
+              <tr key={conversion.system} className="align-top">
+                {result.conversions.length > 1 && (
+                  <th className="py-0.5 pr-3 text-left font-normal opacity-60">
+                    {conversion.system}
+                  </th>
+                )}
+                <td className="py-0.5 text-base">
+                  <ConversionValue conversion={conversion} onPick={onPick} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      {result === null ? (
-        <p className="mt-1 opacity-60">Введіть координати, щоб побачити значення.</p>
-      ) : (
-        <>
-          <table className={section.hasPrecision ? "mt-2" : ""}>
-            <tbody>
-              {result.conversions.map((conversion) => (
-                <tr key={conversion.system} className="align-top">
-                  {result.conversions.length > 1 && (
-                    <th className="py-0.5 pr-3 text-left font-normal opacity-60">
-                      {conversion.system}
-                    </th>
-                  )}
-                  <td className="py-0.5 text-base">
-                    <ConversionValue conversion={conversion} onPick={onPick} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {result.conversions.some(
+          (conversion) => "value" in conversion && conversion.outsideAreaOfUse,
+        ) && <OutsideAreaOfUse />}
 
-          {result.conversions.some(
-            (conversion) => "value" in conversion && conversion.outsideAreaOfUse,
-          ) && <OutsideAreaOfUse />}
+        {section.id === "WGS84" ? (
+          <p className="mt-1 opacity-60">Так точка зберігається в базі.</p>
+        ) : (
+          "area" in result.conversions[0] && (
+            <AreaDiagram area={result.conversions[0].area} onPick={onPick} />
+          )
+        )}
 
-          {section.id === "WGS84" ? (
-            <p className="mt-1 opacity-60">Так точка зберігається в базі.</p>
-          ) : (
-            first !== undefined &&
-            "area" in first && <AreaDiagram area={first.area} onPick={onPick} />
-          )}
-
-          <CoverageList coverage={result.coverage} system={section.systems[0]} onPick={onPick} />
-        </>
-      )}
-    </>
-  );
-};
+        <CoverageList coverage={result.coverage} system={section.systems[0]} onPick={onPick} />
+      </>
+    )}
+  </>
+);
 
 const ExternalLink = ({ href, children }: { href: string; children: ReactNode }) => (
   <a href={href} target="_blank" rel="noreferrer" className={linkStyle}>
@@ -987,6 +964,15 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   });
 
   const [picking, setPicking] = useState(false);
+  useEffect(() => {
+    if (!picking) return;
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPicking(false);
+    };
+    window.addEventListener("keydown", cancel);
+    return () => window.removeEventListener("keydown", cancel);
+  }, [picking]);
+
   const outcome = convert(text, input);
   // What is wrong with the input, shown under the field and turning it red; null when nothing is.
   const inputError: ReactNode =
@@ -999,30 +985,6 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
       </>
     ) : null;
 
-  // A point picked on the map is written in the system chosen for input, so the field reads as if it
-  // had been typed; under auto-detection, as plain WGS 84. A system that cannot express the point —
-  // UCS-2000 outside Ukraine — falls back to WGS 84 as well.
-  const pickOnMap = (coords: Coordinates) => {
-    const system = input === AUTO ? "WGS84" : input;
-    const conversion = tryFromWGS84(coords, system);
-    if ("value" in conversion) {
-      setText(conversion.value);
-    } else {
-      setText(fromWGS84(coords, "WGS84").value);
-      setInput("WGS84");
-    }
-    setFitView(false);
-    setPicking(false);
-  };
-
-  useEffect(() => {
-    if (!picking) return;
-    const cancel = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPicking(false);
-    };
-    window.addEventListener("keydown", cancel);
-    return () => window.removeEventListener("keydown", cancel);
-  }, [picking]);
   const results = new Map(
     sections.map((section) => [
       section.id,
@@ -1032,16 +994,11 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
 
   // A converted value is fed back in under its own system rather than through auto-detection:
   // auto-detection would read a WGS84R pair as WGS84 and a USNG reference as MGRS.
-  const pick = ({ system, value }: { system: CoordinateSystem; value: string }) => {
+  const pick: Pick = ({ system, value }) => {
     setText(value);
     setInput(system);
     setFitView(true);
   };
-
-  const outputSquares = sections.flatMap((section) =>
-    shown[section.id] ? squaresForMap(results.get(section.id)?.coverage ?? null) : [],
-  );
-  const outputPoints = outcome.kind === "converted" && shown.WGS84 ? [outcome.area.centre] : [];
 
   return (
     <div className="lg:grid lg:h-screen lg:grid-cols-[minmax(0,60ch)_1fr]">
@@ -1221,10 +1178,25 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
         <ConverterMap
           centre={outcome.kind === "converted" ? outcome.area.centre : null}
           inputArea={outcome.kind === "converted" ? outcome.area : null}
-          outputSquares={outputSquares}
-          outputPoints={outputPoints}
+          outputSquares={sections.flatMap((section) =>
+            shown[section.id] ? squaresForMap(results.get(section.id)?.coverage ?? null) : [],
+          )}
+          outputPoints={outcome.kind === "converted" && shown.WGS84 ? [outcome.area.centre] : []}
           picking={picking}
-          onPick={pickOnMap}
+          // A point picked on the map is written in the system chosen for input, so the field reads
+          // as if it had been typed; under auto-detection, as plain WGS 84. A system that cannot
+          // express the point — UCS-2000 outside Ukraine — falls back to WGS 84 as well.
+          onPick={(coords) => {
+            const conversion = tryFromWGS84(coords, input === AUTO ? "WGS84" : input);
+            if ("value" in conversion) {
+              setText(conversion.value);
+            } else {
+              setText(fromWGS84(coords, "WGS84").value);
+              setInput("WGS84");
+            }
+            setFitView(false);
+            setPicking(false);
+          }}
           fitView={followResult && fitView}
           layers={layers}
           onLayersChange={setLayers}

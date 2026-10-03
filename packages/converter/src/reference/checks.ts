@@ -24,10 +24,10 @@ const formatPoint = ({ latitude, longitude }: Coordinates) =>
  * way round, so 179.9999865° and -180.0000135° count as the same place.
  */
 const metresApart = (a: Coordinates, b: Coordinates) => {
-  const longitudes = ((((a.longitude - b.longitude) % 360) + 540) % 360) - 180;
+  const longitudeDifference = ((((a.longitude - b.longitude) % 360) + 540) % 360) - 180;
   return Math.hypot(
     (a.latitude - b.latitude) * KM_PER_DEGREE * 1000,
-    longitudes * KM_PER_DEGREE * 1000 * Math.cos((a.latitude * Math.PI) / 180),
+    longitudeDifference * KM_PER_DEGREE * 1000 * Math.cos((a.latitude * Math.PI) / 180),
   );
 };
 

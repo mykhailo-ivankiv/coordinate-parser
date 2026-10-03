@@ -5,7 +5,6 @@ import {
   ddmParser,
   ddParser,
   dmsParser,
-  latitudeLongitudeParser,
   mgrsParser,
   type SystemCoordinate,
   ucs2000Parser,
@@ -279,19 +278,14 @@ describe("the outline of a large square", () => {
 
 describe("WGS 84 in any latitude-first notation", () => {
   it.each([
-    ["50.4501, 30.5234", "WGS84"],
-    ["50,4501 30,5234", "WGS84"],
-    ["50.4501°N, 30.5234°E", "DD"],
-    ["50° 27.006'N, 30° 31.404'E", "DDM"],
-    [`50° 27' 0.36"N, 30° 31' 24.24"E`, "DMS"],
-  ])("reads %s as %s", (input, system) => {
-    const result = latitudeLongitudeParser.run(input);
+    ["50.4501, 30.5234", wgs84Parser],
+    ["50,4501 30,5234", wgs84Parser],
+    ["50.4501°N, 30.5234°E", ddParser],
+    ["50° 27.006'N, 30° 31.404'E", ddmParser],
+    [`50° 27' 0.36"N, 30° 31' 24.24"E`, dmsParser],
+  ])("converts %s to the same point", (input, parser) => {
+    const result = parser.run(input);
     if (result.isError) throw new Error(result.error);
-    expect(result.result.system).toBe(system);
     expect(toWGS84(result.result)).toEqual(kyiv);
-  });
-
-  it("does not read a longitude-first pair", () => {
-    expect(latitudeLongitudeParser.run("151.2093, -33.8688").isError).toBe(true);
   });
 });

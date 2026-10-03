@@ -619,7 +619,7 @@ function App() {
               <PageHeader
                 active={page}
                 title="API"
-                subtitle="Парсер і конвертер: функції, константи й типи."
+                subtitle="Парсер і конвертер: функції й типи."
               />
             }
           />

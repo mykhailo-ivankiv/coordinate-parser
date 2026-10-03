@@ -477,8 +477,7 @@ const MGRS_LABEL_PIXELS = 120; // 100 km squares, to name them
 
 /** The MGRS grid for the map's current view, at a spacing that suits its scale. */
 const mgrsForView = (map: Map) => {
-  const zoom = map.getZoom();
-  const resolution = metresPerPixel(map.getCenter().lat, zoom);
+  const resolution = metresPerPixel(map.getCenter().lat, map.getZoom());
   const squarePixels = 100_000 / resolution;
   if (squarePixels < MGRS_MIN_SQUARE_PIXELS) return NO_MGRS;
 
@@ -489,9 +488,9 @@ const mgrsForView = (map: Map) => {
     south: Math.max(-90, bounds.getSouth()),
     north: Math.min(90, bounds.getNorth()),
   };
-  const spacing = spacingFor(resolution);
   // A view too wide for the fine lines still gets the 100 km squares.
-  const grid = mgrsGrid(view, spacing) ?? mgrsGrid(view, 100_000) ?? { lines: [], labels: [] };
+  const grid = mgrsGrid(view, spacingFor(resolution)) ??
+    mgrsGrid(view, 100_000) ?? { lines: [], labels: [] };
 
   return {
     lines: collection(
@@ -521,19 +520,21 @@ const drawGrids = (map: Map, { utmZones, mgrsGrid: showMgrs }: MapLayers) => {
  * Returns which squares came out as rings, so a zoom that changes nothing can skip the redraw.
  */
 const draw = (map: Map, { centre, inputArea, outputSquares, outputPoints, layers }: MapData) => {
-  const zones = layers.ucs2000Areas ? UCS2000_ZONE_AREAS : [];
-  const strips = layers.ucs2000Strips ? UCS2000_STRIPS : [];
   drawGrids(map, layers);
+
+  const strips = layers.ucs2000Strips ? UCS2000_STRIPS : [];
+  setData(map, "strips", zonePolygons(strips));
+  setData(map, "strip-labels", stripLabels(strips));
+  const zones = layers.ucs2000Areas ? UCS2000_ZONE_AREAS : [];
+  setData(map, "zones", zonePolygons(zones));
+  setData(map, "zone-labels", zoneLabels(zones));
+
+  setData(map, "centre", points(centre === null ? [] : [{ at: centre }]));
+  setData(map, "input-area", polygons(inputArea ? [{ area: inputArea }] : []));
+
   const zoom = map.getZoom();
   const visible = outputSquares.filter(({ area }) => !tooSmall(area, zoom));
   const rings = outputSquares.filter(({ area }) => tooSmall(area, zoom));
-
-  setData(map, "strips", zonePolygons(strips));
-  setData(map, "strip-labels", stripLabels(strips));
-  setData(map, "zones", zonePolygons(zones));
-  setData(map, "zone-labels", zoneLabels(zones));
-  setData(map, "centre", points(centre === null ? [] : [{ at: centre }]));
-  setData(map, "input-area", polygons(inputArea ? [{ area: inputArea }] : []));
   setData(map, "output-squares", polygons(visible));
   setData(
     map,
@@ -769,12 +770,14 @@ export const ConverterMap = ({
 
   // Switching the zones on brings them into view, the whole of Ukraine, as long as the view is
   // allowed to move at all.
-  const { ucs2000Areas: areas, ucs2000Strips: strips } = data.layers;
+  const areas = data.layers.ucs2000Areas;
   useEffect(() => {
     if (!areas || !fitView || map.current === null || !loaded.current) return;
     map.current.fitBounds(zoneBounds(UCS2000_ZONE_AREAS), { padding: 40, duration: 600 });
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- only the switching on matters.
   }, [areas]);
+
+  const strips = data.layers.ucs2000Strips;
   useEffect(() => {
     if (!strips || !fitView || map.current === null || !loaded.current) return;
     map.current.fitBounds(STRIPS_VIEW, { padding: 40, duration: 600 });

@@ -124,18 +124,16 @@ export const degreesMinutesSeconds = (name: string, limit: number) =>
 export const decimalDegreesAngle = (magnitude: Parser<number>) =>
   sequenceOf([magnitude, degreeMark]).map(([degrees]) => degrees);
 
-/** Applies the direction the trailing hemisphere letter names. */
-export const withHemisphere = (
-  angle: Parser<number>,
-  hemispheres: string,
-  expected: string,
-  negative: string,
-) =>
-  sequenceOf([angle, optionalWhitespace, letterFrom(hemispheres, expected)]).map(
-    ([degrees, , hemisphere]) => (hemisphere === negative ? -degrees : degrees),
-  );
+// The direction a trailing hemisphere letter names: the negative letter flips the sign.
+const withHemisphere = (angle: Parser<number>, letters: string, negative: string) =>
+  sequenceOf([
+    angle,
+    optionalWhitespace,
+    letterFrom(letters, `a hemisphere letter ${letters[0]} or ${letters[1]}`),
+  ]).map(([degrees, , hemisphere]) => (hemisphere === negative ? -degrees : degrees));
 
-export const LATITUDE_HEMISPHERES = "NS";
-export const LONGITUDE_HEMISPHERES = "EW";
-export const LATITUDE_EXPECTED = "a hemisphere letter N or S";
-export const LONGITUDE_EXPECTED = "a hemisphere letter E or W";
+/** A latitude followed by N or S; S is south, negative. */
+export const northOrSouth = (angle: Parser<number>) => withHemisphere(angle, "NS", "S");
+
+/** A longitude followed by E or W; W is west, negative. */
+export const eastOrWest = (angle: Parser<number>) => withHemisphere(angle, "EW", "W");

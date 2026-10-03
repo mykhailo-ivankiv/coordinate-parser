@@ -4,14 +4,7 @@ import {
   unsignedLatitude,
   unsignedLongitude,
 } from "./commonParsers.ts";
-import {
-  decimalDegreesAngle,
-  LATITUDE_EXPECTED,
-  LATITUDE_HEMISPHERES,
-  LONGITUDE_EXPECTED,
-  LONGITUDE_HEMISPHERES,
-  withHemisphere,
-} from "./sexagesimal.ts";
+import { decimalDegreesAngle, eastOrWest, northOrSouth } from "./sexagesimal.ts";
 
 // Decimal degrees in the human-readable notation of ISO 6709 "Standard representation of geographic
 // point location by coordinates", Annex D — https://www.iso.org/standard/75147.html
@@ -33,18 +26,8 @@ import {
 // A written sign is rejected rather than combined: "-50.4501°S" states the direction twice, and
 // guessing which one the author meant is worse than saying so.
 
-const latitude = withHemisphere(
-  decimalDegreesAngle(unsignedLatitude),
-  LATITUDE_HEMISPHERES,
-  LATITUDE_EXPECTED,
-  "S",
+export const DDparser = latitudeFirst(
+  northOrSouth(decimalDegreesAngle(unsignedLatitude)),
+  commaOrWhitespace,
+  eastOrWest(decimalDegreesAngle(unsignedLongitude)),
 );
-
-const longitude = withHemisphere(
-  decimalDegreesAngle(unsignedLongitude),
-  LONGITUDE_HEMISPHERES,
-  LONGITUDE_EXPECTED,
-  "W",
-);
-
-export const DDparser = latitudeFirst(latitude, commaOrWhitespace, longitude);

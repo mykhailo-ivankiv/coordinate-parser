@@ -85,6 +85,15 @@ const SAMPLES = 32;
 // Projected extents are found from a lattice of points over the view, a little padded.
 const LATTICE = 6;
 const EXTENT_PADDING = 0.05;
+
+// Padded, because the lattice can fall a little short of the view's true extent where the projection
+// curves, and lines would then stop before the edge of the screen.
+const paddedRange = (values: number[]) => {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const padding = (max - min) * EXTENT_PADDING;
+  return [min - padding, max + padding];
+};
 // Halvings to find where a line crosses its zone edge: 2^-20 of a sample interval, well under a
 // millimetre even for a 100 km line across a wide view.
 const EDGE_STEPS = 20;
@@ -133,14 +142,8 @@ export const mgrsGrid = (
           ),
         ),
       ).flat();
-      const eastings = lattice.map(({ easting }) => easting);
-      const northings = lattice.map(({ northing }) => northing);
-      // Padded, because the lattice can fall a little short of the view's true extent where the
-      // projection curves, and lines would then stop before the edge of the screen.
-      const padE = (Math.max(...eastings) - Math.min(...eastings)) * EXTENT_PADDING;
-      const padN = (Math.max(...northings) - Math.min(...northings)) * EXTENT_PADDING;
-      const [eMin, eMax] = [Math.min(...eastings) - padE, Math.max(...eastings) + padE];
-      const [nMin, nMax] = [Math.min(...northings) - padN, Math.max(...northings) + padN];
+      const [eMin, eMax] = paddedRange(lattice.map(({ easting }) => easting));
+      const [nMin, nMax] = paddedRange(lattice.map(({ northing }) => northing));
 
       const belongs = (point: Coordinates) =>
         inUTM(point) && (hemisphere === "N") === point.latitude >= 0 && zoneOf(point) === zone;
@@ -198,9 +201,10 @@ export const mgrsGrid = (
         for (let northing = firstCell(nMin); northing <= nMax; northing += spacing) {
           const centre = point(easting + spacing / 2, northing + spacing / 2);
           if (!belongs(centre)) continue;
-          const reference = formatUSNG(toMGRS(centre, spacing));
           // A 100 km reference has no digits; its empty digit groups are dropped with the spaces.
-          const [zoneAndBand, ...rest] = reference.split(" ").filter(Boolean);
+          const [zoneAndBand, ...rest] = formatUSNG(toMGRS(centre, spacing))
+            .split(" ")
+            .filter(Boolean);
           labels.push({
             at: centre,
             label: spacing === 100_000 ? `${zoneAndBand} ${rest.join(" ")}` : rest.join(" "),

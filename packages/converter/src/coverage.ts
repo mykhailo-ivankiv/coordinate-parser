@@ -1,6 +1,7 @@
 import type { Area } from "./area.ts";
 import type { CoordinateSystem } from "@coordinate-parser/parser";
 import { type ConversionOptions, type Converted, fromWGS84 } from "./coordinateConverter.ts";
+import type { Box } from "./gridOverlay.ts";
 import type { Projected } from "./transverseMercator.ts";
 import { ucs2000Grid, ucs2000ZoneOf } from "./UCS2000converter.ts";
 import { projectToUTM, utmGrid } from "./UTMconverter.ts";
@@ -66,8 +67,6 @@ const targetGrid = (
       return null;
   }
 };
-
-type Box = { west: number; south: number; east: number; north: number };
 
 const insideBox = ({ easting, northing }: Projected, box: Box) =>
   easting > box.west && easting < box.east && northing > box.south && northing < box.north;
@@ -136,8 +135,6 @@ export const coveringSquares = (
 
   const { size, shift } = grid;
   const ring = area.outline.map(grid.project);
-  const eastings = ring.map(({ easting }) => easting);
-  const northings = ring.map(({ northing }) => northing);
 
   // Square k spans [k·size − shift, (k+1)·size − shift).
   const first = (value: number) => Math.floor((value + shift) / size);
@@ -145,8 +142,8 @@ export const coveringSquares = (
     first(Math.min(...values) + EDGE_TOLERANCE),
     first(Math.max(...values) - EDGE_TOLERANCE),
   ];
-  const columns = span(eastings);
-  const rows = span(northings);
+  const columns = span(ring.map(({ easting }) => easting));
+  const rows = span(ring.map(({ northing }) => northing));
   const count = (columns[1] - columns[0] + 1) * (rows[1] - rows[0] + 1);
   if (count > MAX_COVERING_SQUARES) {
     return { kind: "tooMany", count, limit: MAX_COVERING_SQUARES, primary };

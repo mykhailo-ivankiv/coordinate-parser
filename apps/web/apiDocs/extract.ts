@@ -48,9 +48,8 @@ const property = (child: DeclarationReflection): ApiProperty => ({
 // literal, or inside the literal half of an intersection such as `GridLocation & { zone: number }`.
 const propertiesOf = (reflection: DeclarationReflection): ApiProperty[] => {
   if (reflection.children) return reflection.children.map(property);
-  const type = reflection.type;
-  if (type?.type !== "intersection") return [];
-  return type.types.flatMap((member) =>
+  if (reflection.type?.type !== "intersection") return [];
+  return reflection.type.types.flatMap((member) =>
     member.type === "reflection" ? (member.declaration.children ?? []).map(property) : [],
   );
 };
@@ -71,16 +70,13 @@ const entry = (
   const signatures = reflection.signatures ?? [];
   // A function's documentation sits on its signature, everything else's on the declaration.
   const comment = reflection.comment ?? signatures[0]?.comment;
-  const declared = reflection.sources?.[0];
-  // In packages mode TypeDoc gives each source relative to its package's src directory.
-  const file = declared ? `${directory}/src/${declared.fileName}` : "";
   const kind =
     reflection.kind === ReflectionKind.Function
       ? "function"
       : reflection.kind === ReflectionKind.TypeAlias
         ? "type"
         : "variable";
-  const properties = kind === "type" ? propertiesOf(reflection) : [];
+  const declared = reflection.sources?.[0];
 
   return {
     name: reflection.name,
@@ -102,13 +98,17 @@ const entry = (
     })),
     // A plain object type is shown by its fields alone; anything else needs its definition.
     type: kind === "function" || reflection.children ? undefined : typeText(reflection.type),
-    properties,
+    properties: kind === "type" ? propertiesOf(reflection) : [],
     throws: blockTags(comment, "@throws").map((thrown) => {
       const [error = "", ...description] = thrown.split(/\s+/);
       return { error, description: description.join(" ") };
     }),
     examples: blockTags(comment, "@example").map(code),
-    source: { file, line: declared?.line ?? 0 },
+    source: {
+      // In packages mode TypeDoc gives each source relative to its package's src directory.
+      file: declared ? `${directory}/src/${declared.fileName}` : "",
+      line: declared?.line ?? 0,
+    },
   };
 };
 

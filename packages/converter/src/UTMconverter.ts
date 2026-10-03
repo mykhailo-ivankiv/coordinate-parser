@@ -15,8 +15,6 @@ export const UTM_NORTH_LIMIT = 84;
 
 const SOUTHERN_FALSE_NORTHING = 10000000;
 const BAND_HEIGHT = 8;
-// Band X is the one exception to the eight-degree rule: it runs 72-84°N, twelve degrees.
-const LAST_BAND_NORTH = UTM_NORTH_LIMIT;
 
 export const centralMeridianOf = (zone: number) => zone * 6 - 183;
 
@@ -34,7 +32,8 @@ export const bandOf = (latitude: number) =>
 /** Southern and northern edge of a latitude band, degrees. */
 export const bandLimits = (band: string): [number, number] => {
   const south = (LATITUDE_BANDS.indexOf(band) - 10) * BAND_HEIGHT;
-  return [south, band === "X" ? LAST_BAND_NORTH : south + BAND_HEIGHT];
+  // Band X is the one exception to the eight-degree rule: it runs 72-84°N, twelve degrees.
+  return [south, band === "X" ? UTM_NORTH_LIMIT : south + BAND_HEIGHT];
 };
 
 export const hemisphereOfLatitude = (latitude: number): "N" | "S" => (latitude < 0 ? "S" : "N");

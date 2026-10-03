@@ -60,12 +60,10 @@ const LINK = "underline decoration-line-strong underline-offset-2 hover:decorati
 const EntryLink = ({
   name,
   className = LINK,
-  onNavigate,
   children,
 }: {
   name: string;
   className?: string;
-  onNavigate?: () => void;
   children?: ReactNode;
 }) => (
   <a
@@ -74,7 +72,6 @@ const EntryLink = ({
     onClick={(event) => {
       event.preventDefault();
       document.getElementById(name)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      onNavigate?.();
     }}
   >
     {children ?? name}
@@ -199,107 +196,101 @@ const Rows = ({
   </table>
 );
 
-const Entry = ({ entry }: { entry: ApiEntry }) => {
+const Signature = ({ entry }: { entry: ApiEntry }) => {
   const signature = signatureOf(entry);
-  return (
-    <section id={entry.name} className="scroll-mt-16 border-t pt-6 lg:scroll-mt-6">
-      <h4 className="mt-0! flex flex-wrap items-baseline justify-between gap-x-3">
-        <code className="text-lg">{entry.name}</code>
-        <a
-          href={`${SOURCE_BASE}${entry.source.file}#L${entry.source.line}`}
-          target="_blank"
-          rel="noreferrer"
-          className="font-mono text-xs font-normal opacity-60 hover:opacity-100"
-        >
-          {entry.source.file}:{entry.source.line}
-        </a>
-      </h4>
-      {signature && <Code self={entry.name}>{signature}</Code>}
-      <Prose>{entry.summary}</Prose>
-      {entry.signatures.map((signature, index) => (
-        <Fragment key={index}>
-          {signature.parameters.length > 0 && (
-            <Part title="Аргументи">
-              <Rows
-                rows={signature.parameters.map((parameter) => ({
-                  key: parameter.name,
-                  name: (
-                    <code>
-                      {parameter.name}
-                      {parameter.optional && "?"}
-                    </code>
-                  ),
-                  type: <TypeText>{parameter.type}</TypeText>,
-                  description: parameter.description,
-                }))}
-              />
-            </Part>
-          )}
-          <Part title="Повертає">
+  return signature && <Code self={entry.name}>{signature}</Code>;
+};
+
+const Entry = ({ entry }: { entry: ApiEntry }) => (
+  <section id={entry.name} className="scroll-mt-16 border-t pt-6 lg:scroll-mt-6">
+    <h4 className="mt-0! flex flex-wrap items-baseline justify-between gap-x-3">
+      <code className="text-lg">{entry.name}</code>
+      <a
+        href={`${SOURCE_BASE}${entry.source.file}#L${entry.source.line}`}
+        target="_blank"
+        rel="noreferrer"
+        className="font-mono text-xs font-normal opacity-60 hover:opacity-100"
+      >
+        {entry.source.file}:{entry.source.line}
+      </a>
+    </h4>
+    <Signature entry={entry} />
+    <Prose>{entry.summary}</Prose>
+    {entry.signatures.map((signature, index) => (
+      <Fragment key={index}>
+        {signature.parameters.length > 0 && (
+          <Part title="Аргументи">
             <Rows
-              rows={[
-                {
-                  key: "returns",
-                  type: <TypeText>{signature.returns}</TypeText>,
-                  description: signature.returnsDescription,
-                },
-              ]}
+              rows={signature.parameters.map((parameter) => ({
+                key: parameter.name,
+                name: (
+                  <code>
+                    {parameter.name}
+                    {parameter.optional && "?"}
+                  </code>
+                ),
+                type: <TypeText>{parameter.type}</TypeText>,
+                description: parameter.description,
+              }))}
             />
           </Part>
-        </Fragment>
-      ))}
-      {entry.properties.length > 0 && (
-        <Part title="Поля">
+        )}
+        <Part title="Повертає">
           <Rows
-            rows={entry.properties.map((property) => ({
-              key: property.name,
-              name: (
-                <code>
-                  {property.name}
-                  {property.optional && "?"}
-                </code>
-              ),
-              type: <TypeText>{property.type}</TypeText>,
-              description: property.description,
-            }))}
+            rows={[
+              {
+                key: "returns",
+                type: <TypeText>{signature.returns}</TypeText>,
+                description: signature.returnsDescription,
+              },
+            ]}
           />
         </Part>
-      )}
-      {entry.throws.length > 0 && (
-        <Part title="Кидає">
-          <Rows
-            rows={entry.throws.map((thrown, index) => ({
-              key: String(index),
-              type: <code>{thrown.error}</code>,
-              description: thrown.description,
-            }))}
-          />
-        </Part>
-      )}
-      {entry.examples.length > 0 && (
-        <Part title="Приклад">
-          {entry.examples.map((example, index) => (
-            <Code key={index}>{example}</Code>
-          ))}
-        </Part>
-      )}
-    </section>
-  );
-};
+      </Fragment>
+    ))}
+    {entry.properties.length > 0 && (
+      <Part title="Поля">
+        <Rows
+          rows={entry.properties.map((property) => ({
+            key: property.name,
+            name: (
+              <code>
+                {property.name}
+                {property.optional && "?"}
+              </code>
+            ),
+            type: <TypeText>{property.type}</TypeText>,
+            description: property.description,
+          }))}
+        />
+      </Part>
+    )}
+    {entry.throws.length > 0 && (
+      <Part title="Кидає">
+        <Rows
+          rows={entry.throws.map((thrown, index) => ({
+            key: String(index),
+            type: <code>{thrown.error}</code>,
+            description: thrown.description,
+          }))}
+        />
+      </Part>
+    )}
+    {entry.examples.length > 0 && (
+      <Part title="Приклад">
+        {entry.examples.map((example, index) => (
+          <Code key={index}>{example}</Code>
+        ))}
+      </Part>
+    )}
+  </section>
+);
 
 /**
  * The list of every name, with a filter on top, as ramda and lodash have it. Modules, then groups,
  * then entries; a group the filter empties disappears.
  */
-const Contents = ({
-  active,
-  className = "",
-  onNavigate,
-}: {
-  active?: string;
-  className?: string;
-  onNavigate?: () => void;
-}) => {
+const Contents = ({ active, className = "" }: { active?: string; className?: string }) => {
   const [query, setQuery] = useState("");
   const matches = (name: string) => name.toLowerCase().includes(query.trim().toLowerCase());
   const modules = MODULES.map((module) => ({
@@ -327,11 +318,7 @@ const Contents = ({
       {modules.length === 0 && <p className="text-xs opacity-60">Нічого не знайдено</p>}
       {modules.map((module) => (
         <div key={module.id} className="mb-4">
-          <EntryLink
-            name={module.id}
-            onNavigate={onNavigate}
-            className="font-bold hover:opacity-70"
-          >
+          <EntryLink name={module.id} className="font-bold hover:opacity-70">
             {module.title}
           </EntryLink>
           {module.groups.map((group) => (
@@ -342,7 +329,6 @@ const Contents = ({
                   <li key={name}>
                     <EntryLink
                       name={name}
-                      onNavigate={onNavigate}
                       className={`-ml-px block truncate border-l-2 py-0.5 pl-3 ${
                         name === active
                           ? "border-ink font-bold"

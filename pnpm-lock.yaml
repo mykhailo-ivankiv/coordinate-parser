@@ -38,6 +38,9 @@ importers:
       '@fontsource/ia-writer-quattro':
         specifier: ^5.3.0
         version: 5.3.0
+      arcsecond:
+        specifier: ^5.0.0
+        version: 5.0.0
       maplibre-gl:
         specifier: ^6.11.2
         version: 6.11.2

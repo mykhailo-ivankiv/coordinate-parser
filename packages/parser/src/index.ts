@@ -4,7 +4,6 @@ export {
   ddmParser,
   ddParser,
   dmsParser,
-  latitudeLongitudeParser,
   mgrsParser,
   ucs2000Parser,
   usngParser,

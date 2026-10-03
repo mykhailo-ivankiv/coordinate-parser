@@ -1,12 +1,5 @@
 import { commaOrWhitespace, latitudeFirst } from "./commonParsers.ts";
-import {
-  degreesMinutesSeconds,
-  LATITUDE_EXPECTED,
-  LATITUDE_HEMISPHERES,
-  LONGITUDE_EXPECTED,
-  LONGITUDE_HEMISPHERES,
-  withHemisphere,
-} from "./sexagesimal.ts";
+import { degreesMinutesSeconds, eastOrWest, northOrSouth } from "./sexagesimal.ts";
 
 // Degrees, minutes and seconds — the ISO 6709 Annex D notation in full.
 // https://www.iso.org/standard/75147.html
@@ -22,18 +15,8 @@ import {
 // The angle is reduced to decimal degrees before the range check, so 90°0'0"N is accepted and
 // 90°0'1"N is not, without either being a special case in the grammar.
 
-const latitude = withHemisphere(
-  degreesMinutesSeconds("latitude", 90),
-  LATITUDE_HEMISPHERES,
-  LATITUDE_EXPECTED,
-  "S",
+export const DMSparser = latitudeFirst(
+  northOrSouth(degreesMinutesSeconds("latitude", 90)),
+  commaOrWhitespace,
+  eastOrWest(degreesMinutesSeconds("longitude", 180)),
 );
-
-const longitude = withHemisphere(
-  degreesMinutesSeconds("longitude", 180),
-  LONGITUDE_HEMISPHERES,
-  LONGITUDE_EXPECTED,
-  "W",
-);
-
-export const DMSparser = latitudeFirst(latitude, commaOrWhitespace, longitude);

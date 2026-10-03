@@ -221,9 +221,8 @@ export const fromWGS84 = (
   system: CoordinateSystem,
   options: ConversionOptions = {},
 ): Converted => {
-  const { precision = 1 } = options;
   const point = toDeclaredPrecision(coords);
-  const encoded = encode(point, system, precision);
+  const encoded = encode(point, system, options.precision ?? 1);
   const converted: Converted = { system, value: format(encoded), area: areaOf(encoded) };
   if (system === "UCS-2000" && !insideUcs2000AreaOfUse(point)) converted.outsideAreaOfUse = true;
   return converted;

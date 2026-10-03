@@ -74,33 +74,18 @@ export const fromUCS2000 = (reference: UCS2000Coordinate): Coordinates =>
 export const formatUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
   `${northing} ${zone}${String(easting).padStart(6, "0")}`;
 
-type ZoneArea = { zone: number; west: number; south: number; east: number; north: number };
-
 /**
  * Where each UCS-2000 zone is defined: EPSG's area of use for the zone CRSs, EPSG:5562-5565. These
  * are bounding boxes of the part of Ukraine each zone covers, not the border itself. The converter
  * computes across each zone's whole six-degree strip, but the datum shift means nothing outside
  * Ukraine.
  */
-const UCS2000_ZONE_AREAS: ZoneArea[] = [
+const UCS2000_ZONE_AREAS: (Box & { zone: number })[] = [
   { zone: 4, west: 22.15, south: 47.95, east: 24, north: 51.66 },
   { zone: 5, west: 24, south: 45.1, east: 30, north: 51.96 },
   { zone: 6, west: 30, south: 43.18, east: 36, north: 52.38 },
   { zone: 7, west: 36, south: 43.43, east: 40.18, north: 50.44 },
 ];
-
-/**
- * The six-degree strips of zones 4-7, 18°E to 42°E, pole to pole as far as a web map reaches: where
- * the converter computes UCS-2000 at all. Outside them it refuses; inside them but outside
- * UCS2000_ZONE_AREAS it computes and flags the value.
- */
-const UCS2000_STRIPS: ZoneArea[] = [MIN_ZONE, 5, 6, MAX_ZONE].map((zone) => ({
-  zone,
-  west: (zone - 1) * ZONE_WIDTH,
-  east: zone * ZONE_WIDTH,
-  south: -85,
-  north: 85,
-}));
 
 /** A UCS-2000 zone with its two boxes, as ucs2000Zones lists them. */
 export type Ucs2000Zone = {
@@ -111,8 +96,6 @@ export type Ucs2000Zone = {
   /** The zone's whole six-degree strip, as far towards the poles as a web map reaches. */
   strip: Box;
 };
-
-const boxOf = ({ west, south, east, north }: ZoneArea): Box => ({ west, south, east, north });
 
 /**
  * The four UCS-2000 zones. The converter computes across each zone's whole strip and refuses
@@ -128,10 +111,10 @@ const boxOf = ({ west, south, east, north }: ZoneArea): Box => ({ west, south, e
  * ```
  */
 export const ucs2000Zones = (): Ucs2000Zone[] =>
-  UCS2000_ZONE_AREAS.map((area) => ({
-    zone: area.zone,
-    areaOfUse: boxOf(area),
-    strip: boxOf(UCS2000_STRIPS.find((strip) => strip.zone === area.zone)!),
+  UCS2000_ZONE_AREAS.map(({ zone, ...areaOfUse }) => ({
+    zone,
+    areaOfUse,
+    strip: { west: (zone - 1) * ZONE_WIDTH, south: -85, east: zone * ZONE_WIDTH, north: 85 },
   }));
 
 /**

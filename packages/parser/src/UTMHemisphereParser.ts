@@ -18,12 +18,10 @@ import type { UTMCoordinate } from "./UTMparser.ts";
 // hemispheres while the remaining band letters fall through to UTMparser; put UTMparser first and
 // this one never runs. The result carries no `band`, since the string genuinely does not name one.
 
-const HEMISPHERE_LETTERS = "NS";
-
 export const UTMHemisphereParser = wholeInput(
   sequenceOf([
     zoneNumber("UTM"),
-    letterFrom(HEMISPHERE_LETTERS, "a hemisphere letter"),
+    letterFrom("NS", "a hemisphere letter"),
     optionalWhitespace,
     utmLocation("UTM"),
   ]).map(([zone, hemisphere, , location]): UTMCoordinate => ({

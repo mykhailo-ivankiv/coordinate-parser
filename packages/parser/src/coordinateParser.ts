@@ -193,21 +193,3 @@ export const ucs2000Parser: Parser<CoordinateOf<"UCS-2000">> = UCS2000parser.map
   ...coords,
   system: "UCS-2000" as const,
 }));
-
-/**
- * WGS 84 latitude and longitude in any notation that puts latitude first: signed decimals, with a
- * point or a comma, and the hemisphere-letter notations DD, DDM and DMS. WGS84R is left out — once
- * the system is known to be WGS 84, a longitude-first pair is far likelier a mistake than a choice.
- * The result still says which notation matched.
- *
- * @example
- * ```ts
- * latitudeLongitudeParser.run(`50°27'0.36"N, 30°31'24.24"E`).result
- * // → { latitude: 50.4501, longitude: 30.5234, system: "DMS" }
- * latitudeLongitudeParser.run("151.2093, -33.8688").error
- * // → "latitude must be between -90 and 90, but got 151.2093"
- * ```
- */
-export const latitudeLongitudeParser: Parser<CoordinateOf<"WGS84" | "DD" | "DDM" | "DMS">> = choice(
-  [wgs84Parser, ddParser, ddmParser, dmsParser],
-);
