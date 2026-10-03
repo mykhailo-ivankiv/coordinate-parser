@@ -73,6 +73,12 @@ const series = ({ f }: Ellipsoid) => {
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 const toDegrees = (radians: number) => (radians * 180) / Math.PI;
 
+// Zone 1 reaches west of its central meridian, -177°, across the antimeridian, so a point there
+// comes back as -180.0000032° — not a longitude, and one our own parsers would reject. Folding it
+// into -180..180 gives 179.9999968°, the same place.
+const wrapLongitude = (longitude: number) =>
+  longitude < -180 ? longitude + 360 : longitude > 180 ? longitude - 360 : longitude;
+
 // τ′, the tangent of the conformal latitude, from τ, the tangent of the geodetic one.
 const conformal = (τ: number, e: number) => {
   const σ = Math.sinh(e * Math.atanh((e * τ) / Math.sqrt(1 + τ * τ)));
@@ -135,6 +141,6 @@ export const unproject = (
 
   return {
     latitude: toDegrees(Math.atan(τ)),
-    longitude: centralMeridian + toDegrees(Math.atan2(Math.sinh(ηʹ), Math.cos(ξʹ))),
+    longitude: wrapLongitude(centralMeridian + toDegrees(Math.atan2(Math.sinh(ηʹ), Math.cos(ξʹ)))),
   };
 };

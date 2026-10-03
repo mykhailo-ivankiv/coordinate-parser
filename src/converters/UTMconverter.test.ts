@@ -133,3 +133,18 @@ describe("UTM to WGS 84", () => {
     ).not.toThrow();
   });
 });
+
+describe("the antimeridian", () => {
+  it("brings a point just west of it in zone 1 back as a longitude, not past -180°", () => {
+    // 1C 436707 1217049 lies a hair across the antimeridian from zone 1's side; its longitude is
+    // 179.9999968°, which unwrapped arithmetic would give as -180.0000032°.
+    const { longitude } = fromUTM({
+      zone: 1,
+      band: "C",
+      hemisphere: "S",
+      easting: 436707,
+      northing: 1217049,
+    });
+    expect(longitude).toBeCloseTo(179.9999968, 7);
+  });
+});

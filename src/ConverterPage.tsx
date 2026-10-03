@@ -395,6 +395,194 @@ const SectionBody = ({
   );
 };
 
+const ExternalLink = ({ href, children }: { href: string; children: ReactNode }) => (
+  <a href={href} target="_blank" rel="noreferrer" className={linkStyle}>
+    {children}
+  </a>
+);
+
+// What this converter needs, against what a general projection engine carries.
+const SCOPE_ROWS = [
+  ["Еліпсоїди", "2 — WGS 84 і Красовського"],
+  ["Методи проєкції", "1 — поперечний Меркатор; UTM і Гаусс-Крюгер різняться лише параметрами"],
+  ["Трансформації датумів", "1 — EPSG:5840, три зсуви"],
+  ["Нотації", "DD, DDM, DMS, MGRS / USNG, UTM, УСК-2000"],
+];
+
+const WasmAnswer = () => (
+  <>
+    <p>
+      Конвертери на базі ArcGIS Maps SDK for JavaScript під час роботи завантажують з js.arcgis.com
+      файл <code className="font-mono">pe-wasm.wasm</code> — близько 2,7 МБ. Це не окремий
+      конвертер, а Esri Projection Engine: бібліотека на C/C++, яка роками працює всередині ArcGIS
+      Pro, ArcGIS Server і мобільних SDK. Для вебу Esri її не переписувала, а скомпілювала у
+      WebAssembly. Так перевірений нативний код потрапляє в браузер, і всі продукти Esri рахують
+      однаково, до останнього знака.
+    </p>
+    <p className="mt-2">Основну вагу дають не формули, а дані й загальність:</p>
+    <ul className="mt-1 flex list-disc flex-col gap-1 pl-5">
+      <li>
+        тисячі систем координат — уся база EPSG і власні ідентифікатори Esri, кожна з еліпсоїдом,
+        датумом, проєкцією й одиницями, вкомпільованими в модуль;
+      </li>
+      <li>сотні методів проєкції — Меркатор, Ламберт, Альберс, полярні, псевдоциліндричні;</li>
+      <li>
+        тисячі трансформацій датумів — параметричні (Гельмерта, Молоденського) і сіткові (NTv2,
+        NADCON), а також вертикальні датуми;
+      </li>
+      <li>розбір і форматування нотацій на кшталт MGRS, UTM чи DMS.</li>
+    </ul>
+    <p className="mt-2">Цьому конвертеру потрібен мізерний зріз цієї загальності:</p>
+    <table className="mt-1">
+      <tbody>
+        {SCOPE_ROWS.map(([what, here]) => (
+          <tr key={what} className="align-top">
+            <th className="py-0.5 pr-3 text-left font-normal whitespace-nowrap">{what}</th>
+            <td className="py-0.5">{here}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p className="mt-2">
+      Поперечний Меркатор у формулюванні{" "}
+      <ExternalLink href="https://arxiv.org/abs/1002.1417">Карні</ExternalLink> — близько ста
+      рядків: два набори по шість коефіцієнтів і кілька формул. Зсув датуму — переведення в
+      декартові координати, додавання вектора й переведення назад. Сітка MGRS — арифметика з
+      літерами. Решта коду — парсери, форматування й коментарі.
+    </p>
+    <p className="mt-2">
+      Точність від цього не страждає. Ряд Карні шостого порядку — той самий, що в{" "}
+      <ExternalLink href="https://proj.org/">PROJ</ExternalLink>, і він дає нанометрову точність у
+      межах зони. Результати цього конвертера збігаються з PROJ до міліметра.
+    </p>
+    <p className="mt-2">
+      Компактність — наслідок вузького охоплення: для систем, які тут підтримуються, загальний рушій
+      — це мегабайти коду, що ніколи не виконується.
+    </p>
+  </>
+);
+
+const Pipeline = ({ children }: { children: ReactNode }) => (
+  <pre className="mt-1 overflow-x-auto font-mono whitespace-pre">{children}</pre>
+);
+
+// Why a few hundred lines of our own rather than a library, argued against the obvious candidates.
+const ADVANTAGES: [string, ReactNode][] = [
+  [
+    "Нічого зайвого",
+    "Жодної залежності, жодного WebAssembly, жодного завантаження з CDN під час роботи. Конвертер працює офлайн, з першого кадру, і не додає до сторінки мегабайтів, з яких виконується дещиця.",
+  ],
+  [
+    "Датум обрано свідомо",
+    "УСК-2000 ↔ WGS 84 — це EPSG:5840, точність 1 м, та сама трансформація, яку обирає PROJ. У proj4js параметри зсуву треба знати й вписати самому, і помилка з ними дає правдоподібний результат, що промахується на метри.",
+  ],
+  [
+    "Те, чого бібліотеки не роблять",
+    "PROJ і proj4js не читають і не пишуть MGRS чи USNG і не знають про українські формати запису. Тут є парсери, квадрати MGRS з кутами, перевірка смуги широти, пошук усіх квадратів, у які сягає вхідна зона, і зрозумілі повідомлення про помилки.",
+  ],
+  [
+    "Перевірено проти еталона",
+    "Під час розробки еталоном був PROJ 9.3: значення UTM, УСК-2000 і кути квадратів у тестах узяті з нього, і результати збігаються до міліметра. Окремий тест обходить усю земну кулю з кроком 100 км.",
+  ],
+  [
+    "Код можна прочитати",
+    "Кілька сотень рядків із посиланнями на першоджерела — стандарти NGA, FGDC, ISO, реєстр EPSG і статтю Карні. Кожне рішення пояснене поруч із кодом.",
+  ],
+];
+
+const ProjAnswer = () => (
+  <>
+    <p>
+      <ExternalLink href="https://proj.org/">PROJ</ExternalLink> — відкрита бібліотека на C/C++ для
+      перетворення координат між системами. Це стандартний рушій відкритого геопросторового світу:
+      на ньому стоять GDAL, QGIS, PostGIS, GRASS і pyproj у Python. З'явився в 1980-х у Геологічній
+      службі США, автор — Джеральд Евенден; нині його підтримує спільнота OSGeo під ліцензією MIT.
+    </p>
+    <p className="mt-2">PROJ чітко розрізняє дві операції:</p>
+    <ul className="mt-1 flex list-disc flex-col gap-1 pl-5">
+      <li>
+        <b>перетворення</b> (conversion) — зміна представлення в межах одного датуму: широта й
+        довгота ↔ UTM чи декартові XYZ. Чиста математика проєкцій; методів проєкції в PROJ понад
+        сотню;
+      </li>
+      <li>
+        <b>трансформація</b> (transformation) — перехід між датумами, як УСК-2000 ↔ WGS 84. Потрібні
+        виміряні параметри: зсуви Гельмерта або сітки поправок NTv2 і NADCON, кожна трансформація зі
+        своєю заявленою точністю.
+      </li>
+    </ul>
+    <p className="mt-2">
+      Від версії 6 (2019) PROJ містить базу <code className="font-mono">proj.db</code> з реєстром
+      EPSG: тисячі систем координат, датумів і трансформацій між ними. На запит «з EPSG:4326 в
+      EPSG:5564» він сам знаходить можливі шляхи, сортує їх за точністю й областю дії і бере
+      найкращий. Будь-яку операцію PROJ розкладає на конвеєр простих кроків. Для УСК-2000 він такий:
+    </p>
+    <Pipeline>{"cart (Красовський) → helmert x=24 y=-121 z=-76 → inv cart (WGS 84)"}</Pipeline>
+    <p className="mt-1">
+      Тобто широту й довготу на еліпсоїді Красовського переводять у декартові XYZ, зсувають на
+      вектор EPSG:5840 і повертають до широти й довготи на WGS 84. Цей конвертер робить ті самі
+      кроки, лише записані в коді для одного випадку.
+    </p>
+  </>
+);
+
+const PortsAnswer = () => (
+  <p>
+    У PROJ є порти на інші мови.{" "}
+    <ExternalLink href="https://github.com/proj4js/proj4js">proj4js</ExternalLink> — для JavaScript:
+    легкий, але без бази EPSG і без сучасної моделі трансформацій, тож визначення систем і параметри
+    зсуву датуму передаєш йому сам. MGRS винесено в окремий пакет.{" "}
+    <ExternalLink href="https://github.com/locationtech/proj4j">Proj4J</ExternalLink> — те саме для
+    Java, від LocationTech. Є й збірки самого PROJ під WebAssembly: повноцінні, але важкі, бо
+    тягнуть ту саму базу даних.
+  </p>
+);
+
+const OwnCodeAnswer = () => (
+  <>
+    <table>
+      <tbody>
+        {ADVANTAGES.map(([title, text]) => (
+          <tr key={title} className="align-top">
+            <th className="py-1 pr-3 text-left font-bold whitespace-nowrap">{title}</th>
+            <td className="py-1">{text}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p className="mt-2">
+      Межа цього вибору — охоплення. Конвертер знає рівно ті системи, що перелічені на сторінці.
+      Якщо знадобиться проєкція Ламберта, сіткова трансформація чи довільна система з EPSG,
+      правильний крок — узяти PROJ, а не дописувати геодезичний рушій заново.
+    </p>
+  </>
+);
+
+// Questions that come up about how the converter works, each folded until it is opened.
+const QUESTIONS: { question: string; answer: ReactNode }[] = [
+  { question: "Що таке PROJ і що він робить?", answer: <ProjAnswer /> },
+  { question: "А proj4js чи Proj4J?", answer: <PortsAnswer /> },
+  { question: "Чому тут власний код, а не одна з цих бібліотек?", answer: <OwnCodeAnswer /> },
+  {
+    question: "Чому ArcGIS рахує через WebAssembly, а тут вистачає кількох сотень рядків?",
+    answer: <WasmAnswer />,
+  },
+];
+
+const QuestionsAndAnswers = () => (
+  <section className="mt-6 text-sm">
+    <h3 className="font-bold">Питання й відповіді</h3>
+    <div className="mt-1">
+      {QUESTIONS.map(({ question, answer }) => (
+        <details key={question} className="border-t py-2">
+          <summary className="cursor-pointer font-bold">{question}</summary>
+          <div className="mt-2 pl-4">{answer}</div>
+        </details>
+      ))}
+    </div>
+  </section>
+);
+
 export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [text, setText] = useState("");
   const [input, setInput] = useState<InputChoice>(AUTO);
@@ -546,6 +734,8 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
             повернутий відносно паралелей і меридіанів. У базу зберігається центр.
           </p>
         </section>
+
+        <QuestionsAndAnswers />
       </div>
 
       <div className="h-[60vh] lg:h-full">
