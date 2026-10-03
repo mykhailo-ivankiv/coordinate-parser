@@ -21,6 +21,12 @@ const MODULES: {
   groups: { id: ApiEntry["group"]; title: string }[];
 }[] = [
   {
+    id: "types",
+    title: "Типи",
+    importLine: `import type { Coordinate, WrittenCoordinate } from "@coordinate-parser/types";`,
+    groups: [{ id: "types", title: "Типи" }],
+  },
+  {
     id: "parser",
     title: "Парсер",
     importLine: `import { coordinateParser, mgrsParser } from "@coordinate-parser/parser";`,

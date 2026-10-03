@@ -1,4 +1,4 @@
-import type { Coordinates } from "@coordinate-parser/parser";
+import type { Coordinates } from "../coordinates.ts";
 import { beforeAll, expect, it } from "vitest";
 import { agreement, type Check, runChecks, UCS2000_CHECKS, UTM_CHECKS } from "./checks.ts";
 import { loadArcgis } from "./libraries.ts";

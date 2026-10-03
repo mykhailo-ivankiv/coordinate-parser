@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { MGRS } from "./coordinateRegex.ts";
-import { type MGRSCoordinate, MGRSparser } from "./MGRSparser.ts";
+import type { MGRSCoordinate } from "@coordinate-parser/types";
+import { MGRSparser } from "./MGRSparser.ts";
+
+// The grammar reads the data; the public parser adds the system tag and the format.
+type Reading = Omit<MGRSCoordinate, "system">;
 
 // Expectations follow NGA.STND.0037_2.0.0_GRIDS "Universal Grids and Grid Reference Systems"
 // (NGA, 2014) — https://nsgreg.nga.mil/doc/view?i=4057
 
-const parse = (input: string): MGRSCoordinate => {
+const parse = (input: string): Reading => {
   const result = MGRSparser.run(input);
   if (result.isError) throw new Error(`expected "${input}" to parse, but got: ${result.error}`);
   return result.result;

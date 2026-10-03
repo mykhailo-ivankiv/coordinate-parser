@@ -1,4 +1,5 @@
-import type { Coordinates, UTMCoordinate } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
+import type { UTMCoordinate } from "@coordinate-parser/types";
 import { LATITUDE_BANDS } from "./notation.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
 import { type Area, gridSquare } from "./area.ts";
@@ -80,7 +81,14 @@ export const projectToUTM = (coords: Coordinates) => {
 /** WGS 84 to UTM, rounded to the whole metre that UTM references are written in. */
 export const toUTM = (coords: Coordinates): UTMCoordinate => {
   const { zone, hemisphere, band, easting, northing } = projectToUTM(coords);
-  return { zone, band, hemisphere, easting: Math.round(easting), northing: Math.round(northing) };
+  return {
+    system: "UTM",
+    zone,
+    band,
+    hemisphere,
+    easting: Math.round(easting),
+    northing: Math.round(northing),
+  };
 };
 
 export const unprojectUTM = (location: Projected, zone: number, hemisphere: "N" | "S") =>

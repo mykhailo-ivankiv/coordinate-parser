@@ -1,4 +1,4 @@
-import type { Coordinates } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
 
 // The reference surfaces and the datum shift the converters need. Every conversion in this library
 // runs through WGS 84 latitude and longitude: that is the pivot the rest of the app stores.

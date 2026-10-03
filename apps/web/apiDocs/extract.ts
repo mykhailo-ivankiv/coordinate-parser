@@ -17,6 +17,7 @@ const ROOT = resolve(import.meta.dirname, "../../..");
 // Each documented package, by the module name TypeDoc gives it — its package.json name — and the
 // directory it lives in.
 const PACKAGES: Record<string, { module: ApiEntry["module"]; directory: string }> = {
+  "@coordinate-parser/types": { module: "types", directory: "packages/types" },
   "@coordinate-parser/parser": { module: "parser", directory: "packages/parser" },
   "@coordinate-parser/converter": { module: "converter", directory: "packages/converter" },
 };

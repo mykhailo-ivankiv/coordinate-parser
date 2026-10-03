@@ -1,4 +1,4 @@
-import type { Coordinates } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
 import { DEGREE_SIGN, MAX_FRACTION_DIGITS } from "./notation.ts";
 
 // WGS 84 latitude/longitude written out in the notations that are only a spelling of it: the

@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { UTM } from "./coordinateRegex.ts";
 import { UTMHemisphereParser } from "./UTMHemisphereParser.ts";
-import { type UTMCoordinate, UTMparser } from "./UTMparser.ts";
+import type { UTMCoordinate } from "@coordinate-parser/types";
+import { UTMparser } from "./UTMparser.ts";
+
+// The grammar reads the data; the public parser adds the system tag and the format.
+type Reading = Omit<UTMCoordinate, "system">;
 
 // Expectations follow NGA.STND.0037_2.0.0_GRIDS (NGA, 2014), which reads the letter after the zone
 // number as a latitude band. See the header of UTMparser.ts for the collision with EPSG/PROJ.
 
-const parse = (input: string): UTMCoordinate => {
+const parse = (input: string): Reading => {
   const result = UTMparser.run(input);
   if (result.isError) throw new Error(`expected "${input}" to parse, but got: ${result.error}`);
   return result.result;
@@ -22,7 +26,7 @@ const errorOf = (input: string): string => {
 
 const accepts = (input: string) => !UTMparser.run(input).isError;
 
-const kyivZone: UTMCoordinate = {
+const kyivZone: Reading = {
   zone: 36,
   band: "U",
   hemisphere: "N",

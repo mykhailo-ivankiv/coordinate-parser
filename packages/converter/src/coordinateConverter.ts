@@ -1,4 +1,11 @@
-import type { Coordinates, CoordinateSystem, SystemCoordinate } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
+import type {
+  Coordinate,
+  MGRSCoordinate,
+  UCS2000Coordinate,
+  USNGCoordinate,
+  UTMCoordinate,
+} from "@coordinate-parser/types";
 import { type Area, pointArea } from "./area.ts";
 import {
   formatMGRS,
@@ -26,10 +33,34 @@ import { formatUTM, toUTM, utmArea } from "./UTMconverter.ts";
 // reference names a square, and its corners say how far the stored centre can be from the truth.
 
 export type { Area, Corners } from "./area.ts";
+export type { Coordinates } from "./coordinates.ts";
 export type { GridPrecision } from "./MGRSconverter.ts";
 
+/**
+ * A way of writing a converted point: WGS 84 latitude and longitude in one of its five notations, or
+ * one of the grids. Only for the string output side, until the formatter takes it over.
+ */
+export type Notation =
+  | "WGS84"
+  | "WGS84R"
+  | "DD"
+  | "DDM"
+  | "DMS"
+  | "MGRS"
+  | "USNG"
+  | "UTM"
+  | "UCS-2000";
+
+/** A point encoded for one notation, ready for format. */
+export type NotatedCoordinate =
+  | (Coordinates & { system: "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS" })
+  | MGRSCoordinate
+  | USNGCoordinate
+  | UTMCoordinate
+  | UCS2000Coordinate;
+
 /** Every system, in the order toAllSystems reports them. */
-export const CONVERTIBLE_SYSTEMS: CoordinateSystem[] = [
+export const CONVERTIBLE_SYSTEMS: Notation[] = [
   "WGS84",
   "WGS84R",
   "DD",
@@ -46,71 +77,61 @@ export const CONVERTIBLE_SYSTEMS: CoordinateSystem[] = [
  * not systems of their own: they share the datum and the angle, and converting between them is
  * only rewriting. Every other entry in CONVERTIBLE_SYSTEMS is a grid with a projection behind it.
  */
-export const LATITUDE_LONGITUDE_NOTATIONS: CoordinateSystem[] = [
-  "WGS84",
-  "WGS84R",
-  "DD",
-  "DDM",
-  "DMS",
-];
+export const LATITUDE_LONGITUDE_NOTATIONS: Notation[] = ["WGS84", "WGS84R", "DD", "DDM", "DMS"];
 
 /** The rectangular grids: systems with a projection behind them, as opposed to an angle pair. */
-export const GRID_SYSTEMS: CoordinateSystem[] = ["MGRS", "USNG", "UTM", "UCS-2000"];
+export const GRID_SYSTEMS: Notation[] = ["MGRS", "USNG", "UTM", "UCS-2000"];
 
 /**
- * The area a parsed coordinate designates, in WGS 84: a point for the latitude/longitude
- * notations, a square for the grid references.
+ * The area a coordinate designates, in WGS 84: a point for WGS 84 latitude and longitude, a square
+ * for the grid references.
  *
- * @param parsed - A coordinate as coordinateParser or a system's own parser returns it.
+ * @param coordinate - A coordinate in any system, such as a parser's `result.coordinate`.
  * @returns The point, or the square with its corners and outline.
  * @throws RangeError on a reference the parser accepts but no place matches: an MGRS column letter
  * not used in its zone, or a band that contradicts the northing.
  *
  * @example
  * ```ts
- * areaOf(coordinateParser.run("36UUA2491").result).size
+ * areaOf(coordinateParser.run("36UUA2491").result.coordinate).size
  * // → 1000
- * areaOf(coordinateParser.run("36UUA2491").result).corners.southWest
+ * areaOf(coordinateParser.run("36UUA2491").result.coordinate).corners.southWest
  * // → { latitude: 50.4445861, longitude: 30.5211213 }
- * areaOf(coordinateParser.run("17N 630084 4833438").result)
+ * areaOf(coordinateParser.run("17N 630084 4833438").result.coordinate)
  * // throws RangeError
  * ```
  */
-export const areaOf = (parsed: SystemCoordinate): Area => {
-  switch (parsed.system) {
+export const areaOf = (coordinate: Coordinate): Area => {
+  switch (coordinate.system) {
     case "WGS84":
-    case "WGS84R":
-    case "DD":
-    case "DDM":
-    case "DMS":
-      return pointArea(parsed);
+      return pointArea(coordinate);
     case "MGRS":
     case "USNG":
-      return mgrsArea(parsed);
+      return mgrsArea(coordinate);
     case "UTM":
-      return utmArea(parsed);
+      return utmArea(coordinate);
     case "UCS-2000":
-      return ucs2000Area(parsed);
+      return ucs2000Area(coordinate);
   }
 };
 
 /**
- * Any parsed coordinate to the WGS 84 latitude/longitude it is stored as: the centre of the area it
- * designates, to seven decimal places.
+ * A coordinate in any system to the WGS 84 latitude/longitude it is stored as: the centre of the
+ * area it designates, to seven decimal places.
  *
- * @param parsed - A coordinate as coordinateParser or a system's own parser returns it.
+ * @param coordinate - A coordinate in any system, such as a parser's `result.coordinate`.
  * @returns Latitude and longitude in decimal degrees.
  * @throws RangeError where areaOf does.
  *
  * @example
  * ```ts
- * toWGS84(coordinateParser.run("36UUA2491").result)
+ * toWGS84(coordinateParser.run("36UUA2491").result.coordinate)
  * // → { latitude: 50.4492283, longitude: 30.5279224 }
- * toWGS84(coordinateParser.run("50° 27.006'N, 30° 31.404'E").result)
+ * toWGS84(coordinateParser.run("50° 27.006'N, 30° 31.404'E").result.coordinate)
  * // → { latitude: 50.4501, longitude: 30.5234 }
  * ```
  */
-export const toWGS84 = (parsed: SystemCoordinate): Coordinates => areaOf(parsed).centre;
+export const toWGS84 = (coordinate: Coordinate): Coordinates => areaOf(coordinate).centre;
 
 /** Options for fromWGS84, tryFromWGS84 and toAllSystems. */
 export type ConversionOptions = {
@@ -120,9 +141,9 @@ export type ConversionOptions = {
 
 const encode = (
   coords: Coordinates,
-  system: CoordinateSystem,
+  system: Notation,
   precision: GridPrecision,
-): SystemCoordinate => {
+): NotatedCoordinate => {
   switch (system) {
     case "WGS84":
     case "WGS84R":
@@ -158,7 +179,7 @@ const encode = (
  * // → `50° 27' 0.36"N, 30° 31' 24.24"E`
  * ```
  */
-export const format = (coordinate: SystemCoordinate): string => {
+export const format = (coordinate: NotatedCoordinate): string => {
   switch (coordinate.system) {
     case "WGS84":
       return formatWGS84(coordinate);
@@ -183,7 +204,7 @@ export const format = (coordinate: SystemCoordinate): string => {
 
 /** A point written in one system, with the area that writing designates. */
 export type Converted = {
-  system: CoordinateSystem;
+  system: Notation;
   /** The point written in `system`. */
   value: string;
   /** What `value` designates, back in WGS 84: the square containing the point, for a grid. */
@@ -218,18 +239,23 @@ export type Converted = {
  */
 export const fromWGS84 = (
   coords: Coordinates,
-  system: CoordinateSystem,
+  system: Notation,
   options: ConversionOptions = {},
 ): Converted => {
   const point = toDeclaredPrecision(coords);
   const encoded = encode(point, system, options.precision ?? 1);
-  const converted: Converted = { system, value: format(encoded), area: areaOf(encoded) };
+  const converted: Converted = {
+    system,
+    value: format(encoded),
+    // The latitude/longitude notations name the point itself; the grids name a square.
+    area: "latitude" in encoded ? pointArea(point) : areaOf(encoded),
+  };
   if (system === "UCS-2000" && !insideUcs2000AreaOfUse(point)) converted.outsideAreaOfUse = true;
   return converted;
 };
 
 /** A Converted value, or the reason the system cannot express the point. */
-export type Conversion = Converted | { system: CoordinateSystem; error: string };
+export type Conversion = Converted | { system: Notation; error: string };
 
 /**
  * Like fromWGS84, but reports a system that cannot express the point instead of throwing.
@@ -247,7 +273,7 @@ export type Conversion = Converted | { system: CoordinateSystem; error: string }
  */
 export const tryFromWGS84 = (
   coords: Coordinates,
-  system: CoordinateSystem,
+  system: Notation,
   options?: ConversionOptions,
 ): Conversion => {
   try {

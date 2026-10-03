@@ -1,12 +1,7 @@
+import type { UTMCoordinate } from "@coordinate-parser/types";
 import { optionalWhitespace, sequenceOf } from "arcsecond";
 import { wholeInput } from "./commonParsers.ts";
-import {
-  LATITUDE_BANDS,
-  letterFrom,
-  type UTMLocation,
-  utmLocation,
-  zoneNumber,
-} from "./gridReference.ts";
+import { LATITUDE_BANDS, letterFrom, utmLocation, zoneNumber } from "./gridReference.ts";
 
 // Universal Transverse Mercator, per NGA.STND.0037_2.0.0_GRIDS "Universal Grids and Grid Reference
 // Systems" (NGA, 2014) — https://nsgreg.nga.mil/doc/view?i=4057
@@ -31,16 +26,6 @@ import {
 // "17N 630084 4833438" claims band N, 0-8 degrees north, but carries a northing some 4300 km up.
 // Catching that needs the inverse projection, which is a conversion concern, not a parsing one.
 
-/** A UTM position: zone, hemisphere, and metres east and north within the zone. */
-export type UTMCoordinate = UTMLocation & {
-  /** Zone, 1-60, each 6° of longitude wide. */
-  zone: number;
-  /** Which false northing applies; taken from the band when one is written. */
-  hemisphere: "N" | "S";
-  /** Latitude band, present only when the reference is written with one. */
-  band?: string;
-};
-
 const LAST_SOUTHERN_BAND = "M";
 
 const hemisphereOf = (band: string): "N" | "S" =>
@@ -52,7 +37,7 @@ export const UTMparser = wholeInput(
     letterFrom(LATITUDE_BANDS, "a latitude band letter"),
     optionalWhitespace,
     utmLocation("UTM"),
-  ]).map(([zone, band, , location]): UTMCoordinate => ({
+  ]).map(([zone, band, , location]): Omit<UTMCoordinate, "system"> => ({
     zone,
     band,
     hemisphere: hemisphereOf(band),

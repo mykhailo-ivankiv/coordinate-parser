@@ -1,4 +1,5 @@
-import type { Coordinates, UCS2000Coordinate } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
+import type { UCS2000Coordinate } from "@coordinate-parser/types";
 import type { Box } from "./gridOverlay.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
 import { type Area, gridSquare } from "./area.ts";
@@ -56,7 +57,7 @@ export const ucs2000ZoneOf = (coords: Coordinates) => {
 export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
   const zone = ucs2000ZoneOf(coords);
   const { easting, northing } = ucs2000Grid(zone).project(coords);
-  return { zone, northing: Math.round(northing), easting: Math.round(easting) };
+  return { system: "UCS-2000", zone, northing: Math.round(northing), easting: Math.round(easting) };
 };
 
 /**

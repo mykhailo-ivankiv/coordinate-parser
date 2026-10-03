@@ -32,6 +32,9 @@ importers:
       '@coordinate-parser/parser':
         specifier: workspace:*
         version: link:../../packages/parser
+      '@coordinate-parser/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@fontsource/ia-writer-mono':
         specifier: ^5.3.0
         version: 5.3.0
@@ -93,13 +96,16 @@ importers:
 
   packages/converter:
     dependencies:
-      '@coordinate-parser/parser':
+      '@coordinate-parser/types':
         specifier: workspace:*
-        version: link:../parser
+        version: link:../types
     devDependencies:
       '@arcgis/core':
         specifier: ^5.1.26
         version: 5.1.26
+      '@coordinate-parser/parser':
+        specifier: workspace:*
+        version: link:../parser
       mgrs:
         specifier: ^2.2.0
         version: 2.2.0
@@ -109,9 +115,14 @@ importers:
 
   packages/parser:
     dependencies:
+      '@coordinate-parser/types':
+        specifier: workspace:*
+        version: link:../types
       arcsecond:
         specifier: ^5.0.0
         version: 5.0.0
+
+  packages/types: {}
 
 packages:
 

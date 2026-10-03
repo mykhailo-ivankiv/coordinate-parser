@@ -15,10 +15,10 @@ import {
   spacingFor,
   toDeclaredPrecision,
   type Box,
+  type Coordinates,
   ucs2000Zones,
   zoneSeams,
 } from "@coordinate-parser/converter";
-import type { Coordinates } from "@coordinate-parser/parser";
 
 // OpenFreeMap: free vector tiles from OpenStreetMap data, no API key and no registration.
 // https://openfreemap.org

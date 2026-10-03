@@ -23,8 +23,8 @@ export type ApiProperty = {
 export type ApiEntry = {
   name: string;
   kind: "function" | "variable" | "type";
-  /** Which half of the library declares it: src/parsers or src/converters. */
-  module: "parser" | "converter";
+  /** Which package declares it. */
+  module: "types" | "parser" | "converter";
   /** What it is, for grouping: a parser object, a function, a constant or a type. */
   group: "parsers" | "functions" | "constants" | "types";
   summary: string;

@@ -1,4 +1,4 @@
-import type { Coordinates } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
 import { LATITUDE_BANDS } from "./notation.ts";
 import { formatUSNG, toMGRS } from "./MGRSconverter.ts";
 import { project } from "./transverseMercator.ts";

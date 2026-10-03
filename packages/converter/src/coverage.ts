@@ -1,6 +1,10 @@
 import type { Area } from "./area.ts";
-import type { CoordinateSystem } from "@coordinate-parser/parser";
-import { type ConversionOptions, type Converted, fromWGS84 } from "./coordinateConverter.ts";
+import {
+  type ConversionOptions,
+  type Converted,
+  fromWGS84,
+  type Notation,
+} from "./coordinateConverter.ts";
 import type { Box } from "./gridOverlay.ts";
 import type { Projected } from "./transverseMercator.ts";
 import { ucs2000Grid, ucs2000ZoneOf } from "./UCS2000converter.ts";
@@ -47,7 +51,7 @@ type TargetGrid = {
 
 const targetGrid = (
   centre: { latitude: number; longitude: number },
-  system: CoordinateSystem,
+  system: Notation,
   precision: number,
 ): TargetGrid | null => {
   switch (system) {
@@ -126,7 +130,7 @@ const overlaps = (ring: Projected[], box: Box) => {
  */
 export const coveringSquares = (
   area: Area,
-  system: CoordinateSystem,
+  system: Notation,
   options: ConversionOptions = {},
 ): Coverage => {
   const primary = fromWGS84(area.centre, system, options);

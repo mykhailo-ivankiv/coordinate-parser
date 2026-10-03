@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { USNG } from "./coordinateRegex.ts";
 import { MGRSparser } from "./MGRSparser.ts";
-import { type USNGCoordinate, USNGparser } from "./USNGparser.ts";
+import type { USNGCoordinate } from "@coordinate-parser/types";
+import { USNGparser } from "./USNGparser.ts";
+
+// The grammar reads the data; the public parser adds the system tag and the format.
+type Reading = Omit<USNGCoordinate, "system">;
 
 // Expectations follow FGDC-STD-011-2001 "United States National Grid" (FGDC, 2001). See the header
 // of USNGparser.ts for the link and for what is deliberately left out.
 
-const parse = (input: string): USNGCoordinate => {
+const parse = (input: string): Reading => {
   const result = USNGparser.run(input);
   if (result.isError) throw new Error(`expected "${input}" to parse, but got: ${result.error}`);
   return result.result;

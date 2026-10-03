@@ -12,10 +12,11 @@
     "test:slow": "vitest run --config vitest.slow.config.ts"
   },
   "dependencies": {
-    "@coordinate-parser/parser": "workspace:*"
+    "@coordinate-parser/types": "workspace:*"
   },
   "devDependencies": {
     "@arcgis/core": "^5.1.26",
+    "@coordinate-parser/parser": "workspace:*",
     "mgrs": "^2.2.0",
     "proj4": "^2.22.0"
   }

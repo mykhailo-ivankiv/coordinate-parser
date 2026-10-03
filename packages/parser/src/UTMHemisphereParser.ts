@@ -1,7 +1,7 @@
 import { optionalWhitespace, sequenceOf } from "arcsecond";
 import { wholeInput } from "./commonParsers.ts";
 import { letterFrom, utmLocation, zoneNumber } from "./gridReference.ts";
-import type { UTMCoordinate } from "./UTMparser.ts";
+import type { UTMCoordinate } from "@coordinate-parser/types";
 
 // UTM written the way EPSG and PROJ name their zone CRSs, where the letter after the zone number is
 // a hemisphere and nothing else: "WGS 84 / UTM zone 17N" is EPSG:32617, "zone 17S" is EPSG:32717
@@ -24,7 +24,7 @@ export const UTMHemisphereParser = wholeInput(
     letterFrom("NS", "a hemisphere letter"),
     optionalWhitespace,
     utmLocation("UTM"),
-  ]).map(([zone, hemisphere, , location]): UTMCoordinate => ({
+  ]).map(([zone, hemisphere, , location]): Omit<UTMCoordinate, "system"> => ({
     zone,
     hemisphere: hemisphere === "S" ? "S" : "N",
     ...location,

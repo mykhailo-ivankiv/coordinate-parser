@@ -1,4 +1,4 @@
-import type { Coordinates } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
 import type { Ellipsoid } from "./ellipsoid.ts";
 
 // Transverse Mercator in Krüger's series to sixth order in n, as given by C. F. F. Karney,

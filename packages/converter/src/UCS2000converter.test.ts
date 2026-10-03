@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { type Coordinates, ucs2000Parser } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
+import { ucs2000Parser } from "@coordinate-parser/parser";
 import { project } from "./transverseMercator.ts";
 import { fromWGS84 } from "./coordinateConverter.ts";
 import {
@@ -60,7 +61,12 @@ const references: { name: string; coords: Coordinates; zone: number; x: number; 
 
 describe("WGS 84 to UCS-2000", () => {
   it.each(references)("matches PROJ for $name to the metre", ({ coords, zone, x, y }) => {
-    expect(toUCS2000(coords)).toEqual({ zone, northing: Math.round(x), easting: Math.round(y) });
+    expect(toUCS2000(coords)).toEqual({
+      system: "UCS-2000",
+      zone,
+      northing: Math.round(x),
+      easting: Math.round(y),
+    });
   });
 
   it("applies the datum shift, not just the projection", () => {
@@ -85,7 +91,10 @@ describe("WGS 84 to UCS-2000", () => {
     expect(written).toBe("5593954 6324226");
     expect(ucs2000Parser.run(written)).toMatchObject({
       isError: false,
-      result: { zone: 6, northing: 5593954, easting: 324226 },
+      result: {
+        coordinate: { system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 },
+        format: "plain",
+      },
     });
   });
 
@@ -98,14 +107,16 @@ describe("WGS 84 to UCS-2000", () => {
 
 describe("UCS-2000 to WGS 84", () => {
   it.each(references)("inverts $name back to within a centimetre", ({ coords, zone, x, y }) => {
-    const result = fromUCS2000({ zone, northing: x, easting: y });
+    const result = fromUCS2000({ system: "UCS-2000", zone, northing: x, easting: y });
     expect(result.latitude).toBeCloseTo(coords.latitude, 6);
     expect(result.longitude).toBeCloseTo(coords.longitude, 6);
   });
 
   it("matches PROJ for the example in the app", () => {
     // EPSG:5564 → EPSG:4326 on "5591000 6325000": 50.4238014, 30.5356689.
-    expect(fromUCS2000({ zone: 6, northing: 5591000, easting: 325000 })).toEqual({
+    expect(
+      fromUCS2000({ system: "UCS-2000", zone: 6, northing: 5591000, easting: 325000 }),
+    ).toEqual({
       latitude: 50.4238014,
       longitude: 30.5356689,
     });

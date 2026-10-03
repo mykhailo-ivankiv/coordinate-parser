@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Coordinates } from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
 import { formatUTM, fromUTM, projectToUTM, toUTM } from "./UTMconverter.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), WGS 84 to EPSG:326xx / EPSG:327xx.
@@ -77,6 +77,7 @@ describe("WGS 84 to UTM", () => {
 
   it("rounds to the whole metre and reads the band as the hemisphere", () => {
     expect(toUTM({ latitude: 50.4501, longitude: 30.5234 })).toEqual({
+      system: "UTM",
       zone: 36,
       band: "U",
       hemisphere: "N",
@@ -105,14 +106,16 @@ describe("UTM to WGS 84", () => {
     "inverts $name back to the input",
     ({ coords, zone, band, easting, northing }) => {
       const hemisphere = coords.latitude < 0 ? "S" : "N";
-      const result = fromUTM({ zone, band, hemisphere, easting, northing });
+      const result = fromUTM({ system: "UTM", zone, band, hemisphere, easting, northing });
       expect(result.latitude).toBeCloseTo(coords.latitude, 7);
       expect(result.longitude).toBeCloseTo(coords.longitude, 7);
     },
   );
 
   it("matches PROJ for a reference without a band", () => {
-    expect(fromUTM({ zone: 17, hemisphere: "N", easting: 630084, northing: 4833438 })).toEqual({
+    expect(
+      fromUTM({ system: "UTM", zone: 17, hemisphere: "N", easting: 630084, northing: 4833438 }),
+    ).toEqual({
       latitude: 43.6425618,
       longitude: -79.3871429,
     });
@@ -121,7 +124,14 @@ describe("UTM to WGS 84", () => {
   it("rejects a band the northing contradicts", () => {
     // Band M is 8°S to the equator; this northing sits near 46.6°S.
     expect(() =>
-      fromUTM({ zone: 17, band: "M", hemisphere: "S", easting: 630084, northing: 4833438 }),
+      fromUTM({
+        system: "UTM",
+        zone: 17,
+        band: "M",
+        hemisphere: "S",
+        easting: 630084,
+        northing: 4833438,
+      }),
     ).toThrow("UTM band M spans -8° to 0°, but northing 4833438 lies at -46.6400°");
   });
 
@@ -129,7 +139,7 @@ describe("UTM to WGS 84", () => {
     // 48°N exactly is the T/U boundary; the rounded northing lands a hair north of it.
     const { easting, northing } = toUTM({ latitude: 47.9999999, longitude: -81 });
     expect(() =>
-      fromUTM({ zone: 17, band: "T", hemisphere: "N", easting, northing }),
+      fromUTM({ system: "UTM", zone: 17, band: "T", hemisphere: "N", easting, northing }),
     ).not.toThrow();
   });
 });
@@ -139,6 +149,7 @@ describe("the antimeridian", () => {
     // 1C 436707 1217049 lies a hair across the antimeridian from zone 1's side; its longitude is
     // 179.9999968°, which unwrapped arithmetic would give as -180.0000032°.
     const { longitude } = fromUTM({
+      system: "UTM",
       zone: 1,
       band: "C",
       hemisphere: "S",

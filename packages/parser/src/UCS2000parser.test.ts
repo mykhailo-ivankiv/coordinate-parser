@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { UCS2000 } from "./coordinateRegex.ts";
-import { type UCS2000Coordinate, UCS2000parser } from "./UCS2000parser.ts";
+import type { UCS2000Coordinate } from "@coordinate-parser/types";
+import { UCS2000parser } from "./UCS2000parser.ts";
+
+// The grammar reads the data; the public parser adds the system tag and the format.
+type Reading = Omit<UCS2000Coordinate, "system">;
 
 // Expectations follow EPSG:5561 / EPSG:5562-5565 for the geodesy (the zone number is the leading
 // digit of Y, six digits of easting follow) and the ЗСУ "Довідник з військової топографії" for the
 // write format. See the header of UCS2000parser.ts for the links and the establishing act.
 
-const parse = (input: string): UCS2000Coordinate => {
+const parse = (input: string): Reading => {
   const result = UCS2000parser.run(input);
   if (result.isError) throw new Error(`expected "${input}" to parse, but got: ${result.error}`);
   return result.result;
@@ -22,7 +26,7 @@ const errorOf = (input: string): string => {
 
 const accepts = (input: string) => !UCS2000parser.run(input).isError;
 
-const kyivZone: UCS2000Coordinate = { zone: 6, northing: 5591000, easting: 325000 };
+const kyivZone: Reading = { zone: 6, northing: 5591000, easting: 325000 };
 
 describe("zone prefix", () => {
   it("splits the leading digit of Y from the easting", () => {

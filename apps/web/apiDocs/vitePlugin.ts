@@ -5,7 +5,7 @@ const MODULE_ID = "virtual:api-docs";
 const RESOLVED_ID = `\0${MODULE_ID}`;
 
 // The documented packages' sources: a change there can change the reference.
-const DOCUMENTED_SOURCE = /\/packages\/(parser|converter)\/src\//;
+const DOCUMENTED_SOURCE = /\/packages\/(types|parser|converter)\/src\//;
 
 /**
  * Serves `virtual:api-docs`, the API reference of the parser and converter packages. It is generated whenever

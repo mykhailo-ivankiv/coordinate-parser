@@ -1,3 +1,4 @@
+import type { UCS2000Coordinate } from "@coordinate-parser/types";
 import {
   anyOfString,
   char,
@@ -40,16 +41,6 @@ const NORTHING_DIGITS = 7;
 const EASTING_DIGITS = 6;
 const MIN_ZONE = 4;
 const MAX_ZONE = 7;
-
-/** A UCS-2000 (EPSG:5562-5565) rectangular position over Ukraine. */
-export type UCS2000Coordinate = {
-  /** Gauss-Kruger zone, 4-7 over Ukraine, taken from the leading digit of Y. */
-  zone: number;
-  /** X, metres north of the equator. */
-  northing: number;
-  /** Y with the zone prefix removed; 500000 is the central meridian of the zone. */
-  easting: number;
-};
 
 // Values are conventionally grouped for legibility ("55-91000"). The hyphen is a separator, not a
 // sign, so it is captured and dropped rather than fed to Number.
@@ -103,7 +94,7 @@ const zonedEasting = groupedDigits.chain(
 
 export const UCS2000parser = wholeInput(
   sequenceOf([northing, commaOrWhitespace, zonedEasting]).map(
-    ([north, , east]): UCS2000Coordinate => ({
+    ([north, , east]): Omit<UCS2000Coordinate, "system"> => ({
       zone: east.zone,
       northing: north,
       easting: east.easting,

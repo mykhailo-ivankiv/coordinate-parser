@@ -12,6 +12,8 @@ const ConverterPage = lazy(() =>
 // Also on demand: the generated reference is data only this page needs.
 const ApiPage = lazy(() => import("./ApiPage.tsx").then(({ ApiPage }) => ({ default: ApiPage })));
 import { coordinateParser } from "@coordinate-parser/parser";
+import type { WGS84Format, WrittenCoordinate } from "@coordinate-parser/types";
+import { isWGS84, labelOf } from "./labels.ts";
 
 // Grouped by the `system` coordinateParser actually reports, not by which parser module
 // produced the match — the European variants are a spelling of WGS84, not a system of
@@ -207,13 +209,8 @@ const quickPicks = [
   "55-91000 63-25000",
 ].map((input) => {
   const parsed = coordinateParser.run(input);
-  return { input, system: parsed.isError ? "?" : parsed.result.system };
+  return { input, label: parsed.isError ? "?" : labelOf(parsed.result) };
 });
-
-type ParsedCoordinate = Extract<
-  ReturnType<typeof coordinateParser.run>,
-  { isError: false }
->["result"];
 
 // Six decimals is about 10 cm on the ground; past that a minute or second turned into degrees only
 // shows floating-point noise.
@@ -232,9 +229,9 @@ const fromCentralMeridian = (easting: number) => {
     : `${metres(Math.abs(offset))} на ${offset < 0 ? "захід" : "схід"} від осьового меридіана зони`;
 };
 
-const notationText = {
-  WGS84: "Десяткові градуси, широта першою.",
-  WGS84R: "Десяткові градуси, довгота першою — порядок переставлено.",
+const formatText: Record<WGS84Format, string> = {
+  decimal: "Десяткові градуси, широта першою.",
+  decimalLongitudeFirst: "Десяткові градуси, довгота першою — порядок переставлено.",
   DD: "Десяткові градуси, півкулю задає літера, а не знак.",
   DDM: "Градуси й десяткові хвилини, зведені до десяткових градусів.",
   DMS: "Градуси, хвилини й секунди, зведені до десяткових градусів.",
@@ -245,19 +242,18 @@ const Value = ({ children }: { children: ReactNode }) => (
 );
 
 // The parse result in words: what each number means, rather than the raw object.
-const describeResult = (result: ParsedCoordinate): ReactNode => {
+const describeResult = (written: WrittenCoordinate): ReactNode => {
+  if (isWGS84(written)) {
+    return (
+      <>
+        {formatText[written.format]} Широта{" "}
+        <Value>{latitudeText(written.coordinate.latitude)}</Value>, довгота{" "}
+        <Value>{longitudeText(written.coordinate.longitude)}</Value>
+      </>
+    );
+  }
+  const result = written.coordinate;
   switch (result.system) {
-    case "WGS84":
-    case "WGS84R":
-    case "DD":
-    case "DDM":
-    case "DMS":
-      return (
-        <>
-          {notationText[result.system]} Широта <Value>{latitudeText(result.latitude)}</Value>,
-          довгота <Value>{longitudeText(result.longitude)}</Value>.
-        </>
-      );
     // coordinateParser never reports USNG: MGRS reads the same strings and comes first.
     case "MGRS":
       return (
@@ -315,7 +311,7 @@ const CoordinateInput = () => {
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-1.5 text-sm">
         <span className="opacity-60">Приклади:</span>
-        {quickPicks.map(({ input, system }) => (
+        {quickPicks.map(({ input, label }) => (
           <button
             key={input}
             type="button"
@@ -323,9 +319,7 @@ const CoordinateInput = () => {
             className="group inline-flex cursor-pointer overflow-hidden rounded-full border border-black text-xs"
             onClick={() => setText(input)}
           >
-            <span className="bg-black px-2 py-0.5 font-bold text-white">
-              {system === "UCS-2000" ? "УСК-2000" : system}
-            </span>
+            <span className="bg-black px-2 py-0.5 font-bold text-white">{label}</span>
             <span className="px-2 py-0.5 font-mono group-hover:bg-black/10">{input}</span>
           </button>
         ))}
@@ -354,10 +348,7 @@ const CoordinateInput = () => {
             </>
           ) : (
             <>
-              <span className="text-green-700">
-                Розпізнано як{" "}
-                {result.result.system === "UCS-2000" ? "УСК-2000" : result.result.system}.
-              </span>{" "}
+              <span className="text-green-700">Розпізнано як {labelOf(result.result)}.</span>{" "}
               {describeResult(result.result)}
             </>
           )}
@@ -615,13 +606,7 @@ function App() {
       <main className="m-auto px-4 py-6 lg:grid lg:grid-cols-[minmax(14rem,1fr)_minmax(0,64ch)_minmax(0,1fr)] lg:gap-x-12">
         <Suspense fallback={<p className="text-sm opacity-60">Завантаження…</p>}>
           <ApiPage
-            header={
-              <PageHeader
-                active={page}
-                title="API"
-                subtitle="Парсер і конвертер: функції й типи."
-              />
-            }
+            header={<PageHeader active={page} title="API" subtitle="Типи, парсер і конвертер." />}
           />
         </Suspense>
       </main>

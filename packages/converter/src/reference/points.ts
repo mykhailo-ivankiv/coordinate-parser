@@ -1,4 +1,4 @@
-import type { Coordinates } from "@coordinate-parser/parser";
+import type { Coordinates } from "../coordinates.ts";
 import { toDeclaredPrecision } from "../precision.ts";
 import { UTM_NORTH_LIMIT, UTM_SOUTH_LIMIT, unprojectUTM, zoneOf } from "../UTMconverter.ts";
 

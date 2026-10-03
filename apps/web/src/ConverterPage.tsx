@@ -4,29 +4,26 @@ import {
   type Area,
   areaOf,
   type Conversion,
+  type Coordinates,
   type Coverage,
   coveringSquares,
   format,
   fromWGS84,
   type GridPrecision,
   insideUcs2000AreaOfUse,
+  type Notation,
   tryFromWGS84,
 } from "@coordinate-parser/converter";
 import {
-  type Coordinates,
-  type CoordinateSystem,
   coordinateParser,
-  ddmParser,
-  ddParser,
-  dmsParser,
   mgrsParser,
   ucs2000Parser,
   usngParser,
   utmParser,
-  wgs84rParser,
   wgs84Parser,
 } from "@coordinate-parser/parser";
-import { choice } from "arcsecond";
+import type { CoordinateSystem, WrittenCoordinate } from "@coordinate-parser/types";
+import { labelOf, systemLabel } from "./labels.ts";
 
 const AUTO = "auto";
 
@@ -36,61 +33,42 @@ type InputChoice = CoordinateSystem | typeof AUTO;
 // the conversion settling on the same latitude and longitude every time.
 const examples: Record<CoordinateSystem, string> = {
   WGS84: "50.4501, 30.5234",
-  WGS84R: "30.5234, 50.4501",
-  DD: "50.4501°N, 30.5234°E",
-  DDM: "50° 27.006'N, 30° 31.404'E",
-  DMS: `50° 27' 0.36"N, 30° 31' 24.24"E`,
   MGRS: "36UUA2418291607",
   USNG: "36U UA 24182 91607",
   UTM: "36U 324182 5591608",
   "UCS-2000": "5593954 6324226",
 };
 
-// WGS 84 latitude and longitude, written five ways: notations of one system, offered as one group.
-const LATITUDE_LONGITUDE_NOTATIONS: CoordinateSystem[] = ["WGS84", "WGS84R", "DD", "DDM", "DMS"];
-
 // The rectangular grids, each a system with a projection of its own.
 const GRID_SYSTEMS: CoordinateSystem[] = ["MGRS", "USNG", "UTM", "UCS-2000"];
 
-// WGS84, WGS84R, DD, DDM and DMS are one coordinate system written five ways, so they are offered
-// as one group, each labelled by how it writes the angle. The grids are systems of their own.
+// WGS 84 is one system written several ways, offered once; the grids are systems of their own.
 const groups: { label: string; systems: CoordinateSystem[] }[] = [
   { label: "WGS 84 — широта й довгота", systems: ["WGS84"] },
   { label: "Прямокутні сітки", systems: GRID_SYSTEMS },
 ];
 
-// The examples: WGS 84 once, as the plain signed pair, plus the grids. The other notations are the
-// same latitude and longitude written differently; they are still read on input.
+// The examples: WGS 84 as the plain signed pair, plus the grids. Its other formats are still read.
 const EXAMPLE_SYSTEMS: CoordinateSystem[] = ["WGS84", ...GRID_SYSTEMS];
 
-// WGS 84 is offered once, and reads every latitude-first notation of it; see `parsers` below.
+// WGS 84 is offered once, and reads every format of it; see `parsers` below.
 const notationLabels: Partial<Record<CoordinateSystem, string>> = {
-  WGS84: "десяткові, DD, DDM або DMS, широта першою",
+  WGS84: "десяткові, DD, DDM або DMS",
 };
 
 const optionLabel = (system: CoordinateSystem) =>
   notationLabels[system] === undefined ? system : `${system} — ${notationLabels[system]}`;
 
-/** "WGS 84, запис DD" for a notation, the bare name for a grid. */
-const describeSystem = (system: CoordinateSystem) =>
-  LATITUDE_LONGITUDE_NOTATIONS.includes(system) ? `WGS 84, запис ${system}` : system;
-
 type Outcome =
   | { kind: "empty" }
   | { kind: "parseError"; message: string }
-  | { kind: "conversionError"; system: CoordinateSystem; message: string }
-  | { kind: "converted"; system: CoordinateSystem; area: Area };
+  | { kind: "conversionError"; written: WrittenCoordinate; message: string }
+  | { kind: "converted"; written: WrittenCoordinate; area: Area };
 
-// The parser behind each choice in the system select. WGS 84 reads every latitude-first notation,
-// since the select offers it once for all of them; WGS84R is left out, as a longitude-first pair is
-// far likelier a mistake there than a choice.
+// The parser behind each choice in the system select.
 const parsers = {
   [AUTO]: coordinateParser,
-  WGS84: choice([wgs84Parser, ddParser, ddmParser, dmsParser]),
-  WGS84R: wgs84rParser,
-  DD: ddParser,
-  DDM: ddmParser,
-  DMS: dmsParser,
+  WGS84: wgs84Parser,
   MGRS: mgrsParser,
   USNG: usngParser,
   UTM: utmParser,
@@ -106,10 +84,10 @@ const convert = (text: string, input: InputChoice): Outcome => {
   if (parsed.isError) return { kind: "parseError", message: parsed.error };
 
   try {
-    return { kind: "converted", system: parsed.result.system, area: areaOf(parsed.result) };
+    return { kind: "converted", written: parsed.result, area: areaOf(parsed.result.coordinate) };
   } catch (error) {
     if (!(error instanceof RangeError)) throw error;
-    return { kind: "conversionError", system: parsed.result.system, message: error.message };
+    return { kind: "conversionError", written: parsed.result, message: error.message };
   }
 };
 
@@ -185,7 +163,21 @@ const CORNER_LABELS = [
 ] as const;
 
 /** Puts a value into the input, with the system it is written in. */
-type Pick = (conversion: { system: CoordinateSystem; value: string }) => void;
+type Pick = (conversion: { system: Notation; value: string }) => void;
+
+// Values on the page are written in a notation; the system select offers systems, WGS 84 once.
+const systemOf = (notation: Notation): CoordinateSystem => {
+  switch (notation) {
+    case "WGS84":
+    case "WGS84R":
+    case "DD":
+    case "DDM":
+    case "DMS":
+      return "WGS84";
+    default:
+      return notation;
+  }
+};
 
 /**
  * A coordinate as two SVG text lines, latitude over longitude, anchored at (x, y). Clicking it, or
@@ -349,7 +341,7 @@ const CoverageList = ({
   onPick,
 }: {
   coverage: Coverage | null;
-  system: CoordinateSystem;
+  system: Notation;
   onPick: Pick;
 }) => {
   if (coverage?.kind === "tooMany") {
@@ -391,7 +383,7 @@ type Section = {
   id: SectionId;
   title: string;
   /** The systems the section writes the point in; the first one names the squares. */
-  systems: CoordinateSystem[];
+  systems: Notation[];
   /** Whether the section's squares come in a choice of sizes. */
   hasPrecision: boolean;
 };
@@ -409,7 +401,7 @@ type SectionResult = {
   coverage: Coverage | null;
 };
 
-const coverageOf = (area: Area, system: CoordinateSystem, precision: GridPrecision) => {
+const coverageOf = (area: Area, system: Notation, precision: GridPrecision) => {
   try {
     return coveringSquares(area, system, { precision });
   } catch (error) {
@@ -980,7 +972,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
       <span className="font-mono">{outcome.message}</span>
     ) : outcome.kind === "conversionError" ? (
       <>
-        Розпізнано як {describeSystem(outcome.system)}, але перетворити не вдалося:{" "}
+        Розпізнано як {labelOf(outcome.written)}, але перетворити не вдалося:{" "}
         <span className="font-mono">{outcome.message}</span>
       </>
     ) : null;
@@ -996,7 +988,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   // auto-detection would read a WGS84R pair as WGS84 and a USNG reference as MGRS.
   const pick: Pick = ({ system, value }) => {
     setText(value);
-    setInput(system);
+    setInput(systemOf(system));
     setFitView(true);
   };
 
@@ -1091,20 +1083,19 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
             <p className="opacity-60">
               {input === AUTO
                 ? "Введіть координати в будь-якому підтримуваному форматі."
-                : `Введіть координати в системі ${describeSystem(input)}, наприклад ${examples[input]}`}
+                : `Введіть координати в системі ${systemLabel(input)}, наприклад ${examples[input]}`}
             </p>
           )}
           {outcome.kind === "converted" && (
             <>
               {/* Plain decimal latitude and longitude needs no telling; any other notation does. */}
-              {(input === AUTO || input === "WGS84") && outcome.system !== "WGS84" && (
+              {(input === AUTO || input === "WGS84") && outcome.written.format !== "decimal" && (
                 <p>
-                  Розпізнано як <b>{describeSystem(outcome.system)}</b>
+                  Розпізнано як <b>{labelOf(outcome.written)}</b>
                 </p>
               )}
-              {outcome.system === "UCS-2000" && !insideUcs2000AreaOfUse(outcome.area.centre) && (
-                <OutsideAreaOfUse />
-              )}
+              {outcome.written.coordinate.system === "UCS-2000" &&
+                !insideUcs2000AreaOfUse(outcome.area.centre) && <OutsideAreaOfUse />}
             </>
           )}
         </div>

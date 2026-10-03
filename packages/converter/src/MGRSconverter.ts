@@ -1,9 +1,5 @@
-import type {
-  Coordinates,
-  GridLocation,
-  MGRSCoordinate,
-  USNGCoordinate,
-} from "@coordinate-parser/parser";
+import type { Coordinates } from "./coordinates.ts";
+import type { MGRSCoordinate, USNGCoordinate } from "@coordinate-parser/types";
 import { MAX_DIGITS_PER_AXIS, ROW_LETTERS } from "./notation.ts";
 import { type Area, gridSquare } from "./area.ts";
 import { project } from "./transverseMercator.ts";
@@ -56,6 +52,7 @@ export const toMGRS = (coords: Coordinates, precision: GridPrecision = 1): MGRSC
   const truncate = (metres: number) => Math.floor((metres % SQUARE) / precision) * precision;
 
   return {
+    system: "MGRS",
     zone,
     band,
     square: `${columnSet(zone)[column - 1]}${ROW_LETTERS[(row + rowOffset(zone)) % ROW_LETTERS.length]}`,
@@ -66,8 +63,10 @@ export const toMGRS = (coords: Coordinates, precision: GridPrecision = 1): MGRSC
 };
 
 /** WGS 84 to USNG: the MGRS grid, with at least one digit per axis. */
-export const toUSNG = (coords: Coordinates, precision: Exclude<GridPrecision, 100000> = 1) =>
-  toMGRS(coords, precision) as USNGCoordinate;
+export const toUSNG = (
+  coords: Coordinates,
+  precision: Exclude<GridPrecision, 100000> = 1,
+): USNGCoordinate => ({ ...toMGRS(coords, precision), system: "USNG" });
 
 /**
  * The square an MGRS or USNG reference names, in WGS 84. The reference gives the square's
@@ -80,11 +79,7 @@ export const mgrsArea = ({
   easting,
   northing,
   precision,
-}: GridLocation & {
-  zone: number;
-  band: string;
-  square: string;
-}): Area => {
+}: MGRSCoordinate | USNGCoordinate): Area => {
   const [columnLetter, rowLetter] = square;
 
   const column = columnSet(zone).indexOf(columnLetter) + 1;
@@ -150,5 +145,12 @@ export const formatMGRS = ({ zone, band, square, easting, northing, precision }:
   `${zone}${band}${square}${digitsOf(easting, precision)}${digitsOf(northing, precision)}`;
 
 /** The spaced form FGDC-STD-011-2001 prescribes: "10S GJ 06832 44683". */
-export const formatUSNG = ({ zone, band, square, easting, northing, precision }: USNGCoordinate) =>
+export const formatUSNG = ({
+  zone,
+  band,
+  square,
+  easting,
+  northing,
+  precision,
+}: MGRSCoordinate | USNGCoordinate) =>
   `${zone}${band} ${square} ${digitsOf(easting, precision)} ${digitsOf(northing, precision)}`;

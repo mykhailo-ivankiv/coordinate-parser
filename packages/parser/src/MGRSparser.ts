@@ -1,8 +1,8 @@
+import type { MGRSCoordinate } from "@coordinate-parser/types";
 import { optionalWhitespace, sequenceOf } from "arcsecond";
 import { wholeInput } from "./commonParsers.ts";
 import {
   COLUMN_LETTERS,
-  type GridLocation,
   LATITUDE_BANDS,
   letterFrom,
   numericLocation,
@@ -25,16 +25,6 @@ import {
 // the digits 1 and 0. The letter sets and the numeric location live in gridReference.ts,
 // shared with USNG.
 
-/** An MGRS reference: a square of the grid, located inside a 100 km square. */
-export type MGRSCoordinate = GridLocation & {
-  /** UTM zone, 1-60. */
-  zone: number;
-  /** Latitude band letter, C-X without I and O. */
-  band: string;
-  /** The 100 km square: column letter, then row letter. */
-  square: string;
-};
-
 export const MGRSparser = wholeInput(
   sequenceOf([
     zoneNumber(
@@ -48,7 +38,7 @@ export const MGRSparser = wholeInput(
     optionalWhitespace,
     // MGRS permits a bare 100 km square, so no digits at all is a valid reference.
     numericLocation("MGRS", 0),
-  ]).map(([zone, band, , column, row, , location]): MGRSCoordinate => ({
+  ]).map(([zone, band, , column, row, , location]): Omit<MGRSCoordinate, "system"> => ({
     zone,
     band,
     square: `${column}${row}`,

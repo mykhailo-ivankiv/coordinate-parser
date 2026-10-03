@@ -1,8 +1,8 @@
+import type { USNGCoordinate } from "@coordinate-parser/types";
 import { optionalWhitespace, sequenceOf } from "arcsecond";
 import { wholeInput } from "./commonParsers.ts";
 import {
   COLUMN_LETTERS,
-  type GridLocation,
   LATITUDE_BANDS,
   letterFrom,
   numericLocation,
@@ -38,16 +38,6 @@ import {
 //   * the "(NAD 27)" datum suffix, which USNG carries when the reference is not on NAD 83/WGS 84.
 //     The datum changes the meaning of the square letters, not the shape of the string.
 
-/** A USNG reference: the MGRS grid, written the same way but read on NAD 83. */
-export type USNGCoordinate = GridLocation & {
-  /** UTM zone, 1-60. */
-  zone: number;
-  /** Latitude band letter, C-X without I and O. */
-  band: string;
-  /** The 100 km square: column letter, then row letter. */
-  square: string;
-};
-
 export const USNGparser = wholeInput(
   sequenceOf([
     zoneNumber("USNG"),
@@ -57,7 +47,7 @@ export const USNGparser = wholeInput(
     letterFrom(ROW_LETTERS, "a 100 km square row letter"),
     optionalWhitespace,
     numericLocation("USNG", 1),
-  ]).map(([zone, band, , column, row, , location]): USNGCoordinate => ({
+  ]).map(([zone, band, , column, row, , location]): Omit<USNGCoordinate, "system"> => ({
     zone,
     band,
     square: `${column}${row}`,
