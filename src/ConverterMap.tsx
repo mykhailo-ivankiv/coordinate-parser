@@ -7,8 +7,9 @@ import {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import type { Area } from "./converters/coordinateConverter.ts";
+import { gridZones, mgrsGrid, spacingFor, zoneSeams } from "./converters/gridOverlay.ts";
 import {
   UCS2000_STRIPS,
   UCS2000_ZONE_AREAS,
@@ -33,6 +34,9 @@ export const INPUT_COLOUR = "#16a34a";
 export const OUTPUT_COLOUR = "#dc2626";
 // Reference areas, like the zones UCS-2000 is defined in: a third colour, apart from input and result.
 export const ZONE_COLOUR = "#2563eb";
+// The grids get colours of their own, so that switched on together they stay apart.
+export const UTM_COLOUR = "#0891b2";
+export const MGRS_COLOUR = "#7c3aed";
 
 export type OutputSquare = {
   area: Area;
@@ -51,15 +55,19 @@ type MapData = {
   outputSquares: OutputSquare[];
   /** Converted values that are points rather than squares: the WGS 84 latitude and longitude. */
   outputPoints: Coordinates[];
-  /** Which UCS-2000 reference layers to draw. */
-  ucs2000: Ucs2000Layers;
+  /** Which reference layers to draw beneath the results. */
+  layers: MapLayers;
 };
 
-export type Ucs2000Layers = {
-  /** EPSG's area of use for zones 4-7: where a UCS-2000 value can be trusted. */
-  areas: boolean;
+export type MapLayers = {
+  /** EPSG's area of use for UCS-2000 zones 4-7: where a UCS-2000 value can be trusted. */
+  ucs2000Areas: boolean;
   /** The strips 18°-42°E: where the converter computes UCS-2000 at all. */
-  strips: boolean;
+  ucs2000Strips: boolean;
+  /** The UTM grid zones, "36U" and the rest. */
+  utmZones: boolean;
+  /** The MGRS grid, which USNG shares: 100 km squares, finer lines as the map zooms in. */
+  mgrsGrid: boolean;
 };
 
 // Taken from maplibre's own signature, so the project needs no separate GeoJSON type package.
@@ -164,11 +172,22 @@ const zoneBounds = (zones: ZoneArea[]) =>
     [Math.max(...zones.map(({ east }) => east)), Math.max(...zones.map(({ north }) => north))],
   );
 
+// A UTM zone is six degrees wide, 512 · 6/360 · 2^zoom pixels at MapLibre's scale: about 20 px at
+// zoom 1.2, and 50 px — room for "36U" — at zoom 2.6. Its width does not depend on latitude, so here
+// a zoom threshold says the same as a pixel one.
+const UTM_LINES_MIN_ZOOM = 1.2;
+const UTM_LABELS_MIN_ZOOM = 2.6;
+
 const SOURCES = [
   "strips",
   "strip-labels",
   "zones",
   "zone-labels",
+  "utm-zones",
+  "utm-zone-labels",
+  "mgrs-seams",
+  "mgrs-lines",
+  "mgrs-labels",
   "input-area",
   "output-squares",
   "output-labels",
@@ -231,6 +250,55 @@ const addLayers = (map: Map) => {
       "text-size": 12,
     },
     paint: { "text-color": ZONE_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+  });
+
+  // The grids: lines only, beneath the results, each with its own labels.
+  map.addLayer({
+    id: "utm-zones",
+    type: "line",
+    source: "utm-zones",
+    minzoom: UTM_LINES_MIN_ZOOM,
+    paint: { "line-color": UTM_COLOUR, "line-width": 1.2 },
+  });
+  // The UTM zone edges, where one zone's MGRS grid gives way to the next and the lines break.
+  map.addLayer({
+    id: "mgrs-seams",
+    type: "line",
+    source: "mgrs-seams",
+    paint: { "line-color": MGRS_COLOUR, "line-width": 2, "line-dasharray": [6, 3] },
+  });
+  map.addLayer({
+    id: "mgrs-lines",
+    type: "line",
+    source: "mgrs-lines",
+    paint: {
+      "line-color": MGRS_COLOUR,
+      "line-width": ["case", ["get", "major"], 1.4, 0.7],
+      "line-opacity": ["case", ["get", "major"], 0.9, 0.6],
+    },
+  });
+  map.addLayer({
+    id: "utm-zone-labels",
+    type: "symbol",
+    source: "utm-zone-labels",
+    minzoom: UTM_LABELS_MIN_ZOOM,
+    layout: {
+      "text-field": ["get", "label"],
+      "text-font": ["Noto Sans Regular"],
+      "text-size": 13,
+    },
+    paint: { "text-color": UTM_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+  });
+  map.addLayer({
+    id: "mgrs-labels",
+    type: "symbol",
+    source: "mgrs-labels",
+    layout: {
+      "text-field": ["get", "label"],
+      "text-font": ["Noto Sans Regular"],
+      "text-size": 11,
+    },
+    paint: { "text-color": MGRS_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
   });
 
   map.addLayer({
@@ -311,13 +379,96 @@ const addLayers = (map: Map) => {
 const setData = (map: Map, id: string, data: FeatureCollection) =>
   (map.getSource(id) as GeoJSONSource).setData(data);
 
+// Every UTM grid zone, outlined: a box of meridians and parallels, straight on a web map.
+const UTM_ZONES = gridZones();
+const utmZoneOutlines = collection(
+  UTM_ZONES.map(({ west, south, east, north }) => ({
+    type: "Feature" as const,
+    properties: {},
+    geometry: {
+      type: "LineString" as const,
+      coordinates: [
+        [west, south],
+        [east, south],
+        [east, north],
+        [west, north],
+        [west, south],
+      ],
+    },
+  })),
+);
+const utmZoneLabels = points(
+  UTM_ZONES.map(({ designator, west, south, east, north }) => ({
+    at: { latitude: (south + north) / 2, longitude: (west + east) / 2 },
+    label: designator,
+  })),
+);
+
+const mgrsSeams = collection(
+  zoneSeams().map((seam) => ({
+    type: "Feature" as const,
+    properties: {},
+    geometry: { type: "LineString" as const, coordinates: seam.map(lngLat) },
+  })),
+);
+
+const NO_MGRS = { lines: collection([]), labels: collection([]), seams: collection([]) };
+
+// The grids follow the scale by how big a cell comes out on screen, not by zoom level, since a
+// cell's size in pixels also depends on latitude. Below these sizes the lines or labels would only
+// be clutter.
+const MGRS_MIN_SQUARE_PIXELS = 40; // 100 km squares, to draw the grid at all
+const MGRS_LABEL_PIXELS = 120; // 100 km squares, to name them
+
+/** The MGRS grid for the map's current view, at a spacing that suits its scale. */
+const mgrsForView = (map: Map) => {
+  const zoom = map.getZoom();
+  const resolution = metresPerPixel(map.getCenter().lat, zoom);
+  const squarePixels = 100_000 / resolution;
+  if (squarePixels < MGRS_MIN_SQUARE_PIXELS) return NO_MGRS;
+
+  const bounds = map.getBounds();
+  const view = {
+    west: Math.max(-180, bounds.getWest()),
+    east: Math.min(180, bounds.getEast()),
+    south: Math.max(-90, bounds.getSouth()),
+    north: Math.min(90, bounds.getNorth()),
+  };
+  const spacing = spacingFor(resolution);
+  // A view too wide for the fine lines still gets the 100 km squares.
+  const grid = mgrsGrid(view, spacing) ?? mgrsGrid(view, 100_000) ?? { lines: [], labels: [] };
+
+  return {
+    lines: collection(
+      grid.lines.map(({ path, major }) => ({
+        type: "Feature" as const,
+        properties: { major },
+        geometry: { type: "LineString" as const, coordinates: path.map(lngLat) },
+      })),
+    ),
+    labels: points(squarePixels >= MGRS_LABEL_PIXELS ? grid.labels : []),
+    seams: mgrsSeams,
+  };
+};
+
+/** Draws the grids that are switched on; the MGRS one is redrawn whenever the view moves. */
+const drawGrids = (map: Map, { utmZones, mgrsGrid: showMgrs }: MapLayers) => {
+  setData(map, "utm-zones", utmZones ? utmZoneOutlines : collection([]));
+  setData(map, "utm-zone-labels", utmZones ? utmZoneLabels : collection([]));
+  const mgrs = showMgrs ? mgrsForView(map) : NO_MGRS;
+  setData(map, "mgrs-seams", mgrs.seams);
+  setData(map, "mgrs-lines", mgrs.lines);
+  setData(map, "mgrs-labels", mgrs.labels);
+};
+
 /**
  * Fills the sources for the current zoom: squares big enough to see as polygons, the rest as rings.
  * Returns which squares came out as rings, so a zoom that changes nothing can skip the redraw.
  */
-const draw = (map: Map, { centre, inputArea, outputSquares, outputPoints, ucs2000 }: MapData) => {
-  const zones = ucs2000.areas ? UCS2000_ZONE_AREAS : [];
-  const strips = ucs2000.strips ? UCS2000_STRIPS : [];
+const draw = (map: Map, { centre, inputArea, outputSquares, outputPoints, layers }: MapData) => {
+  const zones = layers.ucs2000Areas ? UCS2000_ZONE_AREAS : [];
+  const strips = layers.ucs2000Strips ? UCS2000_STRIPS : [];
+  drawGrids(map, layers);
   const zoom = map.getZoom();
   const visible = outputSquares.filter(({ area }) => !tooSmall(area, zoom));
   const rings = outputSquares.filter(({ area }) => tooSmall(area, zoom));
@@ -385,12 +536,30 @@ const Swatch = ({
   />
 );
 
-const Legend = ({
-  ucs2000,
-  onUcs2000Change,
+/** A legend line that is also the switch for its layer. */
+const LayerToggle = ({
+  checked,
+  onChange,
+  children,
 }: {
-  ucs2000: Ucs2000Layers;
-  onUcs2000Change: (layers: Ucs2000Layers) => void;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: ReactNode;
+}) => (
+  <li>
+    <label className="flex cursor-pointer items-center gap-1">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {children}
+    </label>
+  </li>
+);
+
+const Legend = ({
+  layers,
+  onLayersChange,
+}: {
+  layers: MapLayers;
+  onLayersChange: (layers: MapLayers) => void;
 }) => (
   <ul className="absolute bottom-8 left-2 flex flex-col gap-1 rounded-sm bg-white/90 p-2 text-xs text-black shadow">
     <li>
@@ -409,26 +578,36 @@ const Legend = ({
     <li>
       <Swatch colour={OUTPUT_COLOUR} dashed /> інші квадрати, куди сягає вхідна зона
     </li>
-    <li className="mt-1 border-t pt-1">
-      <label className="flex cursor-pointer items-center gap-1">
-        <input
-          type="checkbox"
-          checked={ucs2000.areas}
-          onChange={(e) => onUcs2000Change({ ...ucs2000, areas: e.target.checked })}
-        />
-        <Swatch colour={ZONE_COLOUR} dashed /> зона визначення УСК-2000
-      </label>
-    </li>
-    <li>
-      <label className="flex cursor-pointer items-center gap-1">
-        <input
-          type="checkbox"
-          checked={ucs2000.strips}
-          onChange={(e) => onUcs2000Change({ ...ucs2000, strips: e.target.checked })}
-        />
-        <Swatch colour={ZONE_COLOUR} dotted /> смуги, де рахується УСК-2000
-      </label>
-    </li>
+    <li className="mt-1 border-t pt-1 opacity-60">шари</li>
+    <LayerToggle
+      checked={layers.utmZones}
+      onChange={(utmZones) => onLayersChange({ ...layers, utmZones })}
+    >
+      <Swatch colour={UTM_COLOUR} /> зони сітки UTM
+    </LayerToggle>
+    <LayerToggle
+      checked={layers.mgrsGrid}
+      onChange={(mgrsGrid) => onLayersChange({ ...layers, mgrsGrid })}
+    >
+      <Swatch colour={MGRS_COLOUR} /> сітка MGRS / USNG
+    </LayerToggle>
+    {layers.mgrsGrid && (
+      <li className="pl-5">
+        <Swatch colour={MGRS_COLOUR} dashed /> межа зон, де сітка переривається
+      </li>
+    )}
+    <LayerToggle
+      checked={layers.ucs2000Areas}
+      onChange={(ucs2000Areas) => onLayersChange({ ...layers, ucs2000Areas })}
+    >
+      <Swatch colour={ZONE_COLOUR} dashed /> зона визначення УСК-2000
+    </LayerToggle>
+    <LayerToggle
+      checked={layers.ucs2000Strips}
+      onChange={(ucs2000Strips) => onLayersChange({ ...layers, ucs2000Strips })}
+    >
+      <Swatch colour={ZONE_COLOUR} dotted /> смуги, де рахується УСК-2000
+    </LayerToggle>
   </ul>
 );
 
@@ -442,15 +621,15 @@ type Picking = {
    * user chose it where they were looking, so the view stays put and only the drawing changes.
    */
   fitView: boolean;
-  /** Called when the UCS-2000 layers are switched from the legend. */
-  onUcs2000Change: (layers: Ucs2000Layers) => void;
+  /** Called when a layer is switched from the legend. */
+  onLayersChange: (layers: MapLayers) => void;
 };
 
 export const ConverterMap = ({
   picking,
   onPick,
   fitView,
-  onUcs2000Change,
+  onLayersChange,
   ...data
 }: MapData & Picking) => {
   const container = useRef<HTMLDivElement>(null);
@@ -488,6 +667,11 @@ export const ConverterMap = ({
         .join();
       if (rings !== drawn.current) drawn.current = draw(instance, latest.current);
     });
+    // The MGRS grid covers only the view, so it follows the view.
+    instance.on("moveend", () => {
+      if (loaded.current && latest.current.layers.mgrsGrid)
+        drawGrids(instance, latest.current.layers);
+    });
     instance.on("click", ({ lngLat }) => {
       if (!pick.current.picking) return;
       // wrap(): a map panned past the antimeridian reports longitudes beyond ±180.
@@ -524,7 +708,7 @@ export const ConverterMap = ({
 
   // Switching the zones on brings them into view, the whole of Ukraine, as long as the view is
   // allowed to move at all.
-  const { areas, strips } = data.ucs2000;
+  const { ucs2000Areas: areas, ucs2000Strips: strips } = data.layers;
   useEffect(() => {
     if (!areas || !fitView || map.current === null || !loaded.current) return;
     map.current.fitBounds(zoneBounds(UCS2000_ZONE_AREAS), { padding: 40, duration: 600 });
@@ -550,7 +734,7 @@ export const ConverterMap = ({
           Клікніть на карті, щоб вибрати точку · Esc — скасувати
         </p>
       )}
-      <Legend ucs2000={data.ucs2000} onUcs2000Change={onUcs2000Change} />
+      <Legend layers={data.layers} onLayersChange={onLayersChange} />
     </div>
   );
 };

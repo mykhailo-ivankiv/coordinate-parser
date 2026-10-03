@@ -1,10 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import {
-  ConverterMap,
-  type OutputSquare,
-  OUTPUT_COLOUR,
-  type Ucs2000Layers,
-} from "./ConverterMap.tsx";
+import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "./ConverterMap.tsx";
 import {
   type Area,
   areaOf,
@@ -796,6 +791,81 @@ const Sk42Answer = () => (
   </>
 );
 
+// MGRS and USNG side by side: one grid, two standards.
+const MGRS_USNG_ROWS: [string, ReactNode, ReactNode][] = [
+  [
+    "Стандарт",
+    <>
+      <ExternalLink href={`${import.meta.env.BASE_URL}NGA_STND_0037_2.0.0_GRIDS.pdf`}>
+        NGA.STND.0037
+      </ExternalLink>
+      , військовий (НАТО)
+    </>,
+    <>
+      <ExternalLink href="https://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf">
+        FGDC-STD-011-2001
+      </ExternalLink>
+      , цивільний (США)
+    </>,
+  ],
+  ["Де діє", "уся Земля, полярні шапки — через UPS", "США та їхні території"],
+  ["Датум", "WGS 84", "NAD 83, або NAD 27 з позначкою «(NAD 27)»"],
+  [
+    "Найгрубіше посилання",
+    "зона 36U або квадрат 100 км 36UUA",
+    "квадрат 10 км — хоч одна цифра на вісь",
+  ],
+  ["Запис", "зазвичай злито: 18TWL8395907350", "з пробілами: 18T WL 83959 07350"],
+  [
+    "Скорочений запис",
+    "немає",
+    "зону й квадрат можна відкинути, якщо вони спільні для всього документа: 83959 07350",
+  ],
+];
+
+const MgrsUsngAnswer = () => (
+  <>
+    <p>
+      По суті USNG — це MGRS, прийнятий у США як цивільний стандарт. Сітка, літери квадратів і
+      правила обрізання цифр у них спільні, тож для однієї точки й однієї точності вони дають той
+      самий квадрат — і на карті він той самий.
+    </p>
+    <table className="mt-2">
+      <thead>
+        <tr>
+          <th />
+          <th className="py-0.5 pr-3 text-left">MGRS</th>
+          <th className="py-0.5 text-left">USNG</th>
+        </tr>
+      </thead>
+      <tbody>
+        {MGRS_USNG_ROWS.map(([what, mgrs, usng]) => (
+          <tr key={what} className="align-top">
+            <th className="py-0.5 pr-3 text-left font-normal whitespace-nowrap opacity-60">
+              {what}
+            </th>
+            <td className="py-0.5 pr-3">{mgrs}</td>
+            <td className="py-0.5">{usng}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p className="mt-2">
+      Датум майже нічого не змінює: офіційний перехід NAD 83 → WGS 84 у реєстрі EPSG — нульовий зсув
+      із похибкою 4 м. Різниця реальна, близько одного-двох метрів, але менша за похибку самого
+      переходу, тож за рядком MGRS і USNG не розрізнити — автовизначення тут завжди скаже «MGRS».
+      Помітна в самому рядку лише точність: «10S GJ» — валідний MGRS, але не USNG. NAD 27 — інша
+      справа: там зсув уже десятки метрів, тому FGDC і вимагає для нього окремої позначки.
+    </p>
+    <p className="mt-2">
+      Цей конвертер рахує обидва однаково, на WGS 84; для USNG на NAD 83 це метр-два, у межах
+      точності метрового квадрата. USNG на NAD 27 і скорочені записи без зони він не читає. Тому
+      MGRS і USNG тут в одному розділі й з однією сіткою на карті: квадрат той самий, різниться
+      тільки запис.
+    </p>
+  </>
+);
+
 // Questions that come up about how the converter works, each folded until it is opened.
 const QUESTIONS: { question: string; answer: ReactNode }[] = [
   { question: "Що таке PROJ і що він робить?", answer: <ProjAnswer /> },
@@ -806,6 +876,7 @@ const QUESTIONS: { question: string; answer: ReactNode }[] = [
     answer: <WasmAnswer />,
   },
   { question: "Чим СК-42 відрізняється від УСК-2000?", answer: <Sk42Answer /> },
+  { question: "Чим MGRS відрізняється від USNG?", answer: <MgrsUsngAnswer /> },
 ];
 
 const QuestionsAndAnswers = () => (
@@ -822,6 +893,17 @@ const QuestionsAndAnswers = () => (
   </section>
 );
 
+// The map layers each section can switch on; the map's legend switches the same ones.
+const SECTION_LAYERS: Record<SectionId, { layer: keyof MapLayers; label: string }[]> = {
+  WGS84: [],
+  MGRS: [{ layer: "mgrsGrid", label: "показати сітку MGRS / USNG" }],
+  UTM: [{ layer: "utmZones", label: "показати зони сітки UTM" }],
+  "UCS-2000": [
+    { layer: "ucs2000Areas", label: "підсвітити зону визначення" },
+    { layer: "ucs2000Strips", label: "показати смуги, де рахується перетворення" },
+  ],
+};
+
 export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [text, setText] = useState("");
   const [input, setInput] = useState<InputChoice>(AUTO);
@@ -831,9 +913,11 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [fitView, setFitView] = useState(true);
   // The user's own switch: off, the map never moves on its own, whatever changes.
   const [followResult, setFollowResult] = useState(true);
-  const [ucs2000Layers, setUcs2000Layers] = useState<Ucs2000Layers>({
-    areas: false,
-    strips: false,
+  const [layers, setLayers] = useState<MapLayers>({
+    ucs2000Areas: false,
+    ucs2000Strips: false,
+    utmZones: false,
+    mgrsGrid: false,
   });
   const [open, setOpen] = useState<Record<SectionId, boolean>>({
     WGS84: false,
@@ -991,28 +1075,18 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                   setFitView(true);
                 }}
               >
-                {section.id === "UCS-2000" && (
+                {SECTION_LAYERS[section.id].length > 0 && (
                   <div className="mb-2 flex flex-col gap-1">
-                    <label className="flex w-fit cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={ucs2000Layers.areas}
-                        onChange={(e) =>
-                          setUcs2000Layers({ ...ucs2000Layers, areas: e.target.checked })
-                        }
-                      />
-                      підсвітити зону визначення
-                    </label>
-                    <label className="flex w-fit cursor-pointer items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={ucs2000Layers.strips}
-                        onChange={(e) =>
-                          setUcs2000Layers({ ...ucs2000Layers, strips: e.target.checked })
-                        }
-                      />
-                      показати смуги, де рахується перетворення
-                    </label>
+                    {SECTION_LAYERS[section.id].map(({ layer, label }) => (
+                      <label key={layer} className="flex w-fit cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={layers[layer]}
+                          onChange={(e) => setLayers({ ...layers, [layer]: e.target.checked })}
+                        />
+                        {label}
+                      </label>
+                    ))}
                   </div>
                 )}
                 <SectionBody
@@ -1077,8 +1151,8 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           picking={picking}
           onPick={pickOnMap}
           fitView={followResult && fitView}
-          ucs2000={ucs2000Layers}
-          onUcs2000Change={setUcs2000Layers}
+          layers={layers}
+          onLayersChange={setLayers}
         />
       </div>
     </div>
