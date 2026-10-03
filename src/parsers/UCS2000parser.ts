@@ -41,6 +41,7 @@ const EASTING_DIGITS = 6;
 const MIN_ZONE = 4;
 const MAX_ZONE = 7;
 
+/** A UCS-2000 (EPSG:5562-5565) rectangular position over Ukraine. */
 export type UCS2000Coordinate = {
   /** Gauss-Kruger zone, 4-7 over Ukraine, taken from the leading digit of Y. */
   zone: number;

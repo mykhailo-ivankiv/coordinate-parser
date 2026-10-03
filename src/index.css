@@ -107,6 +107,25 @@
   border: 1px solid var(--color-line);
   border-radius: 0.75rem;
 }
+
+/* Syntax colours for sugar-high's token types, on the API page. Muted, warm, and dark enough to read
+   on the white of a code block; identifiers and properties keep the ink. */
+.sh-keyword {
+  color: #a8462b;
+}
+.sh-string {
+  color: #3d7a4f;
+}
+.sh-class {
+  color: #2f5f8f;
+}
+.sh-entity {
+  color: #7a4fa0;
+}
+.sh-sign,
+.sh-comment {
+  color: #7b746a;
+}
 .prose-ink :where(a) {
   font-weight: inherit;
   text-underline-offset: 2px;

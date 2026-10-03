@@ -25,9 +25,13 @@ import {
 // the digits 1 and 0. The letter sets and the numeric location live in gridReference.ts,
 // shared with USNG.
 
+/** An MGRS reference: a square of the grid, located inside a 100 km square. */
 export type MGRSCoordinate = GridLocation & {
+  /** UTM zone, 1-60. */
   zone: number;
+  /** Latitude band letter, C-X without I and O. */
   band: string;
+  /** The 100 km square: column letter, then row letter. */
   square: string;
 };
 

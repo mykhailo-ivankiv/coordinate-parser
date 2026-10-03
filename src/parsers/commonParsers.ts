@@ -27,6 +27,7 @@ export const coordinateSystems = [
   "DMS",
 ];
 
+/** WGS 84 latitude and longitude in decimal degrees; south and west are negative. */
 export type Coordinates = { latitude: number; longitude: number };
 
 export const MAX_FRACTION_DIGITS = 7;

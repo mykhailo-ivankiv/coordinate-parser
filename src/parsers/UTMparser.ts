@@ -31,8 +31,11 @@ import {
 // "17N 630084 4833438" claims band N, 0-8 degrees north, but carries a northing some 4300 km up.
 // Catching that needs the inverse projection, which is a conversion concern, not a parsing one.
 
+/** A UTM position: zone, hemisphere, and metres east and north within the zone. */
 export type UTMCoordinate = UTMLocation & {
+  /** Zone, 1-60, each 6° of longitude wide. */
   zone: number;
+  /** Which false northing applies; taken from the band when one is written. */
   hemisphere: "N" | "S";
   /** Latitude band, present only when the reference is written with one. */
   band?: string;

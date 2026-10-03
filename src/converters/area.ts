@@ -7,6 +7,7 @@ import type { Projected } from "./transverseMercator.ts";
 // every point within half a metre of that easting and northing. The centre is the single best
 // estimate, the one that goes into storage; the corners say how far the truth can be from it.
 
+/** The four corners of a grid square, in WGS 84. */
 export type Corners = {
   southWest: Coordinates;
   southEast: Coordinates;
@@ -14,6 +15,7 @@ export type Corners = {
   northWest: Coordinates;
 };
 
+/** What a written coordinate designates: a point, or a grid square around its centre. */
 export type Area = {
   centre: Coordinates;
   /** The square's corners in WGS 84, or null when the notation names a point. */

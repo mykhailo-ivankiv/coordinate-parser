@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
+import { useActiveSection as useActiveSectionOf } from "./useActiveSection.ts";
 import latitudeLongitudeSvg from "./assets/latitude-longitude.svg?raw";
 import utmZonesSvg from "./assets/utm-zones.svg?raw";
 
@@ -1397,41 +1398,8 @@ export const ArticleAboutCoordinateSystems = () => (
   </article>
 );
 
-/**
- * The section being read: the last heading to have passed the top fifth of the viewport. Drives the
- * highlight in the contents, which would otherwise not say where in a long article you are.
- */
-const useActiveSection = () => {
-  const [active, setActive] = useState(CONTENTS[0][0]);
-
-  useEffect(() => {
-    const headings = CONTENTS.map(([id]) => document.getElementById(id)).filter(
-      (heading): heading is HTMLElement => heading !== null,
-    );
-    // Read on scroll rather than through an IntersectionObserver: a jump from the contents can carry
-    // a heading clean past any observed band without it ever registering as crossing.
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      const line = window.innerHeight * 0.2;
-      const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= line);
-      setActive((passed.at(-1) ?? headings[0])?.id ?? CONTENTS[0][0]);
-    };
-    const schedule = () => {
-      if (frame === 0) frame = requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
-    return () => {
-      window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
-      cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  return active;
-};
+const SECTION_IDS = CONTENTS.map(([id]) => id);
+const useActiveSection = () => useActiveSectionOf(SECTION_IDS);
 
 const titleOf = (id: string) => CONTENTS.find(([section]) => section === id)?.[1] ?? "";
 

@@ -21,6 +21,7 @@
     "arcsecond": "^5.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "sugar-high": "^2.5.1",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
@@ -39,6 +40,7 @@
     "oxfmt": "^0.63.0",
     "oxlint": "^1.75.0",
     "proj4": "^2.22.0",
+    "typedoc": "^0.28.20",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"

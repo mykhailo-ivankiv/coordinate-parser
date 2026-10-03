@@ -23,6 +23,7 @@ export const ROW_LETTERS = "ABCDEFGHJKLMNPQRSTUV";
 
 export const MAX_DIGITS_PER_AXIS = 5;
 
+/** Where in a 100 km square an MGRS or USNG reference points, and how finely. */
 export type GridLocation = {
   /** Metres east of the south-west corner of the 100 km square. */
   easting: number;
@@ -109,6 +110,7 @@ const MIN_EASTING = 100000;
 const MAX_EASTING = 999999;
 const MAX_NORTHING = 10000000;
 
+/** Metres east and north in a UTM zone. */
 export type UTMLocation = {
   /** Metres east of the zone's false origin; 500000 sits on the central meridian. */
   easting: number;

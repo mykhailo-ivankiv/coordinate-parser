@@ -38,9 +38,13 @@ import {
 //   * the "(NAD 27)" datum suffix, which USNG carries when the reference is not on NAD 83/WGS 84.
 //     The datum changes the meaning of the square letters, not the shape of the string.
 
+/** A USNG reference: the MGRS grid, written the same way but read on NAD 83. */
 export type USNGCoordinate = GridLocation & {
+  /** UTM zone, 1-60. */
   zone: number;
+  /** Latitude band letter, C-X without I and O. */
   band: string;
+  /** The 100 km square: column letter, then row letter. */
   square: string;
 };
 

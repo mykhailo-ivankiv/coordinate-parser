@@ -9,6 +9,8 @@ import {
 const ConverterPage = lazy(() =>
   import("./ConverterPage.tsx").then(({ ConverterPage }) => ({ default: ConverterPage })),
 );
+// Also on demand: the generated reference is data only this page needs.
+const ApiPage = lazy(() => import("./ApiPage.tsx").then(({ ApiPage }) => ({ default: ApiPage })));
 import { coordinateParser } from "./parsers/coordinateParser.ts";
 
 // Grouped by the `system` coordinateParser actually reports, not by which parser module
@@ -488,6 +490,7 @@ const pages = [
   { hash: "", label: "Парсер" },
   { hash: "#/convert", label: "Конвертер" },
   { hash: "#/guide", label: "Довідник" },
+  { hash: "#/api", label: "API" },
 ] as const;
 
 type PageHash = (typeof pages)[number]["hash"];
@@ -602,6 +605,25 @@ function App() {
           <GuideContentsBar className="lg:hidden" />
           <GuidePage />
         </div>
+      </main>
+    );
+  }
+
+  // The API reference is laid out like the guide: its contents in a column to the left.
+  if (page === "#/api") {
+    return (
+      <main className="m-auto px-4 py-6 lg:grid lg:grid-cols-[minmax(14rem,1fr)_minmax(0,64ch)_minmax(0,1fr)] lg:gap-x-12">
+        <Suspense fallback={<p className="text-sm opacity-60">Завантаження…</p>}>
+          <ApiPage
+            header={
+              <PageHeader
+                active={page}
+                title="API"
+                subtitle="Парсер і конвертер: функції, константи й типи."
+              />
+            }
+          />
+        </Suspense>
       </main>
     );
   }
