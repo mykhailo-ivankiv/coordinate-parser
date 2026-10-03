@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { ConverterMap } from "./ConverterMap.tsx";
+import { ConverterMap, type OutputSquare } from "./ConverterMap.tsx";
 import {
   type Area,
   areaOf,
@@ -12,6 +12,7 @@ import {
   toAllSystems,
   tryFromWGS84,
 } from "./converters/coordinateConverter.ts";
+import { type Coverage, coveringSquares, MAX_COVERING_SQUARES } from "./converters/coverage.ts";
 import { formatWGS84 } from "./converters/sexagesimalFormat.ts";
 import type { Coordinates } from "./parsers/commonParsers.ts";
 import { coordinateParser, systemParsers } from "./parsers/coordinateParser.ts";
@@ -42,6 +43,16 @@ const groups: { label: string; systems: CoordinateSystem[] }[] = [
   { label: "WGS 84 — широта й довгота", systems: LATITUDE_LONGITUDE_NOTATIONS },
   { label: "Прямокутні сітки", systems: GRID_SYSTEMS },
 ];
+
+// What results are shown in, and what the examples cover: WGS 84 once, as the plain signed pair,
+// plus the grids. The other notations are the same latitude and longitude written differently, so
+// listing them as results would only repeat one value five times. They are still read on input.
+const displayGroups: { label: string; systems: CoordinateSystem[] }[] = [
+  { label: "WGS 84 — широта й довгота", systems: ["WGS84"] },
+  { label: "Прямокутні сітки", systems: GRID_SYSTEMS },
+];
+
+const DISPLAY_SYSTEMS = displayGroups.flatMap(({ systems }) => systems);
 
 const notationLabels: Partial<Record<CoordinateSystem, string>> = {
   WGS84: "десяткові градуси, широта першою",
@@ -92,11 +103,13 @@ const SystemSelect = <T extends string>({
   value,
   onChange,
   extra,
+  options,
 }: {
   label: string;
   value: T;
   onChange: (value: T) => void;
   extra: { value: T; label: string };
+  options: { label: string; systems: CoordinateSystem[] }[];
 }) => (
   <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
     <span className="truncate opacity-60">{label}</span>
@@ -106,7 +119,7 @@ const SystemSelect = <T extends string>({
       onChange={(e) => onChange(e.target.value as T)}
     >
       <option value={extra.value}>{extra.label}</option>
-      {groups.map(({ label, systems }) => (
+      {options.map(({ label, systems }) => (
         <optgroup key={label} label={label}>
           {systems.map((system) => (
             <option key={system} value={system}>
@@ -176,12 +189,62 @@ const AreaTable = ({ area, caption = "Квадрат" }: { area: Area; caption?:
   );
 };
 
+// Ukrainian agrees the noun with the number: 1 квадрат, 2 квадрати, 5 квадратів, 21 квадрат.
+const squaresWord = (count: number) => {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (last === 1 && lastTwo !== 11) return "квадрат";
+  if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return "квадрати";
+  return "квадратів";
+};
+
+const CoverageList = ({
+  coverage,
+  system,
+  onPick,
+}: {
+  coverage: Coverage | null;
+  system: CoordinateSystem;
+  onPick: (conversion: { system: CoordinateSystem; value: string }) => void;
+}) => {
+  if (coverage?.kind === "tooMany") {
+    return (
+      <p className="mt-3 opacity-60">
+        Вхідна зона охоплює близько {coverage.count.toLocaleString("uk-UA")}{" "}
+        {squaresWord(coverage.count)} {system} — забагато, щоб перелічити (межа —{" "}
+        {MAX_COVERING_SQUARES}). Оберіть грубішу точність.
+      </p>
+    );
+  }
+  if (coverage === null || coverage.squares.length < 2) return null;
+
+  return (
+    <div className="mt-3">
+      <p>
+        Вхідна зона перетинає {coverage.squares.length} {squaresWord(coverage.squares.length)}{" "}
+        {system}: точка може бути в будь-якому з них. Перший містить центр — його й повертає
+        конвертація.
+      </p>
+      <ul className="mt-1 flex flex-col gap-0.5">
+        {coverage.squares.map((square, index) => (
+          <li key={square.value}>
+            <ConversionValue conversion={square} onPick={onPick} />
+            {index === 0 && <span className="opacity-60"> — містить центр</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const Output = ({
   conversions,
+  coverage,
   output,
   onPick,
 }: {
   conversions: Conversion[];
+  coverage: Coverage | null;
   output: OutputChoice;
   onPick: (conversion: { system: CoordinateSystem; value: string }) => void;
 }) => {
@@ -194,6 +257,7 @@ const Output = ({
           <ConversionValue conversion={conversion} onPick={onPick} />
         </p>
         {"area" in conversion && <AreaTable area={conversion.area} />}
+        <CoverageList coverage={coverage} system={output} onPick={onPick} />
       </div>
     );
   }
@@ -202,7 +266,7 @@ const Output = ({
     <>
       <h3 className="mt-4 font-bold">У кожній системі</h3>
       <table className="mt-1 w-full">
-        {groups.map(({ label, systems }) => (
+        {displayGroups.map(({ label, systems }) => (
           <tbody key={label}>
             <tr>
               <th colSpan={3} className="pt-2 pb-1 text-left">
@@ -235,7 +299,7 @@ const Output = ({
 
 const convertOutput = (coords: Coordinates, output: OutputChoice, precision: GridPrecision) =>
   output === ALL
-    ? toAllSystems(coords, { precision })
+    ? toAllSystems(coords, { precision }).filter(({ system }) => DISPLAY_SYSTEMS.includes(system))
     : [tryFromWGS84(coords, output, { precision })];
 
 // Each square is drawn once: MGRS and USNG name the same one, and the metre squares of UTM and
@@ -251,6 +315,32 @@ const distinctSquares = (conversions: Conversion[]): Area[] => {
   });
 };
 
+// Only for a single output system: across all of them at once the overlaps would bury each other.
+const coverageOf = (area: Area, output: OutputChoice, precision: GridPrecision) => {
+  if (output === ALL) return null;
+  try {
+    return coveringSquares(area, output, { precision });
+  } catch (error) {
+    // The system cannot express the input at all; Output already says why.
+    if (error instanceof RangeError) return null;
+    throw error;
+  }
+};
+
+const squaresForMap = (conversions: Conversion[], coverage: Coverage | null): OutputSquare[] => {
+  if (coverage === null)
+    return distinctSquares(conversions).map((area) => ({ area, primary: true }));
+  if (coverage.kind === "tooMany") return [{ area: coverage.primary.area, primary: true }];
+
+  // Labels only when there is more than one square to tell apart.
+  const labelled = coverage.squares.length > 1;
+  return coverage.squares.map(({ area, value }, index) => ({
+    area,
+    label: labelled ? value : undefined,
+    primary: index === 0,
+  }));
+};
+
 export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [text, setText] = useState("");
   const [input, setInput] = useState<InputChoice>(AUTO);
@@ -259,6 +349,8 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const outcome = convert(text, input);
   const conversions =
     outcome.kind === "converted" ? convertOutput(outcome.area.centre, output, precision) : [];
+  const coverage =
+    outcome.kind === "converted" ? coverageOf(outcome.area, output, precision) : null;
 
   // A converted value is fed back in under its own system rather than through auto-detection:
   // auto-detection would read a WGS84R pair as WGS84 and a USNG reference as MGRS.
@@ -275,7 +367,8 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
       if ("value" in conversion) setText(conversion.value);
     }
     setInput(output === ALL ? AUTO : output);
-    setOutput(input === AUTO ? ALL : input);
+    // Results come as plain WGS84, so a DD, DMS or other notation on input swaps to that.
+    setOutput(input === AUTO ? ALL : DISPLAY_SYSTEMS.includes(input) ? input : "WGS84");
   };
 
   return (
@@ -288,6 +381,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
             value={input}
             onChange={setInput}
             extra={{ value: AUTO, label: "Визначити автоматично" }}
+            options={groups}
           />
           <button
             type="button"
@@ -302,6 +396,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
             value={output}
             onChange={setOutput}
             extra={{ value: ALL, label: "Усі системи" }}
+            options={displayGroups}
           />
         </div>
 
@@ -355,7 +450,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                 </p>
               )}
 
-              <Output conversions={conversions} output={output} onPick={pick} />
+              <Output conversions={conversions} coverage={coverage} output={output} onPick={pick} />
 
               {outcome.area.corners !== null && (
                 <div className="mt-4">
@@ -376,7 +471,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
 
         <section className="mt-6 text-sm">
           <h3 className="font-bold">Приклади</h3>
-          {groups.map(({ label, systems }) => (
+          {displayGroups.map(({ label, systems }) => (
             <div key={label} className="mt-2">
               <h4 className="opacity-60">{label}</h4>
               <ul className="mt-1 flex flex-col gap-1">
@@ -419,7 +514,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
         <ConverterMap
           centre={outcome.kind === "converted" ? outcome.area.centre : null}
           inputArea={outcome.kind === "converted" ? outcome.area : null}
-          outputAreas={distinctSquares(conversions)}
+          outputSquares={squaresForMap(conversions, coverage)}
         />
       </div>
     </div>

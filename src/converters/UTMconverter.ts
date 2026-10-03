@@ -88,6 +88,15 @@ export const toUTM = (coords: Coordinates): UTMCoordinate => {
 export const unprojectUTM = (location: Projected, zone: number, hemisphere: "N" | "S") =>
   unproject(location, utmProjection(zone, hemisphere));
 
+/**
+ * The grid of one UTM zone, unrounded. Points outside the zone still project, onto its extended
+ * grid, which is what comparing squares across a zone edge needs.
+ */
+export const utmGrid = (zone: number, hemisphere: "N" | "S") => ({
+  project: (coords: Coordinates): Projected => project(coords, utmProjection(zone, hemisphere)),
+  unproject: (location: Projected): Coordinates => unprojectUTM(location, zone, hemisphere),
+});
+
 // A written reference is rounded to the metre, so a point on a band edge can land a hair across it.
 // About ten metres of slack absorbs that and still catches a band that is simply wrong.
 export const BAND_TOLERANCE = 0.0001;

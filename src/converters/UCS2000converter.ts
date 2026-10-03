@@ -2,7 +2,7 @@ import type { Coordinates } from "../parsers/commonParsers.ts";
 import type { UCS2000Coordinate } from "../parsers/UCS2000parser.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
 import { type Area, gridSquare } from "./area.ts";
-import { type Projection, project, unproject } from "./transverseMercator.ts";
+import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UCS-2000 (УСК-2000) Gauss-Kruger rectangular coordinates.
 //
@@ -28,8 +28,19 @@ const gaussKruger = (zone: number): Projection => ({
   falseNorthing: 0,
 });
 
-/** WGS 84 to UCS-2000, rounded to the whole metre the rectangular coordinates are written in. */
-export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
+/**
+ * The Gauss-Kruger grid of one UCS-2000 zone, seen from WGS 84: the datum shift and the projection
+ * together, unrounded. Points outside the zone still project, onto the zone's extended grid.
+ */
+export const ucs2000Grid = (zone: number) => ({
+  project: (coords: Coordinates): Projected =>
+    project(wgs84ToLocal(coords, KRASSOWSKY_1940, UCS2000_TO_WGS84), gaussKruger(zone)),
+  unproject: (location: Projected): Coordinates =>
+    localToWGS84(unproject(location, gaussKruger(zone)), KRASSOWSKY_1940, UCS2000_TO_WGS84),
+});
+
+/** The UCS-2000 zone a WGS 84 point falls in. Throws a RangeError outside zones 4-7. */
+export const ucs2000ZoneOf = (coords: Coordinates) => {
   const local = wgs84ToLocal(coords, KRASSOWSKY_1940, UCS2000_TO_WGS84);
   const zone = Math.floor(local.longitude / ZONE_WIDTH) + 1;
 
@@ -38,8 +49,13 @@ export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
       `UCS-2000 is defined in zones ${MIN_ZONE}-${MAX_ZONE}, longitudes ${(MIN_ZONE - 1) * ZONE_WIDTH}°E to ${MAX_ZONE * ZONE_WIDTH}°E, but ${coords.longitude}° falls in zone ${zone}`,
     );
   }
+  return zone;
+};
 
-  const { easting, northing } = project(local, gaussKruger(zone));
+/** WGS 84 to UCS-2000, rounded to the whole metre the rectangular coordinates are written in. */
+export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
+  const zone = ucs2000ZoneOf(coords);
+  const { easting, northing } = ucs2000Grid(zone).project(coords);
   return { zone, northing: Math.round(northing), easting: Math.round(easting) };
 };
 
@@ -48,12 +64,7 @@ export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
  * Each corner goes through the datum shift on its own, as any point would.
  */
 export const ucs2000Area = ({ zone, northing, easting }: UCS2000Coordinate): Area =>
-  gridSquare(
-    (location) =>
-      localToWGS84(unproject(location, gaussKruger(zone)), KRASSOWSKY_1940, UCS2000_TO_WGS84),
-    { easting: easting - 0.5, northing: northing - 0.5 },
-    1,
-  );
+  gridSquare(ucs2000Grid(zone).unproject, { easting: easting - 0.5, northing: northing - 0.5 }, 1);
 
 /** UCS-2000 to WGS 84, the centre of the referenced square. */
 export const fromUCS2000 = (reference: UCS2000Coordinate): Coordinates =>
