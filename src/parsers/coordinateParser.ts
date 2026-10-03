@@ -53,3 +53,14 @@ export const systemParsers = {
   UTM: UTMparser.map((coords) => ({ ...coords, system: "UTM" as const })),
   "UCS-2000": UCS2000parser.map((coords) => ({ ...coords, system: "UCS-2000" as const })),
 };
+
+// Latitude and longitude in any notation that puts latitude first: signed decimals, with a point or
+// a comma, and the hemisphere-letter notations DD, DDM and DMS. WGS84R is left out — once the system
+// is known to be WGS 84, a longitude-first pair is far likelier a mistake than a choice. The result
+// still says which notation matched.
+export const latitudeLongitudeParser = choice([
+  systemParsers.WGS84,
+  systemParsers.DD,
+  systemParsers.DDM,
+  systemParsers.DMS,
+]);

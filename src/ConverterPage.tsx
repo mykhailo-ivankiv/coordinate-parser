@@ -15,7 +15,11 @@ import { type Coverage, coveringSquares, MAX_COVERING_SQUARES } from "./converte
 import { formatWGS84 } from "./converters/sexagesimalFormat.ts";
 import { insideUcs2000AreaOfUse } from "./converters/UCS2000converter.ts";
 import type { Coordinates } from "./parsers/commonParsers.ts";
-import { coordinateParser, systemParsers } from "./parsers/coordinateParser.ts";
+import {
+  coordinateParser,
+  latitudeLongitudeParser,
+  systemParsers,
+} from "./parsers/coordinateParser.ts";
 
 const AUTO = "auto";
 
@@ -38,7 +42,7 @@ const examples: Record<CoordinateSystem, string> = {
 // WGS84, WGS84R, DD, DDM and DMS are one coordinate system written five ways, so they are offered
 // as one group, each labelled by how it writes the angle. The grids are systems of their own.
 const groups: { label: string; systems: CoordinateSystem[] }[] = [
-  { label: "WGS 84 — широта й довгота", systems: LATITUDE_LONGITUDE_NOTATIONS },
+  { label: "WGS 84 — широта й довгота", systems: ["WGS84"] },
   { label: "Прямокутні сітки", systems: GRID_SYSTEMS },
 ];
 
@@ -46,12 +50,9 @@ const groups: { label: string; systems: CoordinateSystem[] }[] = [
 // same latitude and longitude written differently; they are still read on input.
 const EXAMPLE_SYSTEMS: CoordinateSystem[] = ["WGS84", ...GRID_SYSTEMS];
 
+// WGS 84 is offered once, and reads every latitude-first notation of it; see latitudeLongitudeParser.
 const notationLabels: Partial<Record<CoordinateSystem, string>> = {
-  WGS84: "десяткові градуси, широта першою",
-  WGS84R: "десяткові градуси, довгота першою",
-  DD: "десяткові градуси з літерою півкулі",
-  DDM: "градуси й десяткові хвилини",
-  DMS: "градуси, хвилини й секунди",
+  WGS84: "десяткові, DD, DDM або DMS, широта першою",
 };
 
 const optionLabel = (system: CoordinateSystem) =>
@@ -67,8 +68,11 @@ type Outcome =
   | { kind: "conversionError"; system: CoordinateSystem; message: string }
   | { kind: "converted"; system: CoordinateSystem; area: Area };
 
-const parse = (text: string, input: InputChoice) =>
-  input === AUTO ? coordinateParser.run(text) : systemParsers[input].run(text);
+const parse = (text: string, input: InputChoice) => {
+  if (input === AUTO) return coordinateParser.run(text);
+  if (input === "WGS84") return latitudeLongitudeParser.run(text);
+  return systemParsers[input].run(text);
+};
 
 const convert = (text: string, input: InputChoice): Outcome => {
   if (text.trim() === "") return { kind: "empty" };
@@ -97,25 +101,25 @@ const SystemSelect = ({
   value: InputChoice;
   onChange: (value: InputChoice) => void;
 }) => (
-  <label className="flex min-w-0 flex-col gap-1 text-sm">
-    <span className="truncate opacity-60">Вводимо в системі</span>
-    <select
-      className="w-full p-2 border rounded-sm bg-transparent"
-      value={value}
-      onChange={(e) => onChange(e.target.value as InputChoice)}
-    >
-      <option value={AUTO}>Визначити автоматично</option>
-      {groups.map(({ label, systems }) => (
-        <optgroup key={label} label={label}>
-          {systems.map((system) => (
-            <option key={system} value={system}>
-              {optionLabel(system)}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
-  </label>
+  // In one row with the input, so its caption lives in aria-label and title rather than above it.
+  <select
+    aria-label="Вводимо в системі"
+    title="Вводимо в системі"
+    className="w-[30%] shrink-0 truncate p-2 border rounded-sm bg-transparent text-sm"
+    value={value}
+    onChange={(e) => onChange(e.target.value as InputChoice)}
+  >
+    <option value={AUTO}>Визначити автоматично</option>
+    {groups.map(({ label, systems }) => (
+      <optgroup key={label} label={label}>
+        {systems.map((system) => (
+          <option key={system} value={system}>
+            {optionLabel(system)}
+          </option>
+        ))}
+      </optgroup>
+    ))}
+  </select>
 );
 
 const ConversionValue = ({
@@ -983,15 +987,14 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
     <div className="lg:grid lg:h-screen lg:grid-cols-[minmax(0,60ch)_1fr]">
       <div className="p-4 lg:overflow-y-auto">
         {header}
-        <SystemSelect
-          value={input}
-          onChange={(value) => {
-            setInput(value);
-            setFitView(true);
-          }}
-        />
-
         <div className="mt-3 flex gap-2">
+          <SystemSelect
+            value={input}
+            onChange={(value) => {
+              setInput(value);
+              setFitView(true);
+            }}
+          />
           <input
             type="text"
             className="min-w-0 flex-1 p-2 border rounded-sm"
@@ -1047,7 +1050,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           )}
           {outcome.kind === "converted" && (
             <>
-              {input === AUTO && (
+              {(input === AUTO || input === "WGS84") && (
                 <p>
                   Розпізнано як <b>{describeSystem(outcome.system)}</b>
                 </p>
@@ -1104,23 +1107,25 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           })}
         </div>
 
-        <section className="mt-6 text-sm">
-          <h3 className="font-bold">Приклади</h3>
-          <ul className="mt-1 flex flex-col gap-1">
-            {EXAMPLE_SYSTEMS.map((system) => (
-              <li key={system}>
-                <span className="inline-block w-20 opacity-60">{system}</span>
-                <button
-                  type="button"
-                  className={`${linkStyle} font-mono`}
-                  onClick={() => pick({ system, value: examples[system] })}
-                >
-                  {examples[system]}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="opacity-60">Приклади:</span>
+          {EXAMPLE_SYSTEMS.map((system) => (
+            <button
+              key={system}
+              type="button"
+              title="Підставити як вхідне значення"
+              className="group inline-flex cursor-pointer overflow-hidden rounded-full border border-black text-xs"
+              onClick={() => pick({ system, value: examples[system] })}
+            >
+              <span className="bg-black px-2 py-0.5 font-bold text-white">
+                {system === "UCS-2000" ? "УСК-2000" : system}
+              </span>
+              <span className="px-2 py-0.5 font-mono group-hover:bg-black/10">
+                {examples[system]}
+              </span>
+            </button>
+          ))}
+        </div>
 
         <section className="mt-6 text-sm opacity-60">
           <p>

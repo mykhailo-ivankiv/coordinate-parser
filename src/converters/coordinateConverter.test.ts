@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "../parsers/commonParsers.ts";
-import { coordinateParser, systemParsers } from "../parsers/coordinateParser.ts";
+import {
+  coordinateParser,
+  latitudeLongitudeParser,
+  systemParsers,
+} from "../parsers/coordinateParser.ts";
 import { USNGparser } from "../parsers/USNGparser.ts";
 import { WGS84Rparser } from "../parsers/WGS84Rparser.ts";
 import { project } from "./transverseMercator.ts";
@@ -254,5 +258,24 @@ describe("the outline of a large square", () => {
     const tenKilometres = areaOf(parse("36UUA20")).outline ?? [];
     expect(tenKilometres.length).toBeGreaterThan(5);
     expect(tenKilometres.length).toBeLessThan(outline.length);
+  });
+});
+
+describe("WGS 84 in any latitude-first notation", () => {
+  it.each([
+    ["50.4501, 30.5234", "WGS84"],
+    ["50,4501 30,5234", "WGS84"],
+    ["50.4501°N, 30.5234°E", "DD"],
+    ["50° 27.006'N, 30° 31.404'E", "DDM"],
+    [`50° 27' 0.36"N, 30° 31' 24.24"E`, "DMS"],
+  ])("reads %s as %s", (input, system) => {
+    const result = latitudeLongitudeParser.run(input);
+    if (result.isError) throw new Error(result.error);
+    expect(result.result.system).toBe(system);
+    expect(toWGS84(result.result)).toEqual(kyiv);
+  });
+
+  it("does not read a longitude-first pair", () => {
+    expect(latitudeLongitudeParser.run("151.2093, -33.8688").isError).toBe(true);
   });
 });
