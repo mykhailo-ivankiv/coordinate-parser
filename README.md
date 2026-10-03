@@ -1,9 +1,24 @@
 # coordinate-parser
 
-Parses and converts coordinates in nine notations: WGS 84 decimal (latitude or longitude first),
-DD, DDM, DMS, MGRS, USNG, UTM and UCS-2000 (УСК-2000).
+Takes a coordinate as people actually write it — pasted from a map, a report or a chat — works out
+which notation it is in, and converts it to any other.
 
-Site: https://mykhailo-ivankiv.github.io/coordinate-parser/
+Nine notations from four traditions: WGS 84 decimal degrees in either order, DD, DDM and DMS
+(ISO 6709), MGRS (NGA), USNG (FGDC), UTM, and the Ukrainian UCS-2000 (УСК-2000), which most
+libraries leave out.
+
+- **One input, any notation.** No format to pick: the parser recognises it, including decimal
+  commas, hemisphere letters and typographic primes, and says precisely where an input stops making
+  sense.
+- **A grid reference is a square, not a point.** `36UUA2491` names a 1 km square; the converter
+  returns that square's corners along with its centre, and lists every square of the target grid it
+  overlaps.
+- **Checked against reference implementations.** UTM and UCS-2000 agree with proj4 to the
+  millimetre; MGRS, USNG and UTM strings are the ones ArcGIS writes, and ArcGIS and mgrs read them
+  back to the same point.
+
+Site, in Ukrainian — parser, converter with a map, a guide to the systems and the API reference:
+https://mykhailo-ivankiv.github.io/coordinate-parser/
 
 ## Packages
 
