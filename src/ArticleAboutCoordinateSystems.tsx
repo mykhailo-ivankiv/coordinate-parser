@@ -12,30 +12,19 @@ import utmZonesSvg from "./assets/utm-zones.svg?raw";
 // documented minimum easting at the equator (166 021 m).
 
 const Heading = ({ children }: { children: ReactNode }) => (
-  <h3 className="mt-6 font-bold">{children}</h3>
+  <h3 className="border-t pt-6">{children}</h3>
 );
 
-const Subheading = ({ children }: { children: ReactNode }) => (
-  <h4 className="mt-4 font-bold opacity-80">{children}</h4>
-);
+const Subheading = ({ children }: { children: ReactNode }) => <h4>{children}</h4>;
 
-const P = ({ children }: { children: ReactNode }) => <p className="mt-2">{children}</p>;
+const P = ({ children }: { children: ReactNode }) => <p>{children}</p>;
 
-const Code = ({ children }: { children: ReactNode }) => (
-  <code className="font-mono">{children}</code>
-);
+const Code = ({ children }: { children: ReactNode }) => <code>{children}</code>;
 
-const Sample = ({ children }: { children: ReactNode }) => (
-  <pre className="mt-2 overflow-x-auto font-mono opacity-80">{children}</pre>
-);
+const Sample = ({ children }: { children: ReactNode }) => <pre>{children}</pre>;
 
 const Link = ({ href, children }: { href: string; children: ReactNode }) => (
-  <a
-    href={href}
-    target="_blank"
-    rel="noreferrer"
-    className="underline underline-offset-2 hover:no-underline"
-  >
+  <a href={href} target="_blank" rel="noreferrer" className="hover:no-underline">
     {children}
   </a>
 );
@@ -76,11 +65,13 @@ const Diagram = ({
   caption: ReactNode;
   children: ReactNode;
 }) => (
-  <figure className="mt-4">
-    <svg viewBox={viewBox} role="img" aria-label={label} className="h-auto w-full">
-      {children}
-    </svg>
-    <figcaption className="mt-2 opacity-60">{caption}</figcaption>
+  <figure>
+    <div className="card p-3">
+      <svg viewBox={viewBox} role="img" aria-label={label} className="h-auto w-full">
+        {children}
+      </svg>
+    </div>
+    <figcaption>{caption}</figcaption>
   </figure>
 );
 
@@ -207,7 +198,7 @@ const Illustration = ({
   credit: ReactNode;
   fullBleed?: boolean;
 }) => (
-  <figure className="mt-4">
+  <figure>
     <div
       role="img"
       aria-label={label}
@@ -216,7 +207,7 @@ const Illustration = ({
       // references, and nothing here comes from user input.
       dangerouslySetInnerHTML={{ __html: svgBody(markup) }}
     />
-    <figcaption className="mt-2 opacity-60">
+    <figcaption>
       {caption} <span className="opacity-80">{credit}</span>
     </figcaption>
   </figure>
@@ -231,15 +222,13 @@ const Table = ({
   rows: ReactNode[][];
   caption?: ReactNode;
 }) => (
-  <figure className="mt-2">
+  <figure>
     <div className="overflow-x-auto">
-      <table className="border-collapse">
+      <table>
         <thead>
           <tr>
             {headers.map((header, column) => (
-              <th key={column} className="border-b px-2 py-1 text-left font-bold">
-                {header}
-              </th>
+              <th key={column}>{header}</th>
             ))}
           </tr>
         </thead>
@@ -247,7 +236,7 @@ const Table = ({
           {rows.map((cells, row) => (
             <tr key={row}>
               {cells.map((cell, column) => (
-                <td key={column} className="border-b px-2 py-1 align-top">
+                <td key={column} className="align-top">
                   {cell}
                 </td>
               ))}
@@ -256,13 +245,13 @@ const Table = ({
         </tbody>
       </table>
     </div>
-    {caption && <figcaption className="mt-2 opacity-60">{caption}</figcaption>}
+    {caption && <figcaption>{caption}</figcaption>}
   </figure>
 );
 
 export const ArticleAboutCoordinateSystems = () => (
-  <article className="mt-8 text-sm">
-    <h2 className="text-lg font-bold">Дев'ять способів записати одну точку</h2>
+  <article className="prose prose-sm prose-ink mt-14 max-w-none">
+    <h2>Дев'ять способів записати одну точку</h2>
 
     <P>
       Путівник координатними системами, які парсить ця бібліотека. Написаний тому, що єдиного
@@ -277,7 +266,7 @@ export const ArticleAboutCoordinateSystems = () => (
       Питання «в якій системі координат ця точка?» насправді складається з чотирьох окремих питань,
       і плутанина між ними — джерело майже всіх пасток нижче.
     </P>
-    <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5">
+    <ol>
       <li>
         <b>Яка форма Землі?</b> Еліпсоїд. WGS84 користується еліпсоїдом WGS 84 (велика піввісь 6 378
         137 м), УСК-2000 — еліпсоїдом Красовського 1940 року (6 378 245 м). Різниця — 108 метрів.
@@ -1033,7 +1022,7 @@ export const ArticleAboutCoordinateSystems = () => (
     />
 
     <P>Ця таблиця пояснює три речі, які інакше виглядають випадковими.</P>
-    <ol className="mt-2 flex list-decimal flex-col gap-2 pl-5">
+    <ol>
       <li>
         <b>NAD 83 → WGS 84 — це нулі.</b> Офіційний перехід не зсуває нічого, із заявленою похибкою
         4 м. Ось чому USNG і MGRS неможливо відрізнити за рядком: на тій роздільності, з якою працює
@@ -1181,7 +1170,7 @@ export const ArticleAboutCoordinateSystems = () => (
     </P>
 
     <Heading>Пастки, зібрані на практиці</Heading>
-    <ol className="mt-2 flex list-decimal flex-col gap-1 pl-5">
+    <ol>
       <li>
         <b>Порядок у знаковому записі невідновний.</b> <Code>30.5234, 50.4501</Code> однаково
         валідний в обох прочитаннях.

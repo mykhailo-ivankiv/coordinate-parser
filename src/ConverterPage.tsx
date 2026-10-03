@@ -94,6 +94,16 @@ const sizeLabel = (metres: number) => (metres >= 1000 ? `${metres / 1000} км` 
 
 const linkStyle = "cursor-pointer underline underline-offset-2 hover:no-underline";
 
+const SYSTEM_SELECT_ID = "converter-system";
+const COORDINATES_INPUT_ID = "converter-coordinates";
+const COORDINATES_ERROR_ID = "converter-coordinates-error";
+
+const FieldLabel = ({ htmlFor, children }: { htmlFor: string; children: ReactNode }) => (
+  <label htmlFor={htmlFor} className="text-xs opacity-60">
+    {children}
+  </label>
+);
+
 const SystemSelect = ({
   value,
   onChange,
@@ -101,11 +111,9 @@ const SystemSelect = ({
   value: InputChoice;
   onChange: (value: InputChoice) => void;
 }) => (
-  // In one row with the input, so its caption lives in aria-label and title rather than above it.
   <select
-    aria-label="Вводимо в системі"
-    title="Вводимо в системі"
-    className="w-[30%] shrink-0 truncate p-2 border rounded-sm bg-transparent text-sm"
+    id={SYSTEM_SELECT_ID}
+    className="field w-full truncate text-sm"
     value={value}
     onChange={(e) => onChange(e.target.value as InputChoice)}
   >
@@ -250,7 +258,7 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
         <path
           d={path}
           fill={OUTPUT_COLOUR}
-          fillOpacity={0.08}
+          fillOpacity={0.15}
           stroke={OUTPUT_COLOUR}
           strokeWidth={2}
         />
@@ -465,7 +473,7 @@ const Accordion = ({
   onShow: (shown: boolean) => void;
   children: ReactNode;
 }) => (
-  <section className="border-t py-2">
+  <section className="card px-3 py-2.5">
     <div className="flex items-center gap-2">
       {/* The checkbox sits beside the toggle rather than inside it, so ticking it never folds the section. */}
       <button
@@ -474,7 +482,11 @@ const Accordion = ({
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
         onClick={onToggle}
       >
-        <span className="w-3 opacity-60">{open ? "▾" : "▸"}</span>
+        <span
+          className={`inline-block w-3 text-xs opacity-50 transition-transform ${open ? "rotate-90" : ""}`}
+        >
+          ▶
+        </span>
         <span className="font-bold whitespace-nowrap">{title}</span>
         {!open && <span className="truncate font-mono opacity-60">{summary}</span>}
       </button>
@@ -483,7 +495,7 @@ const Accordion = ({
         на карті
       </label>
     </div>
-    {open && <div className="mt-2 pl-5">{children}</div>}
+    {open && <div className="mt-3 border-t border-line pt-3 pl-5">{children}</div>}
   </section>
 );
 
@@ -726,8 +738,9 @@ const OwnCodeAnswer = () => (
 );
 
 // Pulkovo 1942 to WGS 84 in the EPSG registry: one datum, many regional fits.
+// The variants of "Pulkovo 1942 to WGS 84 (n)" in the EPSG registry, by their number.
 const SK42_TRANSFORMATIONS = [
-  ["Pulkovo 1942 to WGS 84 (1)", "Росія, усереднено", "999 м — фактично «не використовувати»"],
+  ["(1)", "Росія, усереднено — фактично «не використовувати»", "999 м"],
   ["(16)", "уся пострадянська територія", "4,5 м"],
   ["(20)", "Росія", "3 м"],
   ["(7)", "Казахстан", "44 м"],
@@ -753,14 +766,21 @@ const Sk42Answer = () => (
       лише в межах України.
     </p>
     <p className="mt-2">
-      Одного переходу до WGS 84 для такої території немає: реєстр тримає кілька регіональних, і
-      глобальний із них найгірший.
+      Одного переходу до WGS 84 для такої території немає: реєстр тримає кілька регіональних
+      варіантів «Pulkovo 1942 to WGS 84», і глобальний із них найгірший.
     </p>
-    <table className="mt-1">
+    <table className="mt-1 w-full">
+      <thead>
+        <tr>
+          <th className="py-0.5 pr-3 text-left">Варіант</th>
+          <th className="py-0.5 pr-3 text-left">Де діє</th>
+          <th className="py-0.5 text-left">Точність</th>
+        </tr>
+      </thead>
       <tbody>
         {SK42_TRANSFORMATIONS.map(([name, where, accuracy]) => (
           <tr key={name} className="align-top">
-            <th className="py-0.5 pr-3 text-left font-normal whitespace-nowrap">{name}</th>
+            <td className="py-0.5 pr-3">{name}</td>
             <td className="py-0.5 pr-3">{where}</td>
             <td className="py-0.5 whitespace-nowrap">{accuracy}</td>
           </tr>
@@ -884,13 +904,20 @@ const QUESTIONS: { question: string; answer: ReactNode }[] = [
 ];
 
 const QuestionsAndAnswers = () => (
-  <section className="mt-6 text-sm">
-    <h3 className="font-bold">Питання й відповіді</h3>
-    <div className="mt-1">
+  <section className="mt-10 text-sm">
+    <h2 className="text-lg font-bold tracking-tight">Питання й відповіді</h2>
+    <div className="mt-3 flex flex-col gap-2">
       {QUESTIONS.map(({ question, answer }) => (
-        <details key={question} className="border-t py-2">
-          <summary className="cursor-pointer font-bold">{question}</summary>
-          <div className="mt-2 pl-4">{answer}</div>
+        <details key={question} className="group card px-3 py-2.5">
+          <summary className="flex cursor-pointer list-none items-center gap-2 font-bold [&::-webkit-details-marker]:hidden">
+            <span className="inline-block w-3 text-xs opacity-50 transition-transform group-open:rotate-90">
+              ▶
+            </span>
+            {question}
+          </summary>
+          <div className="prose prose-sm prose-ink mt-3 max-w-none border-t border-line pt-1 pl-5">
+            {answer}
+          </div>
         </details>
       ))}
     </div>
@@ -938,6 +965,16 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
 
   const [picking, setPicking] = useState(false);
   const outcome = convert(text, input);
+  // What is wrong with the input, shown under the field and turning it red; null when nothing is.
+  const inputError: ReactNode =
+    outcome.kind === "parseError" ? (
+      <span className="font-mono">{outcome.message}</span>
+    ) : outcome.kind === "conversionError" ? (
+      <>
+        Розпізнано як {describeSystem(outcome.system)}, але перетворити не вдалося:{" "}
+        <span className="font-mono">{outcome.message}</span>
+      </>
+    ) : null;
 
   // A point picked on the map is written in the system chosen for input, so the field reads as if it
   // had been typed; under auto-detection, as plain WGS 84. A system that cannot express the point —
@@ -987,7 +1024,32 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
     <div className="lg:grid lg:h-screen lg:grid-cols-[minmax(0,60ch)_1fr]">
       <div className="p-4 lg:overflow-y-auto">
         {header}
-        <div className="mt-3 flex gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="opacity-60">Приклади:</span>
+          {EXAMPLE_SYSTEMS.map((system) => (
+            <button
+              key={system}
+              type="button"
+              title="Підставити як вхідне значення"
+              className="group inline-flex cursor-pointer overflow-hidden rounded-full border border-black text-xs"
+              onClick={() => pick({ system, value: examples[system] })}
+            >
+              <span className="bg-black px-2 py-0.5 font-bold text-white">
+                {system === "UCS-2000" ? "УСК-2000" : system}
+              </span>
+              <span className="px-2 py-0.5 font-mono group-hover:bg-black/10">
+                {examples[system]}
+              </span>
+            </button>
+          ))}
+        </div>
+        {/* A grid rather than a row, so the error can sit under the coordinates field without
+            lifting it out of line with the select and the button. */}
+        <div className="mt-3 grid grid-cols-[30%_minmax(0,1fr)_auto] items-end gap-x-2 gap-y-1">
+          <FieldLabel htmlFor={SYSTEM_SELECT_ID}>Система</FieldLabel>
+          <FieldLabel htmlFor={COORDINATES_INPUT_ID}>Координати</FieldLabel>
+          <span />
+
           <SystemSelect
             value={input}
             onChange={(value) => {
@@ -996,10 +1058,15 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
             }}
           />
           <input
+            id={COORDINATES_INPUT_ID}
             type="text"
-            className="min-w-0 flex-1 p-2 border rounded-sm"
+            className={`field w-full ${
+              inputError === null ? "" : "border-red-600! focus-visible:outline-red-600"
+            }`}
             placeholder={input === AUTO ? "Enter coordinates" : examples[input]}
             value={text}
+            aria-invalid={inputError !== null}
+            aria-describedby={inputError === null ? undefined : COORDINATES_ERROR_ID}
             onChange={(e) => {
               setText(e.target.value);
               setFitView(true);
@@ -1010,13 +1077,21 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
             aria-pressed={picking}
             title="Вибрати точку на карті"
             aria-label="Вибрати точку на карті"
-            className={`cursor-pointer whitespace-nowrap rounded-sm border px-3 text-sm ${
-              picking ? "bg-black text-white" : ""
+            className={`field cursor-pointer whitespace-nowrap text-base ${
+              picking ? "border-ink bg-ink" : "hover:border-ink"
             }`}
             onClick={() => setPicking(!picking)}
           >
             🎯
           </button>
+
+          <p
+            id={COORDINATES_ERROR_ID}
+            aria-live="polite"
+            className="col-span-2 col-start-2 text-xs text-red-700 empty:hidden"
+          >
+            {inputError}
+          </p>
         </div>
 
         <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-sm">
@@ -1039,18 +1114,10 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                 : `Введіть координати в системі ${describeSystem(input)}, наприклад ${examples[input]}`}
             </p>
           )}
-          {outcome.kind === "parseError" && (
-            <p className="font-mono text-red-700">{outcome.message}</p>
-          )}
-          {outcome.kind === "conversionError" && (
-            <p>
-              Розпізнано як <b>{describeSystem(outcome.system)}</b>, але перетворити не вдалося:{" "}
-              <span className="font-mono text-red-700">{outcome.message}</span>
-            </p>
-          )}
           {outcome.kind === "converted" && (
             <>
-              {(input === AUTO || input === "WGS84") && (
+              {/* Plain decimal latitude and longitude needs no telling; any other notation does. */}
+              {(input === AUTO || input === "WGS84") && outcome.system !== "WGS84" && (
                 <p>
                   Розпізнано як <b>{describeSystem(outcome.system)}</b>
                 </p>
@@ -1062,7 +1129,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           )}
         </div>
 
-        <div className="mt-4 text-sm">
+        <div className="mt-4 flex flex-col gap-2 text-sm">
           {sections.map((section) => {
             const result = results.get(section.id) ?? null;
             return (
@@ -1107,27 +1174,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           })}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="opacity-60">Приклади:</span>
-          {EXAMPLE_SYSTEMS.map((system) => (
-            <button
-              key={system}
-              type="button"
-              title="Підставити як вхідне значення"
-              className="group inline-flex cursor-pointer overflow-hidden rounded-full border border-black text-xs"
-              onClick={() => pick({ system, value: examples[system] })}
-            >
-              <span className="bg-black px-2 py-0.5 font-bold text-white">
-                {system === "UCS-2000" ? "УСК-2000" : system}
-              </span>
-              <span className="px-2 py-0.5 font-mono group-hover:bg-black/10">
-                {examples[system]}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <section className="mt-6 text-sm opacity-60">
+        <section className="prose prose-sm prose-ink mt-8 max-w-none opacity-80">
           <p>
             Усе перетворюється через WGS 84: вхідні координати спершу зводяться до широти й довготи,
             а з них пораховано решту систем. UTM, MGRS і USNG — поперечна проєкція Меркатора на тому

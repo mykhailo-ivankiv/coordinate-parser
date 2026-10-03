@@ -28,15 +28,30 @@ setWorkerUrl(workerUrl);
 
 const KYIV: [number, number] = [30.5234, 50.4501];
 
-// Green is what was typed in, red is what it converts to. Both fills are translucent, so where an
-// input zone and a converted square overlap the two tints mix, and the overlap reads at a glance.
-export const INPUT_COLOUR = "#16a34a";
-export const OUTPUT_COLOUR = "#dc2626";
-// Reference areas, like the zones UCS-2000 is defined in: a third colour, apart from input and result.
-export const ZONE_COLOUR = "#2563eb";
-// The grids get colours of their own, so that switched on together they stay apart.
-export const UTM_COLOUR = "#0891b2";
-export const MGRS_COLOUR = "#7c3aed";
+// Each layer keeps its own hue — green for what was typed in, red for what it converts to, blue for
+// the UCS-2000 zones, teal and violet for the grids — in soft pastels that sit with the article's
+// diagrams: the result takes the article's terracotta accent, the rest are pitched to match it on
+// the paper background. Pastels fade easily over a map, so lines are drawn near full strength and
+// layers are told apart by hue, weight and dash.
+const PAPER = "#faf8f4";
+export const ACCENT = "#d97757";
+
+export const INPUT_COLOUR = "#7fb38a";
+export const OUTPUT_COLOUR = ACCENT;
+export const ZONE_COLOUR = "#8aa6d6";
+export const UTM_COLOUR = "#72b5b3";
+export const MGRS_COLOUR = "#aa97d1";
+
+// Line strengths: the finer grid lines, the structure, and what should stand out.
+const FAINT = 0.55;
+const STRUCTURE = 0.85;
+const STRONG = 1;
+
+/** A colour at a strength, as an 8-digit hex the legend's CSS can take. */
+const withAlpha = (colour: string, opacity: number) =>
+  `${colour}${Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, "0")}`;
 
 export type OutputSquare = {
   area: Area;
@@ -204,13 +219,18 @@ const addLayers = (map: Map) => {
     id: "strips-fill",
     type: "fill",
     source: "strips",
-    paint: { "fill-color": ZONE_COLOUR, "fill-opacity": 0.035 },
+    paint: { "fill-color": ZONE_COLOUR, "fill-opacity": 0.06 },
   });
   map.addLayer({
     id: "strips-line",
     type: "line",
     source: "strips",
-    paint: { "line-color": ZONE_COLOUR, "line-width": 1, "line-dasharray": [1, 2] },
+    paint: {
+      "line-color": ZONE_COLOUR,
+      "line-opacity": STRUCTURE,
+      "line-width": 1,
+      "line-dasharray": [1, 2],
+    },
   });
   map.addLayer({
     id: "strip-labels",
@@ -223,8 +243,8 @@ const addLayers = (map: Map) => {
     },
     paint: {
       "text-color": ZONE_COLOUR,
-      "text-opacity": 0.7,
-      "text-halo-color": "#ffffff",
+      "text-opacity": 0.55,
+      "text-halo-color": PAPER,
       "text-halo-width": 1.5,
     },
   });
@@ -232,13 +252,18 @@ const addLayers = (map: Map) => {
     id: "zones-fill",
     type: "fill",
     source: "zones",
-    paint: { "fill-color": ZONE_COLOUR, "fill-opacity": 0.07 },
+    paint: { "fill-color": ZONE_COLOUR, "fill-opacity": 0.12 },
   });
   map.addLayer({
     id: "zones-line",
     type: "line",
     source: "zones",
-    paint: { "line-color": ZONE_COLOUR, "line-width": 1.5, "line-dasharray": [4, 2] },
+    paint: {
+      "line-color": ZONE_COLOUR,
+      "line-opacity": STRONG,
+      "line-width": 1.2,
+      "line-dasharray": [4, 3],
+    },
   });
   map.addLayer({
     id: "zone-labels",
@@ -249,7 +274,7 @@ const addLayers = (map: Map) => {
       "text-font": ["Noto Sans Regular"],
       "text-size": 12,
     },
-    paint: { "text-color": ZONE_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+    paint: { "text-color": ZONE_COLOUR, "text-halo-color": PAPER, "text-halo-width": 1.5 },
   });
 
   // The grids: lines only, beneath the results, each with its own labels.
@@ -258,14 +283,19 @@ const addLayers = (map: Map) => {
     type: "line",
     source: "utm-zones",
     minzoom: UTM_LINES_MIN_ZOOM,
-    paint: { "line-color": UTM_COLOUR, "line-width": 1.2 },
+    paint: { "line-color": UTM_COLOUR, "line-opacity": STRUCTURE, "line-width": 1.2 },
   });
   // The UTM zone edges, where one zone's MGRS grid gives way to the next and the lines break.
   map.addLayer({
     id: "mgrs-seams",
     type: "line",
     source: "mgrs-seams",
-    paint: { "line-color": MGRS_COLOUR, "line-width": 2, "line-dasharray": [6, 3] },
+    paint: {
+      "line-color": MGRS_COLOUR,
+      "line-opacity": STRONG,
+      "line-width": 1.5,
+      "line-dasharray": [6, 4],
+    },
   });
   map.addLayer({
     id: "mgrs-lines",
@@ -273,8 +303,8 @@ const addLayers = (map: Map) => {
     source: "mgrs-lines",
     paint: {
       "line-color": MGRS_COLOUR,
-      "line-width": ["case", ["get", "major"], 1.4, 0.7],
-      "line-opacity": ["case", ["get", "major"], 0.9, 0.6],
+      "line-width": ["case", ["get", "major"], 1.2, 0.8],
+      "line-opacity": ["case", ["get", "major"], STRUCTURE, FAINT],
     },
   });
   map.addLayer({
@@ -287,7 +317,12 @@ const addLayers = (map: Map) => {
       "text-font": ["Noto Sans Regular"],
       "text-size": 13,
     },
-    paint: { "text-color": UTM_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+    paint: {
+      "text-color": UTM_COLOUR,
+      "text-opacity": STRONG,
+      "text-halo-color": PAPER,
+      "text-halo-width": 1.5,
+    },
   });
   map.addLayer({
     id: "mgrs-labels",
@@ -298,20 +333,25 @@ const addLayers = (map: Map) => {
       "text-font": ["Noto Sans Regular"],
       "text-size": 11,
     },
-    paint: { "text-color": MGRS_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+    paint: {
+      "text-color": MGRS_COLOUR,
+      "text-opacity": 0.6,
+      "text-halo-color": PAPER,
+      "text-halo-width": 1.5,
+    },
   });
 
   map.addLayer({
     id: "input-area-fill",
     type: "fill",
     source: "input-area",
-    paint: { "fill-color": INPUT_COLOUR, "fill-opacity": 0.15 },
+    paint: { "fill-color": INPUT_COLOUR, "fill-opacity": 0.16 },
   });
   map.addLayer({
     id: "output-squares-fill",
     type: "fill",
     source: "output-squares",
-    paint: { "fill-color": OUTPUT_COLOUR, "fill-opacity": 0.1 },
+    paint: { "fill-color": OUTPUT_COLOUR, "fill-opacity": 0.18 },
   });
   // The square the conversion returns is drawn solid; the others the input zone also reaches,
   // dashed: the point could be in any of them, but the stored centre is in the solid one.
@@ -320,20 +360,25 @@ const addLayers = (map: Map) => {
     type: "line",
     source: "output-squares",
     filter: ["==", ["get", "primary"], false],
-    paint: { "line-color": OUTPUT_COLOUR, "line-width": 1.5, "line-dasharray": [3, 2] },
+    paint: {
+      "line-color": OUTPUT_COLOUR,
+      "line-opacity": 0.5,
+      "line-width": 1.5,
+      "line-dasharray": [4, 3],
+    },
   });
   map.addLayer({
     id: "output-squares-primary",
     type: "line",
     source: "output-squares",
     filter: ["==", ["get", "primary"], true],
-    paint: { "line-color": OUTPUT_COLOUR, "line-width": 2.5 },
+    paint: { "line-color": OUTPUT_COLOUR, "line-width": 2 },
   });
   map.addLayer({
     id: "input-area-line",
     type: "line",
     source: "input-area",
-    paint: { "line-color": INPUT_COLOUR, "line-width": 2.5 },
+    paint: { "line-color": INPUT_COLOUR, "line-opacity": STRONG, "line-width": 2 },
   });
   map.addLayer({
     id: "output-labels",
@@ -345,7 +390,7 @@ const addLayers = (map: Map) => {
       "text-font": ["Noto Sans Regular"],
       "text-size": 11,
     },
-    paint: { "text-color": OUTPUT_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+    paint: { "text-color": OUTPUT_COLOUR, "text-halo-color": PAPER, "text-halo-width": 1.5 },
   });
   // A red ring around the green centre: the converted point sits exactly on the input's centre, so
   // a filled dot would only hide it.
@@ -357,7 +402,7 @@ const addLayers = (map: Map) => {
       "circle-radius": 10,
       "circle-color": "rgba(0, 0, 0, 0)",
       "circle-stroke-color": OUTPUT_COLOUR,
-      "circle-stroke-width": 2.5,
+      "circle-stroke-width": 2,
       // A ring standing in for one of the other squares the input zone reaches, not the result.
       "circle-stroke-opacity": ["case", ["get", "primary"], 1, 0.45],
     },
@@ -370,7 +415,7 @@ const addLayers = (map: Map) => {
       // Small enough that a metre square around it stays visible at the closest zoom.
       "circle-radius": 3.5,
       "circle-color": INPUT_COLOUR,
-      "circle-stroke-color": "#ffffff",
+      "circle-stroke-color": PAPER,
       "circle-stroke-width": 1.5,
     },
   });
@@ -522,16 +567,21 @@ const Swatch = ({
   colour,
   dashed = false,
   dotted = false,
+  strength = 1,
+  fill = true,
 }: {
   colour: string;
   dashed?: boolean;
   dotted?: boolean;
+  /** How strong the line is drawn on the map, so the legend shows it the same. */
+  strength?: number;
+  fill?: boolean;
 }) => (
   <span
     className="inline-block h-3 w-5 align-middle"
     style={{
-      backgroundColor: `${colour}26`,
-      border: `2px ${dotted ? "dotted" : dashed ? "dashed" : "solid"} ${colour}`,
+      backgroundColor: fill ? withAlpha(colour, 0.15 * strength) : "transparent",
+      border: `2px ${dotted ? "dotted" : dashed ? "dashed" : "solid"} ${withAlpha(colour, strength)}`,
     }}
   />
 );
@@ -561,9 +611,9 @@ const Legend = ({
   layers: MapLayers;
   onLayersChange: (layers: MapLayers) => void;
 }) => (
-  <ul className="absolute bottom-8 left-2 flex flex-col gap-1 rounded-sm bg-white/90 p-2 text-xs text-black shadow">
+  <ul className="absolute bottom-8 left-2 flex flex-col gap-1 rounded-lg border border-line bg-white/95 p-2.5 text-xs text-ink shadow-sm backdrop-blur">
     <li>
-      <Swatch colour={INPUT_COLOUR} /> введене значення
+      <Swatch colour={INPUT_COLOUR} strength={STRONG} /> введене значення
     </li>
     <li>
       <Swatch colour={OUTPUT_COLOUR} /> результат — містить центр
@@ -576,37 +626,38 @@ const Legend = ({
       результат-точка: WGS 84, або квадрат, замалий для цього масштабу
     </li>
     <li>
-      <Swatch colour={OUTPUT_COLOUR} dashed /> інші квадрати, куди сягає вхідна зона
+      <Swatch colour={OUTPUT_COLOUR} dashed strength={0.5} /> інші квадрати, куди сягає вхідна зона
     </li>
     <li className="mt-1 border-t pt-1 opacity-60">шари</li>
     <LayerToggle
       checked={layers.utmZones}
       onChange={(utmZones) => onLayersChange({ ...layers, utmZones })}
     >
-      <Swatch colour={UTM_COLOUR} /> зони сітки UTM
+      <Swatch colour={UTM_COLOUR} strength={STRUCTURE} fill={false} /> зони сітки UTM
     </LayerToggle>
     <LayerToggle
       checked={layers.mgrsGrid}
       onChange={(mgrsGrid) => onLayersChange({ ...layers, mgrsGrid })}
     >
-      <Swatch colour={MGRS_COLOUR} /> сітка MGRS / USNG
+      <Swatch colour={MGRS_COLOUR} strength={STRUCTURE} fill={false} /> сітка MGRS / USNG
     </LayerToggle>
     {layers.mgrsGrid && (
       <li className="pl-5">
-        <Swatch colour={MGRS_COLOUR} dashed /> межа зон, де сітка переривається
+        <Swatch colour={MGRS_COLOUR} dashed strength={STRONG} fill={false} /> межа зон, де сітка
+        переривається
       </li>
     )}
     <LayerToggle
       checked={layers.ucs2000Areas}
       onChange={(ucs2000Areas) => onLayersChange({ ...layers, ucs2000Areas })}
     >
-      <Swatch colour={ZONE_COLOUR} dashed /> зона визначення УСК-2000
+      <Swatch colour={ZONE_COLOUR} dashed strength={STRONG} /> зона визначення УСК-2000
     </LayerToggle>
     <LayerToggle
       checked={layers.ucs2000Strips}
       onChange={(ucs2000Strips) => onLayersChange({ ...layers, ucs2000Strips })}
     >
-      <Swatch colour={ZONE_COLOUR} dotted /> смуги, де рахується УСК-2000
+      <Swatch colour={ZONE_COLOUR} dotted strength={STRUCTURE} /> смуги, де рахується УСК-2000
     </LayerToggle>
   </ul>
 );
@@ -730,7 +781,7 @@ export const ConverterMap = ({
     <div className="relative h-full w-full">
       <div ref={container} className="h-full w-full" />
       {picking && (
-        <p className="absolute top-2 left-1/2 -translate-x-1/2 rounded-sm bg-white/90 px-3 py-1 text-xs text-black shadow">
+        <p className="absolute top-3 left-1/2 -translate-x-1/2 rounded-full border border-line bg-white/95 px-3 py-1 text-xs text-ink shadow-sm backdrop-blur">
           Клікніть на карті, щоб вибрати точку · Esc — скасувати
         </p>
       )}

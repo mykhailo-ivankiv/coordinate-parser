@@ -187,49 +187,62 @@ const CoordinateInput = () => {
     <div>
       <input
         type="text"
-        className="p-2 w-full border rounded-sm"
+        className="field w-full"
         placeholder="Enter coordinates"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
-      <div className="mt-4 whitespace-pre-wrap text-sm font-mono">
-        {JSON.stringify(result, null, 2)}
+      <div className="card mt-3 overflow-hidden text-sm">
+        <p
+          className={`border-b px-3 py-1.5 text-xs ${
+            text === "" ? "opacity-60" : result.isError ? "text-red-700" : "text-green-700"
+          }`}
+        >
+          {text === ""
+            ? "Результат розбору з'явиться тут"
+            : result.isError
+              ? "Не розпізнано"
+              : `Розпізнано як ${result.result.system}`}
+        </p>
+        <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed">
+          {JSON.stringify(result, null, 2)}
+        </pre>
       </div>
 
-      <p className="mt-3 text-sm">Ви можете вводити координати в наступних форматах:</p>
+      <h2 className="mt-8 text-lg font-bold tracking-tight">Формати</h2>
+      <p className="mt-1 text-sm opacity-60">
+        Ви можете вводити координати в наступних форматах. Клік по прикладу підставляє його в поле.
+      </p>
       {examples.map(({ system, fullName, description, spec, note, inputs }) => (
-        <section key={system} className="mt-2 text-sm">
-          <h3>
-            <span className="font-bold">{system}</span>
+        <section key={system} className="card mt-3 p-4 text-sm">
+          <h3 className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-base font-bold">{system}</span>
             {spec && (
-              <>
-                <span className="opacity-60"> · </span>
-                <a
-                  href={spec.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline underline-offset-2 hover:no-underline"
-                >
-                  {spec.label}
-                </a>
-              </>
+              <a
+                href={spec.href}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border px-2 text-xs hover:border-black"
+              >
+                {spec.label}
+              </a>
             )}
           </h3>
-          <p className="opacity-60">
+          <p className="mt-0.5 opacity-60">
             {fullName} — {description}
           </p>
-          {note && <p className="mt-1 opacity-60">{note}</p>}
-          <ul className="mt-1 flex flex-col gap-1">
+          {note && <p className="mt-2 leading-relaxed opacity-60">{note}</p>}
+          <ul className="mt-3 flex flex-col gap-1.5">
             {inputs.map(({ input, note }) => (
-              <li key={input}>
+              <li key={input} className="flex flex-wrap items-baseline gap-x-2">
                 <button
                   type="button"
-                  className="cursor-pointer font-mono underline underline-offset-2 hover:no-underline"
+                  className="cursor-pointer rounded-md border bg-paper px-2 py-0.5 font-mono text-xs hover:border-black"
                   onClick={() => setText(input)}
                 >
                   {input}
                 </button>
-                <span className="opacity-60"> — {note}</span>
+                <span className="opacity-60">{note}</span>
               </li>
             ))}
           </ul>
@@ -296,9 +309,9 @@ const sources: Reference[] = [
 ];
 
 const ReferenceList = ({ title, items }: { title: string; items: Reference[] }) => (
-  <section className="mt-4 text-sm">
-    <h2 className="font-bold text-lg">{title}</h2>
-    <ul className="mt-1 flex flex-col gap-1">
+  <section className="mt-8 text-sm">
+    <h2 className="text-lg font-bold tracking-tight">{title}</h2>
+    <ul className="mt-2 flex flex-col gap-1.5 leading-relaxed">
       {items.map(({ href, label, note }) => (
         <li key={href}>
           <a
@@ -333,28 +346,41 @@ const subscribeToHash = (onChange: () => void) => {
 const currentPage = (): PageHash => (window.location.hash === "#/convert" ? "#/convert" : "");
 
 const Navigation = ({ active }: { active: PageHash }) => (
-  <nav className="mb-4 flex gap-4 text-sm">
-    {pages.map(({ hash, label }) =>
-      hash === active ? (
-        <span key={label} className="font-bold">
-          {label}
-        </span>
-      ) : (
-        <a
-          key={label}
-          href={hash === "" ? "#" : hash}
-          className="underline underline-offset-2 hover:no-underline"
-        >
-          {label}
-        </a>
-      ),
-    )}
+  <nav className="inline-flex rounded-full border bg-white p-0.5 text-sm">
+    {pages.map(({ hash, label }) => (
+      <a
+        key={label}
+        href={hash === "" ? "#" : hash}
+        aria-current={hash === active ? "page" : undefined}
+        className={`rounded-full px-3 py-1 ${
+          hash === active ? "bg-ink text-paper" : "opacity-70 hover:opacity-100"
+        }`}
+      >
+        {label}
+      </a>
+    ))}
   </nav>
+);
+
+/** The tabs, the page's title and one line on what it is for. */
+const PageHeader = ({
+  active,
+  title,
+  subtitle,
+}: {
+  active: PageHash;
+  title: string;
+  subtitle: string;
+}) => (
+  <header>
+    <Navigation active={active} />
+    <h1 className="mt-5 text-2xl font-bold tracking-tight">{title}</h1>
+    <p className="mt-1 mb-4 text-sm opacity-60">{subtitle}</p>
+  </header>
 );
 
 const ParserPage = () => (
   <>
-    <h2>Парсер координат</h2>
     <CoordinateInput />
     <ArticleAboutCoordinateSystems />
     <section className="mt-12">
@@ -375,10 +401,11 @@ function App() {
         <Suspense fallback={<p className="p-4 text-sm opacity-60">Завантаження…</p>}>
           <ConverterPage
             header={
-              <>
-                <Navigation active={page} />
-                <h2>Конвертер координат</h2>
-              </>
+              <PageHeader
+                active={page}
+                title="Конвертер координат"
+                subtitle="WGS 84, MGRS / USNG, UTM і УСК-2000 — в обидва боки, з квадратами на карті."
+              />
             }
           />
         </Suspense>
@@ -387,8 +414,12 @@ function App() {
   }
 
   return (
-    <main className="max-w-[60ch] p-4 m-auto">
-      <Navigation active={page} />
+    <main className="m-auto max-w-[64ch] px-4 py-6">
+      <PageHeader
+        active={page}
+        title="Парсер координат"
+        subtitle="Дев'ять способів записати одну точку: вставте будь-який, і парсер скаже, що це."
+      />
       <ParserPage />
     </main>
   );

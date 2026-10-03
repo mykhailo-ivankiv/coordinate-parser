@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @import "@fontsource/ia-writer-quattro/400.css";
 @import "@fontsource/ia-writer-quattro/700.css";
@@ -8,10 +9,105 @@
 @theme {
   --font-sans: "iA Writer Quattro", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "iA Writer Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Ink on warm paper: the page stays black and white, only softened. */
+  --color-paper: #faf8f4;
+  --color-ink: #1d1b18;
+  --color-line: #e7e2d9;
+  --color-line-strong: #cdc6b9;
 }
 
 @layer base {
+  html,
+  body {
+    background: var(--color-paper);
+  }
+
   body {
     font-family: var(--font-sans);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
   }
+
+  /* Tailwind draws borders in the text colour, which on this page is near-black and heavy. A warm
+     grey keeps the structure without the weight; a border that should be dark says so itself. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-line-strong);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  input[type="checkbox"],
+  input[type="range"] {
+    accent-color: var(--color-ink);
+  }
+
+  ::selection {
+    background: #f1dfa4;
+  }
+
+  a {
+    text-decoration-thickness: 1px;
+  }
+}
+
+/* A text field, select or square button, all the same height so a row of them lines up. */
+@utility field {
+  height: 2.75rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 0.5rem;
+  background: white;
+  padding-inline: 0.75rem;
+}
+
+/* A white card on the paper, for a block that stands on its own. */
+@utility card {
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: white;
+}
+
+/* Prose, for the long texts: the article and the answers, settled on the same ink and lines as the
+   rest of the page. Deliberately outside any layer: the plugin's own .prose sets these variables in
+   the utilities layer, and only unlayered rules outrank a layer. */
+.prose-ink {
+  --tw-prose-body: #2b2824;
+  --tw-prose-headings: var(--color-ink);
+  --tw-prose-lead: #2b2824;
+  --tw-prose-links: var(--color-ink);
+  --tw-prose-bold: var(--color-ink);
+  --tw-prose-counters: #7b746a;
+  --tw-prose-bullets: var(--color-line-strong);
+  --tw-prose-hr: var(--color-line);
+  --tw-prose-quotes: var(--color-ink);
+  --tw-prose-captions: #7b746a;
+  --tw-prose-code: var(--color-ink);
+  --tw-prose-pre-code: var(--color-ink);
+  --tw-prose-pre-bg: white;
+  --tw-prose-th-borders: var(--color-line-strong);
+  --tw-prose-td-borders: var(--color-line);
+}
+
+/* Code reads as code by its typeface; the plugin's backticks and bold would only shout. */
+.prose-ink :where(code):not(:where(pre code))::before,
+.prose-ink :where(code):not(:where(pre code))::after {
+  content: none;
+}
+.prose-ink :where(code) {
+  font-weight: 400;
+  /* The plugin shrinks code to 0.857em, which in iA Writer Mono beside Quattro reads as small print. */
+  font-size: 0.95em;
+}
+.prose-ink :where(pre) {
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+}
+.prose-ink :where(a) {
+  font-weight: inherit;
+  text-underline-offset: 2px;
 }
