@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import latitudeLongitudeSvg from "./assets/latitude-longitude.svg?raw";
 import utmZonesSvg from "./assets/utm-zones.svg?raw";
 
@@ -11,11 +11,116 @@ import utmZonesSvg from "./assets/utm-zones.svg?raw";
 // independent anchors: the WGS84 meridian quadrant (10 001 965.729 m, matched to 0.5 mm) and the
 // documented minimum easting at the equator (166 021 m).
 
-const Heading = ({ children }: { children: ReactNode }) => (
-  <h3 className="border-t pt-6">{children}</h3>
+const Heading = ({ id, children }: { id: string; children: ReactNode }) => (
+  <h3 id={id} className="scroll-mt-16 border-t pt-6 lg:scroll-mt-6">
+    {children}
+  </h3>
 );
 
-const Subheading = ({ children }: { children: ReactNode }) => <h4>{children}</h4>;
+const Subheading = ({ id, children }: { id?: string; children: ReactNode }) => (
+  <h4 id={id} className="scroll-mt-16 lg:scroll-mt-6">
+    {children}
+  </h4>
+);
+
+// A jump to a section of this article. The app keeps its pages in the URL hash, so a plain "#id"
+// anchor would read as a page and leave the guide; this scrolls instead and leaves the URL alone.
+const SectionLink = ({
+  to,
+  children,
+  className = "underline underline-offset-2 hover:no-underline",
+  onNavigate,
+}: {
+  to: string;
+  children: ReactNode;
+  className?: string;
+  onNavigate?: () => void;
+}) => (
+  <a
+    href="#/guide"
+    className={className}
+    onClick={(event) => {
+      event.preventDefault();
+      document.getElementById(to)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      onNavigate?.();
+    }}
+  >
+    {children}
+  </a>
+);
+
+// Short definitions of the terms the article leans on, in the order a reader meets them.
+const GLOSSARY: [string, string][] = [
+  ["Еліпсоїд", "Математична форма Землі: куля, сплюснута біля полюсів, задана двома півосями."],
+  [
+    "Датум",
+    "Прив'язка еліпсоїда до справжньої Землі: де його центр, як орієнтовані осі, який масштаб. Той самий еліпсоїд у двох датумах дає різні координати для однієї точки.",
+  ],
+  [
+    "Геоїд",
+    "Поверхня рівного потенціалу тяжіння, близька до середнього рівня моря. Еліпсоїди лише наближають її.",
+  ],
+  ["Квазігеоїд", "Близька до геоїда допоміжна поверхня, від якої в Україні відлічують висоти."],
+  [
+    "Геодезична широта",
+    "Кут між нормаллю до еліпсоїда й площиною екватора — та широта, якою користуються всі системи в цій статті.",
+  ],
+  ["Нотація", "Спосіб записати те саме число: DD, DDM, DMS або знакові десяткові градуси."],
+  ["Проєкція", "Правило, за яким точки еліпсоїда переносять на площину."],
+  [
+    "Поперечна проєкція Меркатора",
+    "Проєкція, у якій площина дотикається до Землі вздовж меридіана. На ній стоять і UTM, і Гаусса-Крюгера.",
+  ],
+  ["Центральний (осьовий) меридіан", "Середина зони, де спотворення проєкції найменші."],
+  [
+    "Масштабний коефіцієнт",
+    "Множник довжин на центральному меридіані: 0.9996 в UTM, рівно 1 в Гаусса-Крюгера.",
+  ],
+  [
+    "Easting, northing",
+    "Прямокутні координати в метрах: на схід і на північ від умовного початку зони.",
+  ],
+  [
+    "Умовний зсув",
+    "Стала, додана до easting чи northing, щоб уникнути від'ємних чисел: 500 000 м для easting у UTM, 10 000 000 м для northing на півдні.",
+  ],
+  ["Зона", "Смуга шириною 6° довготи зі своїм центральним меридіаном і своєю проєкцією."],
+  ["Смуга широти", "Пояс заввишки 8°, позначений літерою від C до X, — у UTM, MGRS і USNG."],
+  ["Квадрат 100 км", "Клітинка сітки MGRS і USNG, названа парою літер, наприклад UA."],
+  [
+    "UPS",
+    "Полярна стереографічна проєкція для шапок за межами UTM — північніше 84° і південніше 80°.",
+  ],
+  [
+    "Трансформація Гельмерта",
+    "Перерахунок між датумами через зсуви вздовж геоцентричних осей (три параметри) або ще й повороти та масштаб (сім).",
+  ],
+  [
+    "EPSG",
+    "Реєстр систем координат і трансформацій, який веде IOGP. Кожна має свій код, наприклад EPSG:5840.",
+  ],
+  [
+    "ITRF",
+    "Міжнародна земна система відліку, яку веде IERS. На неї спираються і WGS 84, і УСК-2000.",
+  ],
+  [
+    "Епоха",
+    "Момент часу, на який зафіксовано координати системи, — для УСК-2000 це 2005.0. Потрібна, бо тектонічні плити рухаються.",
+  ],
+];
+
+// The sections, for the contents at the top.
+const CONTENTS: [string, string][] = [
+  ["four-questions", "Чотири питання в одному"],
+  ["lat-lon", "Родина перша: широта й довгота"],
+  ["grids", "Родина друга: сітки"],
+  ["ucs2000", "Родина третя: УСК-2000"],
+  ["datums", "Датуми: де саме стоїть еліпсоїд"],
+  ["one-point", "Одна точка в усіх записах"],
+  ["parse-vs-convert", "Парсинг і конвертація — різні задачі"],
+  ["pitfalls", "Пастки, зібрані на практиці"],
+  ["glossary", "Словник термінів"],
+];
 
 const P = ({ children }: { children: ReactNode }) => <p>{children}</p>;
 
@@ -180,7 +285,12 @@ const GridSquare = ({
 // centre because <main> is centred; the negative translate then pulls back half its own width.
 // Subtracting 2rem from 100vw also absorbs a classic scrollbar, so the page never scrolls sideways.
 // Only the drawing breaks out — the caption stays in the column, where its lines remain readable.
-const FULL_BLEED = "relative left-1/2 w-[calc(100vw-2rem)] max-w-none -translate-x-1/2";
+const FULL_BLEED =
+  "relative left-1/2 w-[calc(100vw-2rem)] max-w-none -translate-x-1/2 " +
+  // On wide screens the contents sit to the left, so the column is no longer the viewport's centre.
+  // The drawing then runs from the column's left edge to a rem short of the screen's right edge:
+  // the column plus the right-hand margin, which is half of what the 17rem sidebar-and-gap leaves.
+  "lg:left-0 lg:w-[calc(50%+50vw-9.5rem)] lg:translate-x-0";
 
 // innerHTML parses as HTML, which has no use for an XML prolog or a DOCTYPE.
 const svgBody = (markup: string) => markup.slice(markup.indexOf("<svg"));
@@ -250,18 +360,18 @@ const Table = ({
 );
 
 export const ArticleAboutCoordinateSystems = () => (
-  <article className="prose prose-sm prose-ink mt-14 max-w-none">
+  <article className="prose prose-sm prose-ink mt-6 max-w-none">
     <h2>Дев'ять способів записати одну точку</h2>
 
     <P>
-      Путівник координатними системами, які парсить ця бібліотека. Написаний тому, що єдиного
-      джерела на всі дев'ять форматів немає: вони походять з чотирьох різних традицій — ISO,
+      Путівник координатними системами, з якими працюють парсер і конвертер. Написаний тому, що
+      єдиного джерела на всі дев'ять форматів немає: вони походять з чотирьох різних традицій — ISO,
       NGA/NATO, FGDC та радянсько-української геодезії — і автори з однієї традиції зазвичай не
       пишуть про інші. Зокрема, опису УСК-2000 поруч із MGRS не існує ані англійською, ані
       українською.
     </P>
 
-    <Heading>Шар, який зазвичай пропускають</Heading>
+    <Heading id="four-questions">Чотири питання в одному</Heading>
     <P>
       Питання «в якій системі координат ця точка?» насправді складається з чотирьох окремих питань,
       і плутанина між ними — джерело майже всіх пасток нижче.
@@ -292,7 +402,7 @@ export const ArticleAboutCoordinateSystems = () => (
       той, хто дав дані.
     </P>
 
-    <Heading>Родина перша: широта й довгота</Heading>
+    <Heading id="lat-lon">Родина перша: широта й довгота</Heading>
     <P>
       Перш ніж говорити про записи, варто пам'ятати, що саме записується. Широта й довгота — це не
       відстані, а <b>два кути</b>. Усе інше в цій статті — лише способи ці два кути записати.
@@ -338,7 +448,7 @@ export const ArticleAboutCoordinateSystems = () => (
       <Link href="https://www.iso.org/standard/75147.html">ISO 6709</Link>, і стандарт містить{" "}
       <b>два різні записи</b>. Нормативний машинний (Annex H) знаковий, фіксованої ширини, без
       символів: <Code>+50.4501+030.5234/</Code>. Людиночитний (Annex D) — зі знаком градуса й
-      літерами півкуль: <Code>50°40′46″N 95°48′26″W</Code>.
+      літерами півкуль: <Code>50°27′0.36″N 30°31′24.24″E</Code>.
     </P>
     <P>
       Наш <Code>WGS84</Code> — запис у дусі Annex H: напрямок задає знак. <Code>DD</Code>,{" "}
@@ -456,11 +566,12 @@ export const ArticleAboutCoordinateSystems = () => (
       ]}
     />
     <P>
-      Сім знаків — приблизно сантиметр, дрібніше за будь-який побутовий GPS. Восьмий знак не несе
-      інформації, лише створює ілюзію точності.
+      Сім знаків — приблизно сантиметр по широті (по довготі на широті Києва — близько 7 мм),
+      дрібніше за будь-який побутовий GPS. Восьмий знак не несе інформації, лише створює ілюзію
+      точності.
     </P>
 
-    <Subheading>Пастка: порядок значень</Subheading>
+    <Subheading id="order">Пастка: порядок значень</Subheading>
     <P>
       <Code>30.5234, 50.4501</Code> — це довгота й широта, чи широта й довгота?{" "}
       <b>Здогадатись неможливо.</b> Обидва числа лежать у допустимих межах для обох ролей, і рядок
@@ -474,18 +585,19 @@ export const ArticleAboutCoordinateSystems = () => (
       роблять запис самоописовим.
     </P>
 
-    <Heading>Родина друга: сітки</Heading>
+    <Heading id="grids">Родина друга: сітки</Heading>
     <P>
-      UTM, MGRS і USNG — не три системи, а одна, записана з різною деталізацією. MGRS — це UTM,
+      UTM, MGRS і USNG — не три системи, а одна сітка, записана по-різному. MGRS — це UTM,
       переписаний літерами. USNG — це MGRS, звужений.
     </P>
 
     <Subheading>UTM: основа</Subheading>
     <P>
-      Земля між 80°пд.ш. і 84°пн.ш. ділиться на <b>60 зон по 6° довготи</b>. Easting відлічується
-      від умовного початку за 500 000 м на захід від центрального меридіана, тож на самому меридіані
-      він дорівнює рівно 500 000. Northing на північ від екватора йде від нуля, а на південь — від
-      10 000 000. І те, і те зроблено, щоб уникнути від'ємних чисел.
+      Земля між 80°пд.ш. і 84°пн.ш. ділиться на <b>60 зон по 6° довготи</b>. Точку в зоні задають
+      дві прямокутні координати в метрах: <b>easting</b> — на схід і <b>northing</b> — на північ.
+      Easting відлічується від умовного початку за 500 000 м на захід від центрального меридіана,
+      тож на самому меридіані він дорівнює рівно 500 000. Northing на північ від екватора йде від
+      нуля, а на південь — від 10 000 000. І те, і те зроблено, щоб уникнути від'ємних чисел.
     </P>
     <P>
       Звідси наслідок, який ламає більшість наївних регекспів: <b>northing не завжди семизначний</b>
@@ -526,7 +638,7 @@ export const ArticleAboutCoordinateSystems = () => (
       }
     />
 
-    <Subheading>Пастка: літера після номера зони</Subheading>
+    <Subheading id="band-letter">Пастка: літера після номера зони</Subheading>
     <P>
       <Code>17S</Code> означає дві різні речі залежно від того, кого спитати.
     </P>
@@ -560,7 +672,7 @@ export const ArticleAboutCoordinateSystems = () => (
       не виникає — Україна лежить у смугах <Code>T</Code> і <Code>U</Code>.
     </P>
 
-    <Subheading>MGRS: UTM, переписаний літерами</Subheading>
+    <Subheading id="mgrs">MGRS: UTM, переписаний літерами</Subheading>
     <P>
       <Link href="https://nsgreg.nga.mil/doc/view?i=4057">NGA.STND.0037</Link> додає до зони й смуги
       квадрат 100 × 100 км, позначений парою літер, і відлік усередині цього квадрата:
@@ -659,7 +771,7 @@ export const ArticleAboutCoordinateSystems = () => (
       </text>
     </Diagram>
 
-    <Subheading>USNG: MGRS, звужений</Subheading>
+    <Subheading id="usng">USNG: MGRS, звужений</Subheading>
     <P>
       <Link href="https://www.fgdc.gov/standards/projects/FGDC-standards-projects/usng/fgdc_std_011_2001_usng.pdf">
         FGDC-STD-011-2001
@@ -674,7 +786,7 @@ export const ArticleAboutCoordinateSystems = () => (
       MGRS, а розрізнити їх за рядком неможливо — інформація, яка їх розділяє, у рядок не потрапляє.
     </P>
 
-    <Heading>Родина третя: УСК-2000</Heading>
+    <Heading id="ucs2000">Родина третя: УСК-2000</Heading>
     <P>
       Українська система координат 2000 — державна референцна система, запроваджена{" "}
       <Link href="https://www.kmu.gov.ua/npas/9103399">постановою КМУ №1259 від 22.09.2004</Link>{" "}
@@ -702,7 +814,8 @@ export const ArticleAboutCoordinateSystems = () => (
       еліпсоїди, різні датуми і — найпомітніше — <b>різний масштабний коефіцієнт</b>. УСК-2000 має
       на центральному меридіані масштаб рівно 1, UTM — 0.9996. Сама лише ця відмінність дає на
       широті Києва понад два кілометри: northing 5 591 608 при масштабі 0.9996 стає 5 593 846 при
-      масштабі 1.
+      масштабі 1. Решту дають еліпсоїд Красовського й датум Ukraine 2000: справжній X УСК-2000 для
+      Києва — 5 593 954, ще 108 метрів далі.
     </P>
 
     <Subheading>Нумерація зон теж різна</Subheading>
@@ -805,12 +918,14 @@ export const ArticleAboutCoordinateSystems = () => (
       </text>
     </Diagram>
 
-    <Heading>Датуми: де саме стоїть еліпсоїд</Heading>
+    <Heading id="datums">Датуми: де саме стоїть еліпсоїд</Heading>
     <P>
       Еліпсоїд — це лише форма. <b>Датум</b> прив'язує цю форму до справжньої Землі: де її центр, як
       орієнтовані осі, який масштаб. Дві системи можуть узяти той самий еліпсоїд і все одно давати
       різні координати для того самого каменя, бо посадили його по-різному. Саме це й відбувається з
-      УСК-2000 і СК-42: еліпсоїд Красовського в обох, а датуми різні.
+      УСК-2000 і СК-42: еліпсоїд Красовського в обох, а датуми різні. Як саме вони розходяться і на
+      скільки метрів — у питанні «Чим СК-42 відрізняється від УСК-2000?» на сторінці{" "}
+      <a href="#/convert">Конвертер</a>.
     </P>
 
     <Subheading>Звідки вони беруться</Subheading>
@@ -832,8 +947,10 @@ export const ArticleAboutCoordinateSystems = () => (
     </P>
     <P>
       <b>УСК-2000 — гібрид</b>, і це видно з її означення в реєстрі: орієнтація й масштаб узяті з
-      ITRF2000 на епоху 2005.0, а положення підібране так, щоб мінімізувати відхилення еліпсоїда від
-      квазігеоїда <b>на території України</b>. Сучасна орієнтація, але навмисно локальна посадка.
+      ITRF2000 — міжнародної супутникової системи відліку — на епоху 2005.0, тобто на початок 2005
+      року (плити рухаються, тож координати прив'язують до моменту). А положення підібране так, щоб
+      мінімізувати відхилення еліпсоїда від квазігеоїда — поверхні, від якої в Україні відлічують
+      висоти, — <b>на території України</b>. Сучасна орієнтація, але навмисно локальна посадка.
     </P>
 
     <Diagram
@@ -955,7 +1072,7 @@ export const ArticleAboutCoordinateSystems = () => (
         [
           "WGS 84",
           "NGA, Міноборони США",
-          "реалізації G730, G873, G1150, G1674, G1762, G2139, G2296",
+          "оновлює реалізації: від G730 до G2296; число — тиждень GPS, з якого реалізація діє",
         ],
         ["NAD 83", "NGS/NOAA та NRCan", "північноамериканський датум"],
         ["УСК-2000", "Держгеокадастр", "запроваджено постановою КМУ №1259"],
@@ -971,6 +1088,50 @@ export const ArticleAboutCoordinateSystems = () => (
       10 см від поточного ITRF, і кожні кілька років виходить нова реалізація. Коли кажуть
       «координати у WGS 84», зазвичай не уточнюють, у якій саме, бо на побутовій точності це
       неважливо.
+    </P>
+
+    <Subheading id="epsg">EPSG: спільна мова кодів</Subheading>
+    <P>
+      <Link href="https://epsg.org/">EPSG Geodetic Parameter Dataset</Link> — це реєстр усього, з
+      чого складається система координат: еліпсоїдів, датумів, проєкцій, самих систем і
+      трансформацій між ними. Назва лишилася від European Petroleum Survey Group, нафтових
+      геодезистів, які почали його збирати у 1980-х; тепер реєстр веде IOGP, і він безкоштовний.
+      Кожен запис має числовий код, і в цій статті їх уже чимало:
+    </P>
+    <Table
+      headers={["Код", "Що це"]}
+      rows={[
+        [<Code key="a">EPSG:7030</Code>, "еліпсоїд WGS 84"],
+        [<Code key="b">EPSG:7024</Code>, "еліпсоїд Красовського 1940"],
+        [<Code key="c">EPSG:4326</Code>, "WGS 84 — широта й довгота"],
+        [<Code key="d">EPSG:32636</Code>, "WGS 84 / UTM, зона 36 північ"],
+        [<Code key="e">EPSG:5561</Code>, "УСК-2000 — широта й довгота"],
+        [<Code key="f">EPSG:5564</Code>, "УСК-2000 / Гаусса-Крюгера, зона 6"],
+        [<Code key="g">EPSG:5840</Code>, "трансформація УСК-2000 → WGS 84, точність 1 м"],
+      ]}
+    />
+    <P>
+      Важливий він тому, що <b>код однозначний там, де назва — ні</b>. «УСК-2000» може означати
+      широту й довготу, будь-яку з чотирьох зон чи навіть СК-42, яку так помилково називають;{" "}
+      <Code>EPSG:5564</Code> — це рівно одна система з рівно цими параметрами. Тому коди стали
+      спільною мовою: PROJ, GDAL, QGIS і PostGIS приймають їх замість описів, вебкартографічні
+      сервіси передають у запитах, а файл, що несе код, несе й свій датум — те, чого, як ми бачили,
+      рядок координат не несе ніколи.
+    </P>
+    <P>
+      Друге, що робить реєстр корисним, — <b>межі довіри</b>. Кожна трансформація має заявлену
+      точність і область дії: звідти 1 м для EPSG:5840, 999 м для глобального переходу з
+      Пулково-1942 і прямокутники України, які Конвертер підсвічує як зону визначення УСК-2000. Коли
+      два джерела дають різні числа для тієї самої точки, перше питання — котра трансформація і з
+      якою точністю стоїть за кожним.
+    </P>
+    <P>
+      І одна пастка, знайома з розділу про порядок значень: у самому реєстрі система{" "}
+      <Code>EPSG:4326</Code> визначена так, що <b>першою йде широта</b>, а більшість програм і
+      форматів, зокрема GeoJSON, пишуть першою довготу. Тому бібліотеки на кшталт pyproj мають
+      окремий перемикач порядку осей, а та сама пара чисел, передана між двома системами, може тихо
+      помінятися місцями. Сайт <Link href="https://epsg.io/">epsg.io</Link>, на який посилається ця
+      стаття, — зручний неофіційний переглядач того самого реєстру; першоджерело — epsg.org.
     </P>
 
     <Subheading>Перехід між датумами</Subheading>
@@ -1040,34 +1201,6 @@ export const ArticleAboutCoordinateSystems = () => (
       </li>
     </ol>
 
-    <Subheading>Чим WGS 84 відрізняється від NAD 83</Subheading>
-    <P>
-      Найкоротша відповідь: <b>не еліпсоїдом</b>.
-    </P>
-    <Table
-      headers={["", "Екваторіальна піввісь", "Полярна піввісь"]}
-      rows={[
-        ["WGS 84", "6 378 137.0 м", "6 356 752.314245 м"],
-        ["GRS 80, у NAD 83", "6 378 137.0 м", "6 356 752.314140 м"],
-      ]}
-      caption={
-        <>
-          Різниця — 0.105 міліметра в полярній півосі й рівно нуль в екваторіальній. Форма та сама.
-        </>
-      }
-    />
-    <P>
-      Різниця в тому, <b>як вони прив'язані</b>. WGS 84 геоцентричний і тримається ITRF. NAD 83
-      закріплений за Північноамериканською плитою, і реєстр EPSG зазначає це прямо: NAD 83
-      негеоцентричний приблизно на <b>2.2 метра</b>. Плита рухається, тож із роками ця відстань
-      поволі більшає.
-    </P>
-    <P>
-      Ось звідки взявся той рядок з нулями вище. <Code>EPSG:1188</Code> каже «нічого не зсувай,
-      похибка 4 м» — і ці чотири метри якраз покривають ті 2.2. Це не твердження, що датуми
-      однакові, а домовленість: на такій точності різницею можна знехтувати.
-    </P>
-
     <Subheading>Чим відрізняються еліпсоїди</Subheading>
     <Table
       headers={["Еліпсоїд", "Екв. піввісь", "Поляр. піввісь", "Де вживається"]}
@@ -1081,8 +1214,27 @@ export const ArticleAboutCoordinateSystems = () => (
     />
     <P>
       Красовського проти WGS 84 — <b>108 метрів</b> різниці на екваторі й <b>111 метрів</b> на
-      полюсі. Це вже не округлення, а інша форма планети, підібрана в 1940-х під наші широти.
+      полюсі. Це вже не округлення, а інша форма планети, підібрана в 1940-х під наші широти. А от
+      WGS 84 і GRS 80 розходяться лише на 0.105 міліметра в полярній півосі, а в екваторіальній —
+      рівно на нуль: форма та сама.
     </P>
+    <Subheading>Чим WGS 84 відрізняється від NAD 83</Subheading>
+    <P>
+      Найкоротша відповідь: <b>не еліпсоїдом</b>. NAD 83 стоїть на GRS 80, а з таблиці вище видно,
+      що від WGS 84 він відрізняється на десяту частку міліметра.
+    </P>
+    <P>
+      Різниця в тому, <b>як вони прив'язані</b>. WGS 84 геоцентричний і тримається ITRF. NAD 83
+      закріплений за Північноамериканською плитою, і реєстр EPSG зазначає це прямо: NAD 83
+      негеоцентричний приблизно на <b>2.2 метра</b>. Плита рухається, тож із роками ця відстань
+      поволі більшає.
+    </P>
+    <P>
+      Ось звідки взявся той рядок з нулями вище. <Code>EPSG:1188</Code> каже «нічого не зсувай,
+      похибка 4 м» — і ці чотири метри якраз покривають ті 2.2. Це не твердження, що датуми
+      однакові, а домовленість: на такій точності різницею можна знехтувати.
+    </P>
+
     <P>
       І варто розділяти дві незалежні речі: <b>форму</b> (еліпсоїд) і <b>посадку</b> (датум).
       УСК-2000 та СК-42 мають однакову форму, але різну посадку — тому й дають різні координати. А
@@ -1107,7 +1259,7 @@ export const ArticleAboutCoordinateSystems = () => (
       Тому парсер повертає структуру запису й ніколи не стверджує, у якому датумі ця точка.
     </P>
 
-    <Heading>Одна точка в усіх записах</Heading>
+    <Heading id="one-point">Одна точка в усіх записах</Heading>
     <P>Київ, 50.4501°N 30.5234°E:</P>
     <Table
       headers={["Формат", "Запис"]}
@@ -1117,9 +1269,18 @@ export const ArticleAboutCoordinateSystems = () => (
         ["DDM", <Code key="c">50° 27.006'N, 30° 31.404'E</Code>],
         ["DMS", <Code key="d">50° 27' 0.36"N, 30° 31' 24.24"E</Code>],
         ["UTM", <Code key="e">36U 324182 5591608</Code>],
+        ["MGRS", <Code key="f">36UUA2418291607</Code>],
+        ["USNG", <Code key="g">36U UA 24182 91607</Code>],
+        ["УСК-2000", <Code key="h">5593954 6324226</Code>],
       ]}
+      caption={
+        <>
+          Значення UTM, MGRS, USNG і УСК-2000 пораховано на сторінці{" "}
+          <a href="#/convert">Конвертер</a> і звірено з PROJ до міліметра.
+        </>
+      }
     />
-    <Subheading>Чому перші чотири рядки дістаються задарма, а решта ні</Subheading>
+    <Subheading>Чому перші чотири рядки дістаються задарма, а решта — ні</Subheading>
     <P>
       DD, DDM і DMS — це та сама широта й довгота, лише інакше записана. Перехід між ними це
       множення й ділення на 60, без жодних припущень: та сама точка, той самий датум, ніякої
@@ -1144,64 +1305,184 @@ export const ArticleAboutCoordinateSystems = () => (
       <b>УСК-2000</b> упирається в інше. Її числа неможливо дістати з наших 50.4501°N 30.5234°E
       самою лише проєкцією, бо УСК-2000 стоїть на іншому датумі — Ukraine 2000 з еліпсоїдом
       Красовського, а не WGS 84. Спершу треба перевести саму пару широта/довгота з одного датума в
-      інший, а це перетворення Гельмерта з семи параметрів: три зсуви, три повороти й масштаб.
-      Параметри публікуються для конкретних регіонів, і взяти приблизні означає промахнутися на
-      метри або десятки метрів. Лише після цього можна проєктувати.
+      інший — трансформацією Гельмерта. Для України це{" "}
+      <Link href="https://epsg.io/5840">EPSG:5840</Link>: три зсуви вздовж геоцентричних осей, з
+      точністю близько метра. Є й семипараметрична <Code>EPSG:5590</Code> — зсуви, повороти й
+      масштаб, — але реєстр оцінює її лише у 5 м. Параметри публікуються для конкретних регіонів, і
+      взяти чужі означає промахнутися на метри або десятки метрів. Лише після цього можна
+      проєктувати.
     </P>
     <P>
-      Обидва випадки — це <b>конвертація</b>, а не парсинг, і ця бібліотека її не робить (про
-      різницю — наступний розділ). Поставити сюди правдоподібні числа означало б видати за
-      перевірений факт те, чого ми не рахували. Якщо ці значення потрібні на практиці, їх дає{" "}
-      <Link href="https://proj.org/">PROJ</Link> — а через нього QGIS, GDAL і PostGIS — або{" "}
-      <Link href="https://github.com/chrisveness/geodesy">geodesy</Link> Кріса Венесса для MGRS.
+      Обидва випадки — це <b>конвертація</b>, а не парсинг (про різницю — наступний розділ).
+      Значення в таблиці вище пораховано саме так і перевірено: числа UTM і УСК-2000 — проти{" "}
+      <Link href="https://proj.org/">PROJ</Link> до міліметра, рядки UTM, MGRS і USNG — проти ArcGIS
+      та бібліотеки <Link href="https://github.com/proj4js/mgrs">mgrs</Link> по всій земній кулі.
     </P>
 
-    <Heading>Парсинг та конвертація — різні задачі</Heading>
+    <Heading id="parse-vs-convert">Парсинг і конвертація — різні задачі</Heading>
     <P>
-      Ця бібліотека <b>парсить</b> координати: перетворює рядок на структуру, перевіряє діапазони,
-      називає формат. Вона не <b>конвертує</b> між системами. Парсинг{" "}
-      <Code>36U 324182 5591608</Code> дає зону, смугу, easting і northing — це просто читання.
-      Перетворення цього на широту й довготу вимагає зворотної проєкції, а перетворення в УСК-2000 —
-      ще й зсуву датума.
+      Це дві окремі сторінки, бо й задачі різні. <a href="#">Парсер</a> <b>читає</b> рядок:
+      перетворює його на структуру, перевіряє діапазони, називає формат. Парсинг{" "}
+      <Code>36U 324182 5591608</Code> дає зону, смугу, easting і northing — і нічого не обчислює.
     </P>
     <P>
-      Тому парсери сітьових систем повертають структуру, а парсери родини широта/довгота — саме пару
-      чисел: там перетворення це арифметика, а не проєкція.
+      <a href="#/convert">Конвертер</a> <b>перераховує</b> між системами. Щоб із того самого рядка
+      дістати широту й довготу, потрібна зворотна проєкція, а щоб потрапити в УСК-2000 — ще й зсув
+      датума. Усе проходить через WGS 84: вхід зводиться до широти й довготи, а з них пишеться
+      решта.
+    </P>
+    <P>
+      Тому парсери сіткових систем повертають структуру, а парсери родини широта/довгота — одразу
+      пару чисел: там перехід — арифметика, а не проєкція.
     </P>
 
-    <Heading>Пастки, зібрані на практиці</Heading>
+    <Heading id="pitfalls">Пастки, зібрані на практиці</Heading>
     <ol>
       <li>
         <b>Порядок у знаковому записі невідновний.</b> <Code>30.5234, 50.4501</Code> однаково
-        валідний в обох прочитаннях.
+        валідний в обох прочитаннях. <SectionLink to="order">Докладніше</SectionLink>
       </li>
       <li>
-        <b>USNG неможливо відрізнити від MGRS за рядком.</b> Підмножина, а не альтернатива.
+        <b>USNG неможливо відрізнити від MGRS за рядком.</b> Підмножина, а не альтернатива.{" "}
+        <SectionLink to="usng">Докладніше</SectionLink>
       </li>
       <li>
         <b>
           <Code>17S</Code> означає протилежні півкулі
         </b>{" "}
-        за NGA та за EPSG.
+        за NGA та за EPSG. <SectionLink to="band-letter">Докладніше</SectionLink>
       </li>
       <li>
         <b>
           <Code>50,4501 30,5234</Code>
         </b>{" "}
         — кома тут десятковий знак, а не роздільник. Парсер, який цього не передбачає, прочитає
-        чотири числа замість двох.
+        чотири числа замість двох. <SectionLink to="lat-lon">Докладніше</SectionLink>
       </li>
       <li>
-        <b>Номер зони в УСК-2000 захований у Y.</b> Хто цього не знає, побачить просто велике число.
+        <b>Номер зони в УСК-2000 захований у Y.</b> Хто цього не знає, побачить просто велике число.{" "}
+        <SectionLink to="ucs2000">Докладніше</SectionLink>
       </li>
       <li>
         <b>Відкидання цифр у MGRS огрублює, а не зсуває.</b> <Code>4QFJ16</Code> — це квадрат, а не
-        точка.
+        точка. <SectionLink to="mgrs">Докладніше</SectionLink>
       </li>
       <li>
         <b>60 хвилин і 60 секунд не існує.</b> Це вже наступний градус чи хвилина. Регексп, який
-        дозволяє <Code>|60</Code>, пропускає невалідні координати.
+        дозволяє <Code>|60</Code>, пропускає невалідні координати.{" "}
+        <SectionLink to="lat-lon">Докладніше</SectionLink>
       </li>
     </ol>
+
+    <Heading id="glossary">Словник термінів</Heading>
+    <dl>
+      {GLOSSARY.map(([term, definition]) => (
+        <div key={term}>
+          <dt>{term}</dt>
+          <dd>{definition}</dd>
+        </div>
+      ))}
+    </dl>
   </article>
 );
+
+/**
+ * The section being read: the last heading to have passed the top fifth of the viewport. Drives the
+ * highlight in the contents, which would otherwise not say where in a long article you are.
+ */
+const useActiveSection = () => {
+  const [active, setActive] = useState(CONTENTS[0][0]);
+
+  useEffect(() => {
+    const headings = CONTENTS.map(([id]) => document.getElementById(id)).filter(
+      (heading): heading is HTMLElement => heading !== null,
+    );
+    // Read on scroll rather than through an IntersectionObserver: a jump from the contents can carry
+    // a heading clean past any observed band without it ever registering as crossing.
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const line = window.innerHeight * 0.2;
+      const passed = headings.filter((heading) => heading.getBoundingClientRect().top <= line);
+      setActive((passed.at(-1) ?? headings[0])?.id ?? CONTENTS[0][0]);
+    };
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  return active;
+};
+
+const titleOf = (id: string) => CONTENTS.find(([section]) => section === id)?.[1] ?? "";
+
+/** The contents as a column beside the article, for screens wide enough to have one. */
+export const GuideContentsSidebar = () => {
+  const active = useActiveSection();
+  return (
+    <nav aria-label="Зміст" className="text-sm">
+      <p className="mb-2 text-xs opacity-60">Зміст</p>
+      <ol className="flex flex-col border-l border-line">
+        {CONTENTS.map(([id, title]) => (
+          <li key={id}>
+            <SectionLink
+              to={id}
+              className={`-ml-px block border-l-2 py-1 pl-3 leading-snug ${
+                id === active
+                  ? "border-ink font-bold"
+                  : "border-transparent opacity-60 hover:opacity-100"
+              }`}
+            >
+              {title}
+            </SectionLink>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+};
+
+/**
+ * The contents on a narrow screen: a slim bar that stays at the top while the article scrolls,
+ * naming the section in view, and folding out into the full list. Picking a section folds it away.
+ */
+export const GuideContentsBar = ({ className = "" }: { className?: string }) => {
+  const active = useActiveSection();
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className={`card sticky top-2 z-10 mb-4 bg-white/95 text-sm shadow-sm backdrop-blur ${className}`}
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 [&::-webkit-details-marker]:hidden">
+        <span className="text-xs opacity-60">Зміст</span>
+        <span className="min-w-0 flex-1 truncate font-bold">{titleOf(active)}</span>
+        <span className={`text-xs opacity-50 transition-transform ${open ? "rotate-90" : ""}`}>
+          ▶
+        </span>
+      </summary>
+      <ol className="max-h-[60vh] overflow-y-auto border-t border-line px-3 py-2">
+        {CONTENTS.map(([id, title]) => (
+          <li key={id}>
+            <SectionLink
+              to={id}
+              onNavigate={() => setOpen(false)}
+              className={`block py-1 ${id === active ? "font-bold" : "opacity-70"}`}
+            >
+              {title}
+            </SectionLink>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+};

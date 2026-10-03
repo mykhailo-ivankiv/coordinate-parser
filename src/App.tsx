@@ -1,5 +1,9 @@
 import { lazy, Suspense, useState, useSyncExternalStore } from "react";
-import { ArticleAboutCoordinateSystems } from "./ArticleAboutCoordinateSystems.tsx";
+import {
+  ArticleAboutCoordinateSystems,
+  GuideContentsBar,
+  GuideContentsSidebar,
+} from "./ArticleAboutCoordinateSystems.tsx";
 
 // Loaded on demand: the map library is most of the bundle, and the parser page has no use for it.
 const ConverterPage = lazy(() =>
@@ -271,7 +275,7 @@ const reading: Reference[] = [
   {
     href: "https://www.ordnancesurvey.co.uk/documents/resources/guide-coordinate-systems-great-britain.pdf",
     label: "Ordnance Survey — A Guide to Coordinate Systems in Great Britain",
-    note: "еліпсоїди, датуми, проєкції та трансформації — шар, який оглядові статті пропускають",
+    note: "еліпсоїди, датуми, проєкції та трансформації — те, що оглядові статті зазвичай пропускають",
   },
 ];
 
@@ -334,6 +338,7 @@ const ReferenceList = ({ title, items }: { title: string; items: Reference[] }) 
 const pages = [
   { hash: "", label: "Парсер" },
   { hash: "#/convert", label: "Конвертер" },
+  { hash: "#/guide", label: "Довідник" },
 ] as const;
 
 type PageHash = (typeof pages)[number]["hash"];
@@ -343,7 +348,8 @@ const subscribeToHash = (onChange: () => void) => {
   return () => window.removeEventListener("hashchange", onChange);
 };
 
-const currentPage = (): PageHash => (window.location.hash === "#/convert" ? "#/convert" : "");
+const currentPage = (): PageHash =>
+  pages.find(({ hash }) => hash !== "" && hash === window.location.hash)?.hash ?? "";
 
 const Navigation = ({ active }: { active: PageHash }) => (
   <nav className="inline-flex rounded-full border bg-white p-0.5 text-sm">
@@ -382,6 +388,19 @@ const PageHeader = ({
 const ParserPage = () => (
   <>
     <CoordinateInput />
+    <p className="mt-10 text-sm opacity-70">
+      Як ці системи влаштовані, чим відрізняються і де на них чекають пастки —{" "}
+      <a href="#/guide" className="underline underline-offset-2 hover:no-underline">
+        у Довіднику
+      </a>
+      .
+    </p>
+  </>
+);
+
+// The long read: the article on how the nine notations work, and what to read next.
+const GuidePage = () => (
+  <>
     <ArticleAboutCoordinateSystems />
     <section className="mt-12">
       <ReferenceList title="Матеріали" items={reading} />
@@ -393,8 +412,7 @@ const ParserPage = () => (
 function App() {
   const page = useSyncExternalStore(subscribeToHash, currentPage);
 
-  // The converter takes the whole width, the form on the left and the map filling the rest; the
-  // parser page stays a single readable column.
+  // The converter takes the whole width, the form on the left and the map filling the rest.
   if (page === "#/convert") {
     return (
       <main>
@@ -413,6 +431,30 @@ function App() {
     );
   }
 
+  // The guide is a long read: on wide screens its contents stay in a column to the left, on narrow
+  // ones they fold into a bar at the top. The article keeps the same reading width either way.
+  if (page === "#/guide") {
+    return (
+      <main className="m-auto px-4 py-6 lg:grid lg:grid-cols-[14rem_minmax(0,64ch)] lg:justify-center lg:gap-x-12">
+        <aside className="hidden lg:block">
+          <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
+            <GuideContentsSidebar />
+          </div>
+        </aside>
+        <div className="m-auto min-w-0 max-w-[64ch] lg:m-0">
+          <PageHeader
+            active={page}
+            title="Довідник"
+            subtitle="Системи координат, датуми й формати запису: як вони влаштовані й де чекають пастки."
+          />
+          <GuideContentsBar className="lg:hidden" />
+          <GuidePage />
+        </div>
+      </main>
+    );
+  }
+
+  // The parser is a reading page too: one column, the article's width.
   return (
     <main className="m-auto max-w-[64ch] px-4 py-6">
       <PageHeader
