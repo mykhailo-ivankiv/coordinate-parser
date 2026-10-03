@@ -15,7 +15,7 @@ import { projectToUTM, utmGrid } from "./UTMconverter.ts";
 // input's outline (already densified along curved edges, see area.ts) is a plain polygon.
 
 /** Enumerating more squares than this is a list nobody reads; a coarser precision is the answer. */
-export const MAX_COVERING_SQUARES = 100;
+const MAX_COVERING_SQUARES = 100;
 
 // The input outline is rounded to seven decimal places, about a centimetre, so an edge the input
 // shares exactly with a target square can land a hair inside it. Shrinking each target square by
@@ -26,8 +26,11 @@ const EDGE_TOLERANCE = 0.02; // metres
 export type Coverage =
   /** Every target square the input reaches, the one containing the input's centre first. */
   | { kind: "squares"; squares: Converted[] }
-  /** Too many to list: how many grid cells the input's extent spans, and the centre's square. */
-  | { kind: "tooMany"; count: number; primary: Converted };
+  /**
+   * Too many to list: how many grid cells the input's extent spans, the most that would have been
+   * listed, and the centre's square.
+   */
+  | { kind: "tooMany"; count: number; limit: number; primary: Converted };
 
 type TargetGrid = {
   project: (coords: { latitude: number; longitude: number }) => Projected;
@@ -119,7 +122,7 @@ const overlaps = (ring: Projected[], box: Box) => {
  * @param area - The input, as areaOf gives it.
  * @param system - The grid to cover it with.
  * @param options - The MGRS or USNG precision; 1 m unless given.
- * @returns The squares, or their count when there are more than MAX_COVERING_SQUARES.
+ * @returns The squares, or only their count when there are more than 100.
  * @throws RangeError where fromWGS84 would: where the system cannot express the input's centre.
  */
 export const coveringSquares = (
@@ -145,7 +148,9 @@ export const coveringSquares = (
   const columns = span(eastings);
   const rows = span(northings);
   const count = (columns[1] - columns[0] + 1) * (rows[1] - rows[0] + 1);
-  if (count > MAX_COVERING_SQUARES) return { kind: "tooMany", count, primary };
+  if (count > MAX_COVERING_SQUARES) {
+    return { kind: "tooMany", count, limit: MAX_COVERING_SQUARES, primary };
+  }
 
   const found = new Map<string, Converted>([[primary.value, primary]]);
   for (let column = columns[0]; column <= columns[1]; column++) {

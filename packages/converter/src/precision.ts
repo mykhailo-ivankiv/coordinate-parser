@@ -1,4 +1,5 @@
-import { type Coordinates, MAX_FRACTION_DIGITS } from "@coordinate-parser/parser";
+import type { Coordinates } from "@coordinate-parser/parser";
+import { MAX_FRACTION_DIGITS } from "./notation.ts";
 
 // Latitude and longitude leave the converters at the precision the parsers accept: seven decimal
 // places, about a centimetre. Anything finer is floating point residue of the projection maths, and

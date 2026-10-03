@@ -57,14 +57,11 @@ export const LATITUDE_LONGITUDE_NOTATIONS: CoordinateSystem[] = [
 /** The rectangular grids: systems with a projection behind them, as opposed to an angle pair. */
 export const GRID_SYSTEMS: CoordinateSystem[] = ["MGRS", "USNG", "UTM", "UCS-2000"];
 
-/** The systems whose references can be written coarser than a metre. */
-export const GRID_PRECISION_SYSTEMS: CoordinateSystem[] = ["MGRS", "USNG"];
-
 /**
  * The area a parsed coordinate designates, in WGS 84: a point for the latitude/longitude
  * notations, a square for the grid references.
  *
- * @param parsed - A coordinate as coordinateParser or systemParsers return it.
+ * @param parsed - A coordinate as coordinateParser or a system's own parser returns it.
  * @returns The point, or the square with its corners and outline.
  * @throws RangeError on a reference the parser accepts but no place matches: an MGRS column letter
  * not used in its zone, or a band that contradicts the northing.
@@ -101,7 +98,7 @@ export const areaOf = (parsed: SystemCoordinate): Area => {
  * Any parsed coordinate to the WGS 84 latitude/longitude it is stored as: the centre of the area it
  * designates, to seven decimal places.
  *
- * @param parsed - A coordinate as coordinateParser or systemParsers return it.
+ * @param parsed - A coordinate as coordinateParser or a system's own parser returns it.
  * @returns Latitude and longitude in decimal degrees.
  * @throws RangeError where areaOf does.
  *
@@ -267,7 +264,7 @@ export const tryFromWGS84 = (
  *
  * @param coords - The point, WGS 84 latitude and longitude.
  * @param options - The MGRS and USNG precision; 1 m unless given.
- * @returns One conversion per system, in the order of CONVERTIBLE_SYSTEMS.
+ * @returns One conversion per system: WGS84, WGS84R, DD, DDM, DMS, MGRS, USNG, UTM, UCS-2000.
  *
  * @example
  * ```ts

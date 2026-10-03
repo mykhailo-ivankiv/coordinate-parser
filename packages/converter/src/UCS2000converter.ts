@@ -1,4 +1,5 @@
 import type { Coordinates, UCS2000Coordinate } from "@coordinate-parser/parser";
+import type { Box } from "./gridOverlay.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
 import { type Area, gridSquare } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
@@ -73,8 +74,7 @@ export const fromUCS2000 = (reference: UCS2000Coordinate): Coordinates =>
 export const formatUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
   `${northing} ${zone}${String(easting).padStart(6, "0")}`;
 
-/** A UCS-2000 zone and a box for it, in degrees. */
-export type ZoneArea = { zone: number; west: number; south: number; east: number; north: number };
+type ZoneArea = { zone: number; west: number; south: number; east: number; north: number };
 
 /**
  * Where each UCS-2000 zone is defined: EPSG's area of use for the zone CRSs, EPSG:5562-5565. These
@@ -82,7 +82,7 @@ export type ZoneArea = { zone: number; west: number; south: number; east: number
  * computes across each zone's whole six-degree strip, but the datum shift means nothing outside
  * Ukraine.
  */
-export const UCS2000_ZONE_AREAS: ZoneArea[] = [
+const UCS2000_ZONE_AREAS: ZoneArea[] = [
   { zone: 4, west: 22.15, south: 47.95, east: 24, north: 51.66 },
   { zone: 5, west: 24, south: 45.1, east: 30, north: 51.96 },
   { zone: 6, west: 30, south: 43.18, east: 36, north: 52.38 },
@@ -94,13 +94,45 @@ export const UCS2000_ZONE_AREAS: ZoneArea[] = [
  * the converter computes UCS-2000 at all. Outside them it refuses; inside them but outside
  * UCS2000_ZONE_AREAS it computes and flags the value.
  */
-export const UCS2000_STRIPS: ZoneArea[] = [MIN_ZONE, 5, 6, MAX_ZONE].map((zone) => ({
+const UCS2000_STRIPS: ZoneArea[] = [MIN_ZONE, 5, 6, MAX_ZONE].map((zone) => ({
   zone,
   west: (zone - 1) * ZONE_WIDTH,
   east: zone * ZONE_WIDTH,
   south: -85,
   north: 85,
 }));
+
+/** A UCS-2000 zone with its two boxes, as ucs2000Zones lists them. */
+export type Ucs2000Zone = {
+  /** Zone number, 4-7. */
+  zone: number;
+  /** Where the zone is defined: EPSG's area of use, a box around the part of Ukraine it covers. */
+  areaOfUse: Box;
+  /** The zone's whole six-degree strip, as far towards the poles as a web map reaches. */
+  strip: Box;
+};
+
+const boxOf = ({ west, south, east, north }: ZoneArea): Box => ({ west, south, east, north });
+
+/**
+ * The four UCS-2000 zones. The converter computes across each zone's whole strip and refuses
+ * outside the strips; between the area of use and the strip edge it computes and flags the value,
+ * since the datum shift was fitted to Ukraine only.
+ *
+ * @returns Zones 4-7, west to east.
+ *
+ * @example
+ * ```ts
+ * ucs2000Zones()[2]
+ * // → { zone: 6, areaOfUse: { west: 30, south: 43.18, east: 36, north: 52.38 }, strip: { west: 30, south: -85, east: 36, north: 85 } }
+ * ```
+ */
+export const ucs2000Zones = (): Ucs2000Zone[] =>
+  UCS2000_ZONE_AREAS.map((area) => ({
+    zone: area.zone,
+    areaOfUse: boxOf(area),
+    strip: boxOf(UCS2000_STRIPS.find((strip) => strip.zone === area.zone)!),
+  }));
 
 /**
  * Whether a WGS 84 point lies in UCS-2000's area of use: inside the EPSG box of the zone it falls in.

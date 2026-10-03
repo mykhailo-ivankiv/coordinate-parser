@@ -1,4 +1,5 @@
-import { type Coordinates, LATITUDE_BANDS } from "@coordinate-parser/parser";
+import type { Coordinates } from "@coordinate-parser/parser";
+import { LATITUDE_BANDS } from "./notation.ts";
 import { formatUSNG, toMGRS } from "./MGRSconverter.ts";
 import { project } from "./transverseMercator.ts";
 import {
@@ -51,11 +52,11 @@ export const gridZones = (): GridZone[] =>
     });
   });
 
-/** Grid line spacings, metres, from the 100 km squares down. */
-export const GRID_SPACINGS = [100_000, 10_000, 1_000, 100, 10] as const;
+/** A grid line spacing, in metres: the 100 km squares and their decimal subdivisions. */
+export type GridSpacing = 100_000 | 10_000 | 1_000 | 100 | 10;
 
-/** One of GRID_SPACINGS. */
-export type GridSpacing = (typeof GRID_SPACINGS)[number];
+// Every spacing, from the 100 km squares down.
+const GRID_SPACINGS: readonly GridSpacing[] = [100_000, 10_000, 1_000, 100, 10];
 
 /**
  * The finest spacing whose cells are still at least `minPixels` across at `metresPerPixel`, so the

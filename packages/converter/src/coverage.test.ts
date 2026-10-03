@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coordinateParser, systemParsers, type SystemCoordinate } from "@coordinate-parser/parser";
+import { coordinateParser, type SystemCoordinate, usngParser } from "@coordinate-parser/parser";
 import { areaOf } from "./coordinateConverter.ts";
 import { coveringSquares } from "./coverage.ts";
 
@@ -58,7 +58,7 @@ describe("covering squares", () => {
   });
 
   it("includes the squares of a USNG reference read with its own parser", () => {
-    const usng = systemParsers.USNG.run("36U UA 24 91");
+    const usng = usngParser.run("36U UA 24 91");
     if (usng.isError) throw new Error(usng.error);
     expect(values(coveringSquares(areaOf(usng.result), "USNG", { precision: 10000 }))).toEqual([
       "36U UA 2 9",

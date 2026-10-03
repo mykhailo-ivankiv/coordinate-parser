@@ -1,11 +1,10 @@
-import {
-  type Coordinates,
-  type GridLocation,
-  MAX_DIGITS_PER_AXIS,
-  ROW_LETTERS,
-  type MGRSCoordinate,
-  type USNGCoordinate,
+import type {
+  Coordinates,
+  GridLocation,
+  MGRSCoordinate,
+  USNGCoordinate,
 } from "@coordinate-parser/parser";
+import { MAX_DIGITS_PER_AXIS, ROW_LETTERS } from "./notation.ts";
 import { type Area, gridSquare } from "./area.ts";
 import { project } from "./transverseMercator.ts";
 import {

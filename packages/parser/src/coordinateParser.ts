@@ -55,36 +55,144 @@ export const coordinateParser: Parser<CoordinateOf<Exclude<CoordinateSystem, "US
   UTMparser.map((coords) => ({ ...coords, system: "UTM" as const })),
 ]);
 
+// One parser per system, for when the caller already knows which system the input is in. Nothing
+// competes in them, so the readings coordinateParser can never report are reachable: USNG, which
+// MGRS claims first, and a WGS84R pair whose longitude would also pass as a latitude.
+
 /**
- * One parser per system, for when the caller already knows which system the input is in. Nothing
- * competes here, so the readings coordinateParser can never report are reachable: USNG, which MGRS
- * claims first, and a WGS84R pair whose longitude would also pass as a latitude.
+ * Signed decimal degrees, latitude first. The two values are separated by a comma or whitespace;
+ * with whitespace alone, a comma may also be the decimal mark.
  *
  * @example
  * ```ts
- * systemParsers.USNG.run("10S GJ 06832 44683").result.system
- * // → "USNG"
- * systemParsers.WGS84R.run("30.5234, 50.4501").result
+ * wgs84Parser.run("50,4501 30,5234").result
+ * // → { latitude: 50.4501, longitude: 30.5234, system: "WGS84" }
+ * ```
+ */
+export const wgs84Parser: Parser<CoordinateOf<"WGS84">> = choice([
+  WGS84parser,
+  EuropeanWGS84parser,
+]).map((coords) => ({ ...coords, system: "WGS84" as const }));
+
+/**
+ * Signed decimal degrees, longitude first — the order of GeoJSON and most web map APIs.
+ *
+ * @example
+ * ```ts
+ * wgs84rParser.run("30.5234, 50.4501").result
  * // → { latitude: 50.4501, longitude: 30.5234, system: "WGS84R" }
  * ```
  */
-export const systemParsers: { [S in CoordinateSystem]: Parser<CoordinateOf<S>> } = {
-  WGS84: choice([WGS84parser, EuropeanWGS84parser]).map((coords) => ({
-    ...coords,
-    system: "WGS84" as const,
-  })),
-  WGS84R: choice([WGS84Rparser, EuropeanWGS84Rparser]).map((coords) => ({
-    ...coords,
-    system: "WGS84R" as const,
-  })),
-  DD: DDparser.map((coords) => ({ ...coords, system: "DD" as const })),
-  DDM: DDMparser.map((coords) => ({ ...coords, system: "DDM" as const })),
-  DMS: DMSparser.map((coords) => ({ ...coords, system: "DMS" as const })),
-  MGRS: MGRSparser.map((coords) => ({ ...coords, system: "MGRS" as const })),
-  USNG: USNGparser.map((coords) => ({ ...coords, system: "USNG" as const })),
-  UTM: UTMparser.map((coords) => ({ ...coords, system: "UTM" as const })),
-  "UCS-2000": UCS2000parser.map((coords) => ({ ...coords, system: "UCS-2000" as const })),
-};
+export const wgs84rParser: Parser<CoordinateOf<"WGS84R">> = choice([
+  WGS84Rparser,
+  EuropeanWGS84Rparser,
+]).map((coords) => ({ ...coords, system: "WGS84R" as const }));
+
+/**
+ * Decimal degrees with a hemisphere letter instead of a sign (ISO 6709 Annex D). The degree sign is
+ * optional; a sign together with a letter is rejected.
+ *
+ * @example
+ * ```ts
+ * ddParser.run("33.8688°S, 151.2093°E").result
+ * // → { latitude: -33.8688, longitude: 151.2093, system: "DD" }
+ * ```
+ */
+export const ddParser: Parser<CoordinateOf<"DD">> = DDparser.map((coords) => ({
+  ...coords,
+  system: "DD" as const,
+}));
+
+/**
+ * Degrees and decimal minutes with a hemisphere letter. The minute mark is required; minutes must be
+ * under 60.
+ *
+ * @example
+ * ```ts
+ * ddmParser.run("50° 27.006'N, 30° 31.404'E").result
+ * // → { latitude: 50.4501, longitude: 30.5234, system: "DDM" }
+ * ```
+ */
+export const ddmParser: Parser<CoordinateOf<"DDM">> = DDMparser.map((coords) => ({
+  ...coords,
+  system: "DDM" as const,
+}));
+
+/**
+ * Degrees, whole minutes and decimal seconds with a hemisphere letter. Seconds take a double quote,
+ * two apostrophes or a double prime.
+ *
+ * @example
+ * ```ts
+ * dmsParser.run(`50° 27' 0.36"N, 30° 31' 24.24"E`).result
+ * // → { latitude: 50.4501, longitude: 30.5234, system: "DMS" }
+ * ```
+ */
+export const dmsParser: Parser<CoordinateOf<"DMS">> = DMSparser.map((coords) => ({
+  ...coords,
+  system: "DMS" as const,
+}));
+
+/**
+ * An MGRS reference, spaced or solid, from a bare 100 km square down to 1 m.
+ *
+ * @example
+ * ```ts
+ * mgrsParser.run("4Q FJ 12345 67890").result
+ * // → { zone: 4, band: "Q", square: "FJ", easting: 12345, northing: 67890, precision: 1, system: "MGRS" }
+ * ```
+ */
+export const mgrsParser: Parser<CoordinateOf<"MGRS">> = MGRSparser.map((coords) => ({
+  ...coords,
+  system: "MGRS" as const,
+}));
+
+/**
+ * A USNG reference: the MGRS grid, but with at least one digit per axis, so its coarsest square is
+ * 10 km.
+ *
+ * @example
+ * ```ts
+ * usngParser.run("10S GJ 06832 44683").result.system
+ * // → "USNG"
+ * usngParser.run("10S GJ").isError
+ * // → true
+ * ```
+ */
+export const usngParser: Parser<CoordinateOf<"USNG">> = USNGparser.map((coords) => ({
+  ...coords,
+  system: "USNG" as const,
+}));
+
+/**
+ * A UTM position: zone, latitude band, 6-digit easting and up to 7-digit northing. The hemisphere is
+ * taken from the band.
+ *
+ * @example
+ * ```ts
+ * utmParser.run("36U 324182 5591608").result
+ * // → { zone: 36, band: "U", hemisphere: "N", easting: 324182, northing: 5591608, system: "UTM" }
+ * ```
+ */
+export const utmParser: Parser<CoordinateOf<"UTM">> = UTMparser.map((coords) => ({
+  ...coords,
+  system: "UTM" as const,
+}));
+
+/**
+ * UCS-2000 rectangular coordinates, X then Y, with the zone as the first digit of Y. Groups may be
+ * split with a hyphen: "55-91000".
+ *
+ * @example
+ * ```ts
+ * ucs2000Parser.run("55-91000 63-25000").result
+ * // → { zone: 6, northing: 5591000, easting: 325000, system: "UCS-2000" }
+ * ```
+ */
+export const ucs2000Parser: Parser<CoordinateOf<"UCS-2000">> = UCS2000parser.map((coords) => ({
+  ...coords,
+  system: "UCS-2000" as const,
+}));
 
 /**
  * WGS 84 latitude and longitude in any notation that puts latitude first: signed decimals, with a
@@ -101,5 +209,5 @@ export const systemParsers: { [S in CoordinateSystem]: Parser<CoordinateOf<S>> }
  * ```
  */
 export const latitudeLongitudeParser: Parser<CoordinateOf<"WGS84" | "DD" | "DDM" | "DMS">> = choice(
-  [systemParsers.WGS84, systemParsers.DD, systemParsers.DDM, systemParsers.DMS],
+  [wgs84Parser, ddParser, ddmParser, dmsParser],
 );

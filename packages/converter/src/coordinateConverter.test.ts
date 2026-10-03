@@ -2,9 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   type Coordinates,
   coordinateParser,
+  ddmParser,
+  ddParser,
+  dmsParser,
   latitudeLongitudeParser,
-  systemParsers,
+  mgrsParser,
   type SystemCoordinate,
+  ucs2000Parser,
+  usngParser,
+  utmParser,
+  wgs84Parser,
+  wgs84rParser,
 } from "@coordinate-parser/parser";
 import { project } from "./transverseMercator.ts";
 import { utmProjection } from "./UTMconverter.ts";
@@ -64,7 +72,7 @@ describe("to WGS 84", () => {
   });
 
   it("accepts a USNG reference, which coordinateParser reports as MGRS", () => {
-    const usng = systemParsers.USNG.run("18T WL 83959 07350");
+    const usng = usngParser.run("18T WL 83959 07350");
     if (usng.isError) throw new Error(usng.error);
     expect(toWGS84({ ...usng.result, system: "USNG" })).toEqual(toWGS84(parse("18TWL8395907350")));
   });
@@ -92,8 +100,8 @@ describe("round trip through every system", () => {
       },
     );
 
-    it("survives WGS84R, read by systemParsers.WGS84R", () => {
-      expect(systemParsers.WGS84R.run(fromWGS84(coords, "WGS84R").value)).toMatchObject({
+    it("survives WGS84R, read by wgs84rParser", () => {
+      expect(wgs84rParser.run(fromWGS84(coords, "WGS84R").value)).toMatchObject({
         isError: false,
         result: coords,
       });
@@ -102,9 +110,19 @@ describe("round trip through every system", () => {
 });
 
 describe("reading back with the system's own parser", () => {
-  // Unlike coordinateParser, systemParsers reaches USNG and WGS84R too, so every system round-trips.
-  it.each(CONVERTIBLE_SYSTEMS)("reads %s back as itself", (system) => {
-    const result = systemParsers[system].run(fromWGS84(kyiv, system).value);
+  // Unlike coordinateParser, the per-system parsers reach USNG and WGS84R too, so every system round-trips.
+  it.each([
+    ["WGS84", wgs84Parser],
+    ["WGS84R", wgs84rParser],
+    ["DD", ddParser],
+    ["DDM", ddmParser],
+    ["DMS", dmsParser],
+    ["MGRS", mgrsParser],
+    ["USNG", usngParser],
+    ["UTM", utmParser],
+    ["UCS-2000", ucs2000Parser],
+  ] as const)("reads %s back as itself", (system, parser) => {
+    const result = parser.run(fromWGS84(kyiv, system).value);
     if (result.isError) throw new Error(result.error);
     expect(result.result.system).toBe(system);
     const back = toWGS84(result.result);

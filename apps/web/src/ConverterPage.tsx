@@ -8,19 +8,23 @@ import {
   coveringSquares,
   format,
   fromWGS84,
-  GRID_SYSTEMS,
   type GridPrecision,
   insideUcs2000AreaOfUse,
-  LATITUDE_LONGITUDE_NOTATIONS,
-  MAX_COVERING_SQUARES,
   tryFromWGS84,
 } from "@coordinate-parser/converter";
 import {
   type Coordinates,
   type CoordinateSystem,
   coordinateParser,
+  ddmParser,
+  ddParser,
+  dmsParser,
   latitudeLongitudeParser,
-  systemParsers,
+  mgrsParser,
+  ucs2000Parser,
+  usngParser,
+  utmParser,
+  wgs84rParser,
 } from "@coordinate-parser/parser";
 
 const AUTO = "auto";
@@ -40,6 +44,12 @@ const examples: Record<CoordinateSystem, string> = {
   UTM: "36U 324182 5591608",
   "UCS-2000": "5593954 6324226",
 };
+
+// WGS 84 latitude and longitude, written five ways: notations of one system, offered as one group.
+const LATITUDE_LONGITUDE_NOTATIONS: CoordinateSystem[] = ["WGS84", "WGS84R", "DD", "DDM", "DMS"];
+
+// The rectangular grids, each a system with a projection of its own.
+const GRID_SYSTEMS: CoordinateSystem[] = ["MGRS", "USNG", "UTM", "UCS-2000"];
 
 // WGS84, WGS84R, DD, DDM and DMS are one coordinate system written five ways, so they are offered
 // as one group, each labelled by how it writes the angle. The grids are systems of their own.
@@ -70,11 +80,22 @@ type Outcome =
   | { kind: "conversionError"; system: CoordinateSystem; message: string }
   | { kind: "converted"; system: CoordinateSystem; area: Area };
 
-const parse = (text: string, input: InputChoice) => {
-  if (input === AUTO) return coordinateParser.run(text);
-  if (input === "WGS84") return latitudeLongitudeParser.run(text);
-  return systemParsers[input].run(text);
-};
+// The parser behind each choice in the system select. WGS 84 reads every latitude-first notation,
+// since the select offers it once for all of them.
+const parsers = {
+  [AUTO]: coordinateParser,
+  WGS84: latitudeLongitudeParser,
+  WGS84R: wgs84rParser,
+  DD: ddParser,
+  DDM: ddmParser,
+  DMS: dmsParser,
+  MGRS: mgrsParser,
+  USNG: usngParser,
+  UTM: utmParser,
+  "UCS-2000": ucs2000Parser,
+} satisfies Record<InputChoice, unknown>;
+
+const parse = (text: string, input: InputChoice) => parsers[input].run(text);
 
 const convert = (text: string, input: InputChoice): Outcome => {
   if (text.trim() === "") return { kind: "empty" };
@@ -355,8 +376,8 @@ const CoverageList = ({
     return (
       <p className="mt-3 opacity-60">
         Вхідна зона охоплює близько {coverage.count.toLocaleString("uk-UA")}{" "}
-        {squaresWord(coverage.count)} {system} — забагато, щоб перелічити (межа —{" "}
-        {MAX_COVERING_SQUARES}). Оберіть грубішу точність.
+        {squaresWord(coverage.count)} {system} — забагато, щоб перелічити (межа — {coverage.limit}).
+        Оберіть грубішу точність.
       </p>
     );
   }

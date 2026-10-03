@@ -1,4 +1,5 @@
-import { type Coordinates, MAX_FRACTION_DIGITS, DEGREE_SIGN } from "@coordinate-parser/parser";
+import type { Coordinates } from "@coordinate-parser/parser";
+import { DEGREE_SIGN, MAX_FRACTION_DIGITS } from "./notation.ts";
 
 // WGS 84 latitude/longitude written out in the notations that are only a spelling of it: the
 // signed decimal pair, and the ISO 6709 Annex D family DD, DDM and DMS. No geodesy happens here —

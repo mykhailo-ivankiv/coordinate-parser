@@ -14,9 +14,8 @@ import {
   mgrsGrid,
   spacingFor,
   toDeclaredPrecision,
-  UCS2000_STRIPS,
-  UCS2000_ZONE_AREAS,
-  type ZoneArea,
+  type Box,
+  ucs2000Zones,
   zoneSeams,
 } from "@coordinate-parser/converter";
 import type { Coordinates } from "@coordinate-parser/parser";
@@ -138,6 +137,14 @@ const metresPerPixel = (latitude: number, zoom: number) =>
 
 const tooSmall = (area: Area, zoom: number) =>
   area.size / metresPerPixel(area.centre.latitude, zoom) < MIN_SQUARE_PIXELS;
+
+// The UCS-2000 zones as two layers: where each is defined, and the whole strip it computes across.
+type ZoneArea = Box & { zone: number };
+const UCS2000_ZONE_AREAS: ZoneArea[] = ucs2000Zones().map(({ zone, areaOfUse }) => ({
+  zone,
+  ...areaOfUse,
+}));
+const UCS2000_STRIPS: ZoneArea[] = ucs2000Zones().map(({ zone, strip }) => ({ zone, ...strip }));
 
 // A zone's edges are meridians and parallels, which are straight lines on a web map, so its four
 // corners are its whole outline.

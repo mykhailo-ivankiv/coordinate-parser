@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Coordinates, systemParsers } from "@coordinate-parser/parser";
+import { type Coordinates, ucs2000Parser } from "@coordinate-parser/parser";
 import { project } from "./transverseMercator.ts";
 import { fromWGS84 } from "./coordinateConverter.ts";
 import {
@@ -83,7 +83,7 @@ describe("WGS 84 to UCS-2000", () => {
   it("formats the way the UCS-2000 parser reads", () => {
     const written = formatUCS2000(toUCS2000({ latitude: 50.4501, longitude: 30.5234 }));
     expect(written).toBe("5593954 6324226");
-    expect(systemParsers["UCS-2000"].run(written)).toMatchObject({
+    expect(ucs2000Parser.run(written)).toMatchObject({
       isError: false,
       result: { zone: 6, northing: 5593954, easting: 324226 },
     });

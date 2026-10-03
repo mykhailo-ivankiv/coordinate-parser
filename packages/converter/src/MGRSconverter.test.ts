@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Coordinates, systemParsers } from "@coordinate-parser/parser";
+import { type Coordinates, usngParser, mgrsParser } from "@coordinate-parser/parser";
 import { formatMGRS, formatUSNG, fromMGRS, toMGRS, toUSNG } from "./MGRSconverter.ts";
 
 // Reference strings computed with the `mgrs` Python package 1.5, which wraps NGA's GEOTRANS.
@@ -56,7 +56,7 @@ const references: { name: string; coords: Coordinates; metre: string; kilometre:
 ];
 
 const parse = (input: string) => {
-  const result = systemParsers.MGRS.run(input);
+  const result = mgrsParser.run(input);
   if (result.isError) throw new Error(result.error);
   return result.result;
 };
@@ -87,10 +87,10 @@ describe("WGS 84 to USNG", () => {
     );
   });
 
-  it("parses back with systemParsers.USNG", () => {
+  it("parses back with usngParser", () => {
     const written = formatUSNG(toUSNG({ latitude: 40.7128, longitude: -74.006 }, 10000));
     expect(written).toBe("18T WL 8 0");
-    expect(systemParsers.USNG.run(written).isError).toBe(false);
+    expect(usngParser.run(written).isError).toBe(false);
   });
 });
 

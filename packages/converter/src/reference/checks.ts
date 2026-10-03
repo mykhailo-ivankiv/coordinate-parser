@@ -1,6 +1,6 @@
 import Point from "@arcgis/core/geometry/Point.js";
 import * as mgrs from "mgrs";
-import { type Coordinates, systemParsers } from "@coordinate-parser/parser";
+import { type Coordinates, mgrsParser, usngParser, utmParser } from "@coordinate-parser/parser";
 import { fromWGS84, toWGS84 } from "../coordinateConverter.ts";
 import { ucs2000Grid, ucs2000ZoneOf } from "../UCS2000converter.ts";
 import { projectToUTM, unprojectUTM } from "../UTMconverter.ts";
@@ -53,10 +53,12 @@ const fromArcgis = (point: Point | null | undefined): Coordinates | null =>
     ? null
     : { latitude: point.latitude, longitude: point.longitude };
 
+const OUR_PARSERS = { MGRS: mgrsParser, USNG: usngParser, UTM: utmParser };
+
 /** Our value for `system`, read back by our own parser, and the point we take it to mean. */
-const ourReading = (point: Coordinates, system: "MGRS" | "USNG" | "UTM") => {
+const ourReading = (point: Coordinates, system: keyof typeof OUR_PARSERS) => {
   const value = fromWGS84(point, system).value;
-  const parsed = systemParsers[system].run(value);
+  const parsed = OUR_PARSERS[system].run(value);
   return { value, coords: parsed.isError ? null : toWGS84(parsed.result) };
 };
 

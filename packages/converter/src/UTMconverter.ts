@@ -1,4 +1,5 @@
-import { type Coordinates, LATITUDE_BANDS, type UTMCoordinate } from "@coordinate-parser/parser";
+import type { Coordinates, UTMCoordinate } from "@coordinate-parser/parser";
+import { LATITUDE_BANDS } from "./notation.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
 import { type Area, gridSquare } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";

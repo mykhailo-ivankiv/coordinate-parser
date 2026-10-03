@@ -23,7 +23,7 @@ const MODULES: {
   {
     id: "parser",
     title: "Парсер",
-    importLine: `import { coordinateParser, systemParsers } from "@coordinate-parser/parser";`,
+    importLine: `import { coordinateParser, mgrsParser } from "@coordinate-parser/parser";`,
     groups: [
       { id: "parsers", title: "Парсери" },
       { id: "constants", title: "Константи" },
@@ -383,14 +383,16 @@ export const ApiPage = ({ header }: { header: ReactNode }) => (
               {module.title}
             </h2>
             <Code>{module.importLine}</Code>
-            {module.groups.map((group) => (
-              <Fragment key={group.id}>
-                <h3>{group.title}</h3>
-                {entriesOf(module.id, group.id).map((entry) => (
-                  <Entry key={entry.name} entry={entry} />
-                ))}
-              </Fragment>
-            ))}
+            {module.groups
+              .filter((group) => entriesOf(module.id, group.id).length > 0)
+              .map((group) => (
+                <Fragment key={group.id}>
+                  <h3>{group.title}</h3>
+                  {entriesOf(module.id, group.id).map((entry) => (
+                    <Entry key={entry.name} entry={entry} />
+                  ))}
+                </Fragment>
+              ))}
           </Fragment>
         ))}
       </article>
