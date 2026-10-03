@@ -206,10 +206,9 @@ export const formatUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
 export const format = (
   written:
     | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
-    | [MGRSCoordinate]
-    | [USNGCoordinate]
-    | [UTMCoordinate]
-    | [UCS2000Coordinate],
+    // One tuple over all the grids rather than one per grid, so that a coordinate whose grid is
+    // only known at run time can be passed in as it is.
+    | [MGRSCoordinate | USNGCoordinate | UTMCoordinate | UCS2000Coordinate],
 ): string => {
   if (written.length === 2) {
     const [coordinate, notation] = written;

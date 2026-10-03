@@ -99,9 +99,6 @@ importers:
 
   packages/converter:
     dependencies:
-      '@coordinate-parser/formatter':
-        specifier: workspace:*
-        version: link:../formatter
       '@coordinate-parser/types':
         specifier: workspace:*
         version: link:../types
@@ -109,6 +106,9 @@ importers:
       '@arcgis/core':
         specifier: ^5.1.26
         version: 5.1.26
+      '@coordinate-parser/formatter':
+        specifier: workspace:*
+        version: link:../formatter
       '@coordinate-parser/parser':
         specifier: workspace:*
         version: link:../parser

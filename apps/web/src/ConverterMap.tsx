@@ -15,10 +15,11 @@ import {
   spacingFor,
   toDeclaredPrecision,
   type Box,
-  type Coordinates,
   ucs2000Zones,
   zoneSeams,
 } from "@coordinate-parser/converter";
+import { formatUSNG } from "@coordinate-parser/formatter";
+import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 
 // OpenFreeMap: free vector tiles from OpenStreetMap data, no API key and no registration.
 // https://openfreemap.org
@@ -65,13 +66,13 @@ export type OutputSquare = {
 
 type MapData = {
   /** The stored point: the centre of whatever the input designates. */
-  centre: Coordinates | null;
+  centre: WGS84Coordinate | null;
   /** The zone the input names, when it is a grid reference. */
   inputArea: Area | null;
   /** The squares the input converts to; several when the input zone reaches more than one. */
   outputSquares: OutputSquare[];
   /** Converted values that are points rather than squares: the WGS 84 latitude and longitude. */
-  outputPoints: Coordinates[];
+  outputPoints: WGS84Coordinate[];
   /** Which reference layers to draw beneath the results. */
   layers: MapLayers;
 };
@@ -90,7 +91,14 @@ export type MapLayers = {
 // Taken from maplibre's own signature, so the project needs no separate GeoJSON type package.
 type FeatureCollection = Exclude<Parameters<GeoJSONSource["setData"]>[0], string>;
 
-const lngLat = ({ latitude, longitude }: Coordinates): [number, number] => [longitude, latitude];
+// MapLibre takes [longitude, latitude]; anything with the two numbers will do, a zone's middle too.
+const lngLat = ({
+  latitude,
+  longitude,
+}: {
+  latitude: number;
+  longitude: number;
+}): [number, number] => [longitude, latitude];
 
 const collection = (features: FeatureCollection["features"]): FeatureCollection => ({
   type: "FeatureCollection",
@@ -114,7 +122,9 @@ const polygons = (squares: { area: Area; primary?: boolean }[]) =>
     ),
   );
 
-const points = (items: { at: Coordinates; label?: string; primary?: boolean }[]) =>
+const points = (
+  items: { at: { latitude: number; longitude: number }; label?: string; primary?: boolean }[],
+) =>
   collection(
     items.map(({ at, label, primary = true }) => ({
       type: "Feature" as const,
@@ -475,6 +485,16 @@ const NO_MGRS = { lines: collection([]), labels: collection([]), seams: collecti
 const MGRS_MIN_SQUARE_PIXELS = 40; // 100 km squares, to draw the grid at all
 const MGRS_LABEL_PIXELS = 120; // 100 km squares, to name them
 
+// A grid cell named for the map: at 100 km the square with its grid zone, "36U UA"; finer, the square
+// and the digits at the grid's precision, "UA 24 91" — the zone is plain from the 100 km labels, and
+// would only crowd the small cells. A 100 km reference has no digits, so its empty groups are dropped.
+const cellLabel = (reference: MGRSCoordinate) => {
+  const [zoneAndBand, ...rest] = formatUSNG({ ...reference, system: "USNG" })
+    .split(" ")
+    .filter(Boolean);
+  return reference.precision === 100_000 ? `${zoneAndBand} ${rest.join(" ")}` : rest.join(" ");
+};
+
 /** The MGRS grid for the map's current view, at a spacing that suits its scale. */
 const mgrsForView = (map: Map) => {
   const resolution = metresPerPixel(map.getCenter().lat, map.getZoom());
@@ -500,7 +520,11 @@ const mgrsForView = (map: Map) => {
         geometry: { type: "LineString" as const, coordinates: path.map(lngLat) },
       })),
     ),
-    labels: points(squarePixels >= MGRS_LABEL_PIXELS ? grid.labels : []),
+    labels: points(
+      squarePixels >= MGRS_LABEL_PIXELS
+        ? grid.labels.map(({ at, reference }) => ({ at, label: cellLabel(reference) }))
+        : [],
+    ),
     seams: mgrsSeams,
   };
 };
@@ -677,7 +701,7 @@ type Picking = {
   /** While true, a click on the map picks a point instead of doing nothing. */
   picking: boolean;
   /** Called with the point clicked while picking. */
-  onPick: (coords: Coordinates) => void;
+  onPick: (coords: WGS84Coordinate) => void;
   /**
    * Whether a change of data moves the view onto it. False after a point was picked on the map: the
    * user chose it where they were looking, so the view stays put and only the drawing changes.

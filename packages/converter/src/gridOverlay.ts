@@ -1,6 +1,6 @@
+import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import type { Coordinates } from "./coordinates.ts";
 import { LATITUDE_BANDS } from "./notation.ts";
-import { formatUSNG } from "@coordinate-parser/formatter";
 import { toMGRS } from "./MGRSconverter.ts";
 import { project } from "./transverseMercator.ts";
 import {
@@ -73,13 +73,13 @@ export const spacingFor = (metresPerPixel: number, minPixels = 120): GridSpacing
 
 /** One grid line, as a path of points along its curve. */
 export type GridLine = {
-  path: Coordinates[];
+  path: WGS84Coordinate[];
   /** A 100 km square edge, as opposed to a finer subdivision. */
   major: boolean;
 };
 
-/** A 100 km square identifier and where to place it. */
-export type GridLabel = { at: Coordinates; label: string };
+/** A grid cell's MGRS reference, at the cell's precision, and where to place it: its centre. */
+export type GridLabel = { at: WGS84Coordinate; reference: MGRSCoordinate };
 
 // Points along each grid line; enough for a 100 km line to follow its curve across a view.
 const SAMPLES = 32;
@@ -148,11 +148,17 @@ export const mgrsGrid = (
 
       const belongs = (point: Coordinates) =>
         inUTM(point) && (hemisphere === "N") === point.latitude >= 0 && zoneOf(point) === zone;
-      const point = (easting: number, northing: number) =>
-        unprojectUTM({ easting, northing }, zone, hemisphere);
+      const point = (easting: number, northing: number): WGS84Coordinate => ({
+        system: "WGS84",
+        ...unprojectUTM({ easting, northing }, zone, hemisphere),
+      });
 
       // Where along a line, between a sample inside the zone and one outside, the zone edge falls.
-      const edgeBetween = (sample: (t: number) => Coordinates, inside: number, outside: number) => {
+      const edgeBetween = (
+        sample: (t: number) => WGS84Coordinate,
+        inside: number,
+        outside: number,
+      ) => {
         for (let step = 0; step < EDGE_STEPS; step++) {
           const middle = (inside + outside) / 2;
           if (belongs(sample(middle))) inside = middle;
@@ -164,8 +170,8 @@ export const mgrsGrid = (
       // A line as the runs of its samples that lie in this zone, each run carried exactly to the zone
       // edge where it meets one, so that the grids of neighbouring zones meet on the seam rather than
       // stopping short of it.
-      const addLine = (sample: (t: number) => Coordinates, major: boolean) => {
-        let run: Coordinates[] = [];
+      const addLine = (sample: (t: number) => WGS84Coordinate, major: boolean) => {
+        let run: WGS84Coordinate[] = [];
         let previous = -1;
         let wasInside = false;
         for (let k = 0; k <= SAMPLES; k++) {
@@ -194,22 +200,13 @@ export const mgrsGrid = (
       }
       if (lines.length > maxLines) return null;
 
-      // Each cell named at its centre, where that lies in this zone. At 100 km that is the square
-      // with its grid zone, "36U UA"; finer, the square and the digits at the grid's precision,
-      // "UA 24 91" — the zone is plain from the 100 km labels, and would only crowd the small cells.
+      // Each cell named at its centre, where that lies in this zone.
       const firstCell = (value: number) => Math.floor(value / spacing) * spacing;
       for (let easting = firstCell(eMin); easting <= eMax; easting += spacing) {
         for (let northing = firstCell(nMin); northing <= nMax; northing += spacing) {
           const centre = point(easting + spacing / 2, northing + spacing / 2);
           if (!belongs(centre)) continue;
-          // A 100 km reference has no digits; its empty digit groups are dropped with the spaces.
-          const [zoneAndBand, ...rest] = formatUSNG({ ...toMGRS(centre, spacing), system: "USNG" })
-            .split(" ")
-            .filter(Boolean);
-          labels.push({
-            at: centre,
-            label: spacing === 100_000 ? `${zoneAndBand} ${rest.join(" ")}` : rest.join(" "),
-          });
+          labels.push({ at: centre, reference: toMGRS(centre, spacing) });
         }
       }
     }
@@ -225,17 +222,17 @@ export const mgrsGrid = (
  *
  * @returns Each seam as a path from south to north.
  */
-export const zoneSeams = (): Coordinates[][] => {
+export const zoneSeams = (): WGS84Coordinate[][] => {
   const seen = new Set<string>();
-  const seams: Coordinates[][] = [];
+  const seams: WGS84Coordinate[][] = [];
   for (const { west, east, south, north } of gridZones()) {
     for (const longitude of [west, east]) {
       const key = `${longitude}:${south}:${north}`;
       if (seen.has(key)) continue;
       seen.add(key);
       seams.push([
-        { latitude: south, longitude },
-        { latitude: north, longitude },
+        { system: "WGS84", latitude: south, longitude },
+        { system: "WGS84", latitude: north, longitude },
       ]);
     }
   }

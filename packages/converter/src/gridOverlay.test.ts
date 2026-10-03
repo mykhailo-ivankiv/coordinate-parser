@@ -57,7 +57,9 @@ describe("MGRS grid", () => {
 
   it("names the 100 km squares, Kyiv's among them", () => {
     const grid = mgrsGrid(kyiv, 100_000);
-    expect(grid?.labels.map(({ label }) => label)).toContain("36U UA");
+    expect(
+      grid?.labels.map(({ reference }) => `${reference.zone}${reference.band} ${reference.square}`),
+    ).toContain("36U UA");
   });
 
   it("stops each line at its zone edge", () => {
@@ -101,17 +103,26 @@ describe("the seam between zones", () => {
 });
 
 describe("cell labels", () => {
-  it("names each finer cell by its square and digits, without the zone", () => {
+  it("names each finer cell by its reference at the grid's precision", () => {
     const view = { west: 30.3, south: 50.35, east: 30.75, north: 50.55 };
-    const tenKilometres = mgrsGrid(view, 10_000)?.labels.map(({ label }) => label) ?? [];
+    const tenKilometres = mgrsGrid(view, 10_000)?.labels.map(({ reference }) => reference) ?? [];
     // Kyiv, 36UUA2418291607, lies in the 10 km cell UA 2 9.
-    expect(tenKilometres).toContain("UA 2 9");
-    expect(tenKilometres.every((label) => !label.startsWith("36U"))).toBe(true);
+    expect(tenKilometres).toContainEqual({
+      system: "MGRS",
+      zone: 36,
+      band: "U",
+      square: "UA",
+      easting: 20000,
+      northing: 90000,
+      precision: 10000,
+    });
 
     const oneKilometre =
       mgrsGrid({ west: 30.5, south: 50.44, east: 30.55, north: 50.46 }, 1_000)?.labels.map(
-        ({ label }) => label,
+        ({ reference }) => reference,
       ) ?? [];
-    expect(oneKilometre).toContain("UA 24 91");
+    expect(oneKilometre).toContainEqual(
+      expect.objectContaining({ square: "UA", easting: 24000, northing: 91000, precision: 1000 }),
+    );
   });
 });

@@ -1,10 +1,6 @@
+import type { Coordinate, CoordinateSystem } from "@coordinate-parser/types";
 import type { Area } from "./area.ts";
-import {
-  type ConversionOptions,
-  type Converted,
-  fromWGS84,
-  type Notation,
-} from "./coordinateConverter.ts";
+import { type ConversionOptions, fromWGS84 } from "./coordinateConverter.ts";
 import type { Box } from "./gridOverlay.ts";
 import type { Projected } from "./transverseMercator.ts";
 import { ucs2000Grid, ucs2000ZoneOf } from "./UCS2000converter.ts";
@@ -30,12 +26,12 @@ const EDGE_TOLERANCE = 0.02; // metres
 /** What coveringSquares finds: the squares themselves, or how many there would be. */
 export type Coverage =
   /** Every target square the input reaches, the one containing the input's centre first. */
-  | { kind: "squares"; squares: Converted[] }
+  | { kind: "squares"; squares: Coordinate[] }
   /**
    * Too many to list: how many grid cells the input's extent spans, the most that would have been
    * listed, and the centre's square.
    */
-  | { kind: "tooMany"; count: number; limit: number; primary: Converted };
+  | { kind: "tooMany"; count: number; limit: number; primary: Coordinate };
 
 type TargetGrid = {
   project: (coords: { latitude: number; longitude: number }) => Projected;
@@ -51,7 +47,7 @@ type TargetGrid = {
 
 const targetGrid = (
   centre: { latitude: number; longitude: number },
-  system: Notation,
+  system: CoordinateSystem,
   precision: number,
 ): TargetGrid | null => {
   switch (system) {
@@ -66,8 +62,8 @@ const targetGrid = (
     }
     case "UCS-2000":
       return { ...ucs2000Grid(ucs2000ZoneOf(centre)), size: 1, shift: 0.5 };
-    default:
-      // The latitude/longitude notations name points, so there is no square to land in.
+    case "WGS84":
+      // WGS 84 names a point, so there is no square to land in.
       return null;
   }
 };
@@ -130,7 +126,7 @@ const overlaps = (ring: Projected[], box: Box) => {
  */
 export const coveringSquares = (
   area: Area,
-  system: Notation,
+  system: CoordinateSystem,
   options: ConversionOptions = {},
 ): Coverage => {
   const primary = fromWGS84(area.centre, system, options);
@@ -153,7 +149,8 @@ export const coveringSquares = (
     return { kind: "tooMany", count, limit: MAX_COVERING_SQUARES, primary };
   }
 
-  const found = new Map<string, Converted>([[primary.value, primary]]);
+  // Keyed by the square's own fields: a square reached from two cells is still one square.
+  const found = new Map<string, Coordinate>([[JSON.stringify(primary), primary]]);
   for (let column = columns[0]; column <= columns[1]; column++) {
     for (let row = rows[0]; row <= rows[1]; row++) {
       const west = column * size - shift;
@@ -170,8 +167,8 @@ export const coveringSquares = (
       // lies across a zone edge and fromWGS84 files it under the neighbouring zone.
       const centre = grid.unproject({ easting: west + size / 2, northing: south + size / 2 });
       try {
-        const square = fromWGS84(centre, system, options);
-        if (!found.has(square.value)) found.set(square.value, square);
+        const square = fromWGS84({ system: "WGS84", ...centre }, system, options);
+        if (!found.has(JSON.stringify(square))) found.set(JSON.stringify(square), square);
       } catch (error) {
         // A square the system cannot express — off the edge of Ukraine for UCS-2000 — is not one
         // the point can be in.

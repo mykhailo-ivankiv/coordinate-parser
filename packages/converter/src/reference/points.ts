@@ -1,5 +1,5 @@
 import type { Coordinates } from "../coordinates.ts";
-import { toDeclaredPrecision } from "../precision.ts";
+import { toDeclaredPrecision } from "../area.ts";
 import { UTM_NORTH_LIMIT, UTM_SOUTH_LIMIT, unprojectUTM, zoneOf } from "../UTMconverter.ts";
 
 // The points the reference checks run on. Everything is a generator: the dense sets run to tens of

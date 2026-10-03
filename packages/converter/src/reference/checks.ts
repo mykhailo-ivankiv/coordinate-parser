@@ -1,4 +1,5 @@
 import Point from "@arcgis/core/geometry/Point.js";
+import { format } from "@coordinate-parser/formatter";
 import * as mgrs from "mgrs";
 import type { Coordinates } from "../coordinates.ts";
 import { mgrsParser, usngParser, utmParser } from "@coordinate-parser/parser";
@@ -58,7 +59,7 @@ const OUR_PARSERS = { MGRS: mgrsParser, USNG: usngParser, UTM: utmParser };
 
 /** Our value for `system`, read back by our own parser, and the point we take it to mean. */
 const ourReading = (point: Coordinates, system: keyof typeof OUR_PARSERS) => {
-  const value = fromWGS84(point, system).value;
+  const value = format([fromWGS84({ system: "WGS84", ...point }, system)]);
   const parsed = OUR_PARSERS[system].run(value);
   return { value, coords: parsed.isError ? null : toWGS84(parsed.result[0]) };
 };
@@ -66,7 +67,7 @@ const ourReading = (point: Coordinates, system: keyof typeof OUR_PARSERS) => {
 const sameString =
   (system: "MGRS" | "USNG", theirs: (point: Coordinates) => string): Check["check"] =>
   (point) => {
-    const ours = fromWGS84(point, system).value;
+    const ours = format([fromWGS84({ system: "WGS84", ...point }, system)]);
     const written = theirs(point);
     return normalised(ours) === normalised(written) || onTruncationEdge(point)
       ? null

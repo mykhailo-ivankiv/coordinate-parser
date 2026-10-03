@@ -1,15 +1,12 @@
 // The converter package's public surface: whatever is exported here is documented on the API page.
+// The coordinate types it takes and returns live in @coordinate-parser/types.
 export {
   type Area,
   areaOf,
-  type Conversion,
   type ConversionOptions,
-  type Converted,
-  type Coordinates,
   type Corners,
   fromWGS84,
   type GridPrecision,
-  type Notation,
   toAllSystems,
   toWGS84,
   tryFromWGS84,
@@ -26,5 +23,5 @@ export {
   spacingFor,
   zoneSeams,
 } from "./gridOverlay.ts";
-export { toDeclaredPrecision } from "./precision.ts";
+export { toDeclaredPrecision } from "./area.ts";
 export { insideUcs2000AreaOfUse, type Ucs2000Zone, ucs2000Zones } from "./UCS2000converter.ts";

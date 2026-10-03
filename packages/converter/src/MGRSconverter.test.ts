@@ -106,12 +106,17 @@ describe("MGRS to WGS 84", () => {
 
   it("returns the centre of a coarse square, not its corner", () => {
     // 36UUA2491 is the 1 km square from 324000E 5591000N; PROJ puts 324500E 5591500N here.
-    expect(fromMGRS(parse("36UUA2491"))).toEqual({ latitude: 50.4492283, longitude: 30.5279224 });
+    expect(fromMGRS(parse("36UUA2491"))).toEqual({
+      system: "WGS84",
+      latitude: 50.4492283,
+      longitude: 30.5279224,
+    });
   });
 
   it("matches PROJ for the NGA.STND.0037 example, half a metre in from the corner", () => {
     // GEOTRANS returns the south-west corner, 21.4097967 -157.9160812; this is 612345.5E 2367890.5N.
     expect(fromMGRS(parse("4QFJ1234567890"))).toEqual({
+      system: "WGS84",
       latitude: 21.4098012,
       longitude: -157.9160763,
     });

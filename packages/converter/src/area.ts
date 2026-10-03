@@ -1,5 +1,6 @@
+import type { WGS84Coordinate } from "@coordinate-parser/types";
 import type { Coordinates } from "./coordinates.ts";
-import { toDeclaredPrecision } from "./precision.ts";
+import { MAX_FRACTION_DIGITS } from "./notation.ts";
 import type { Projected } from "./transverseMercator.ts";
 
 // What a written coordinate actually designates. A latitude/longitude pair names a point, but a grid
@@ -7,29 +8,50 @@ import type { Projected } from "./transverseMercator.ts";
 // every point within half a metre of that easting and northing. The centre is the single best
 // estimate, the one that goes into storage; the corners say how far the truth can be from it.
 
+// Latitude and longitude leave the converters at the precision the parsers accept: seven decimal
+// places, about a centimetre. Anything finer is floating point residue of the projection maths, and
+// trimming it keeps a value written to the database identical to the same value typed in by hand.
+const scale = 10 ** MAX_FRACTION_DIGITS;
+
+/**
+ * Rounds latitude and longitude to the seven decimal places the parsers accept.
+ *
+ * @param coords - The point to round, latitude and longitude in WGS 84.
+ * @returns The point at about a centimetre.
+ */
+export const toDeclaredPrecision = (coords: {
+  latitude: number;
+  longitude: number;
+}): WGS84Coordinate => ({
+  system: "WGS84",
+  // `+ 0` folds a negative zero into a plain one, so the equator does not print as "-0".
+  latitude: Math.round(coords.latitude * scale) / scale + 0,
+  longitude: Math.round(coords.longitude * scale) / scale + 0,
+});
+
 /** The four corners of a grid square, in WGS 84. */
 export type Corners = {
-  southWest: Coordinates;
-  southEast: Coordinates;
-  northEast: Coordinates;
-  northWest: Coordinates;
+  southWest: WGS84Coordinate;
+  southEast: WGS84Coordinate;
+  northEast: WGS84Coordinate;
+  northWest: WGS84Coordinate;
 };
 
 /** What a written coordinate designates: a point, or a grid square around its centre. */
 export type Area = {
-  centre: Coordinates;
+  centre: WGS84Coordinate;
   /** The square's corners in WGS 84, or null when the notation names a point. */
   corners: Corners | null;
   /**
    * The square's boundary as a closed ring, south-west corner first and last, going east: the
    * corners, plus whatever points along the edges it takes to follow them as curves. Null for a point.
    */
-  outline: Coordinates[] | null;
+  outline: WGS84Coordinate[] | null;
   /** Side of the square in metres, 0 for a point. */
   size: number;
 };
 
-export const pointArea = (coords: Coordinates): Area => ({
+export const pointArea = (coords: WGS84Coordinate): Area => ({
   centre: toDeclaredPrecision(coords),
   corners: null,
   outline: null,
@@ -72,12 +94,12 @@ const offChord = (from: Coordinates, to: Coordinates, point: Coordinates) => {
  * fraction t of its length; the edge is halved wherever its midpoint strays from the chord.
  */
 const followEdge = (
-  along: (t: number) => Coordinates,
+  along: (t: number) => WGS84Coordinate,
   [start, end]: [number, number],
-  from: Coordinates,
-  to: Coordinates,
+  from: WGS84Coordinate,
+  to: WGS84Coordinate,
   splits = 0,
-): Coordinates[] => {
+): WGS84Coordinate[] => {
   const middle = (start + end) / 2;
   const midpoint = along(middle);
   if (splits >= MAX_SPLITS || offChord(from, to, midpoint) < CURVE_TOLERANCE) return [to];
@@ -107,7 +129,7 @@ export const gridSquare = (
   const northWest = at(0, size);
 
   // Walked anticlockwise from the south-west corner, each edge parametrised in grid metres.
-  const edges: [(t: number) => Coordinates, Coordinates, Coordinates][] = [
+  const edges: [(t: number) => WGS84Coordinate, WGS84Coordinate, WGS84Coordinate][] = [
     [(t) => at(t * size, 0), southWest, southEast],
     [(t) => at(size, t * size), southEast, northEast],
     [(t) => at((1 - t) * size, size), northEast, northWest],

@@ -117,6 +117,7 @@ describe("UTM to WGS 84", () => {
     expect(
       fromUTM({ system: "UTM", zone: 17, hemisphere: "N", easting: 630084, northing: 4833438 }),
     ).toEqual({
+      system: "WGS84",
       latitude: 43.6425618,
       longitude: -79.3871429,
     });

@@ -3,17 +3,13 @@ import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "
 import {
   type Area,
   areaOf,
-  type Conversion,
-  type Coordinates,
   type Coverage,
   coveringSquares,
-  fromWGS84,
   type GridPrecision,
   insideUcs2000AreaOfUse,
-  type Notation,
   tryFromWGS84,
 } from "@coordinate-parser/converter";
-import { formatWGS84 } from "@coordinate-parser/formatter";
+import { format, formatWGS84 } from "@coordinate-parser/formatter";
 import {
   coordinateParser,
   mgrsParser,
@@ -26,6 +22,7 @@ import {
   wgs84Parser,
 } from "@coordinate-parser/parser";
 import type {
+  Coordinate,
   CoordinateSystem,
   MGRSCoordinate,
   UCS2000Coordinate,
@@ -164,18 +161,29 @@ const SystemSelect = ({
   </select>
 );
 
-const ConversionValue = ({ conversion, onPick }: { conversion: Conversion; onPick: Pick }) =>
-  "value" in conversion ? (
+// How a converted coordinate is shown and fed back: WGS 84 as the plain signed pair, a grid in its
+// own notation.
+const write = (coordinate: Coordinate) =>
+  coordinate.system === "WGS84" ? format([coordinate, "WGS84"]) : format([coordinate]);
+
+const ConversionValue = ({
+  conversion,
+  onPick,
+}: {
+  conversion: Coordinate | { system: CoordinateSystem; error: string };
+  onPick: Pick;
+}) =>
+  "error" in conversion ? (
+    <span className="opacity-60">{conversion.error}</span>
+  ) : (
     <button
       type="button"
       className={`${linkStyle} text-left font-mono`}
       title="Підставити як вхідне значення"
-      onClick={() => onPick(conversion)}
+      onClick={() => onPick({ system: conversion.system, value: write(conversion) })}
     >
-      {conversion.value}
+      {write(conversion)}
     </button>
-  ) : (
-    <span className="opacity-60">{conversion.error}</span>
   );
 
 // The diagram's drawing space, in SVG units: the square is fitted into SQUARE_SIZE around the middle,
@@ -194,21 +202,7 @@ const CORNER_LABELS = [
 ] as const;
 
 /** Puts a value into the input, with the system it is written in. */
-type Pick = (conversion: { system: Notation; value: string }) => void;
-
-// Values on the page are written in a notation; the system select offers systems, WGS 84 once.
-const systemOf = (notation: Notation): CoordinateSystem => {
-  switch (notation) {
-    case "WGS84":
-    case "WGS84R":
-    case "DD":
-    case "DDM":
-    case "DMS":
-      return "WGS84";
-    default:
-      return notation;
-  }
-};
+type Pick = (conversion: { system: CoordinateSystem; value: string }) => void;
 
 /**
  * A coordinate as two SVG text lines, latitude over longitude, anchored at (x, y). Clicking it, or
@@ -221,13 +215,13 @@ const CoordinateLabel = ({
   anchor,
   onPick,
 }: {
-  coords: Coordinates;
+  coords: WGS84Coordinate;
   x: number;
   y: number;
   anchor: "start" | "middle" | "end";
   onPick: Pick;
 }) => {
-  const value = formatWGS84({ ...coords, system: "WGS84" });
+  const value = formatWGS84(coords);
   const [latitude, longitude] = value.split(", ");
   const pick = () => onPick({ system: "WGS84", value });
   return (
@@ -275,14 +269,14 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
   // A local flat view around the centre: east to the right, north up, a degree of longitude
   // shortened by the cosine of the latitude so that the square keeps its shape.
   const shrink = Math.cos((centre.latitude * Math.PI) / 180);
-  const local = ({ latitude, longitude }: Coordinates) => ({
+  const local = ({ latitude, longitude }: WGS84Coordinate) => ({
     x: (((((longitude - centre.longitude) % 360) + 540) % 360) - 180) * shrink,
     y: latitude - centre.latitude,
   });
   const ring = outline.map(local);
   const extent = Math.max(...ring.map(({ x, y }) => Math.max(Math.abs(x), Math.abs(y))));
   const scale = SQUARE_SIZE / 2 / extent;
-  const toSvg = (coords: Coordinates) => {
+  const toSvg = (coords: WGS84Coordinate) => {
     const { x, y } = local(coords);
     return { x: DIAGRAM_MIDDLE.x + x * scale, y: DIAGRAM_MIDDLE.y - y * scale };
   };
@@ -293,7 +287,7 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
         viewBox={`0 0 ${DIAGRAM_WIDTH} ${DIAGRAM_HEIGHT}`}
         className="w-full max-w-sm"
         role="img"
-        aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${formatWGS84({ ...centre, system: "WGS84" })}`}
+        aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${formatWGS84(centre)}`}
       >
         <path
           d={`${outline
@@ -372,7 +366,7 @@ const CoverageList = ({
   onPick,
 }: {
   coverage: Coverage | null;
-  system: Notation;
+  system: CoordinateSystem;
   onPick: Pick;
 }) => {
   if (coverage?.kind === "tooMany") {
@@ -395,7 +389,7 @@ const CoverageList = ({
       </p>
       <ul className="mt-1 flex flex-col gap-0.5">
         {coverage.squares.map((square, index) => (
-          <li key={square.value}>
+          <li key={write(square)}>
             <ConversionValue conversion={square} onPick={onPick} />
             {index === 0 && <span className="opacity-60"> — містить центр</span>}
           </li>
@@ -414,7 +408,7 @@ type Section = {
   id: SectionId;
   title: string;
   /** The systems the section writes the point in; the first one names the squares. */
-  systems: Notation[];
+  systems: CoordinateSystem[];
   /** Whether the section's squares come in a choice of sizes. */
   hasPrecision: boolean;
 };
@@ -427,12 +421,14 @@ const sections: Section[] = [
 ];
 
 type SectionResult = {
-  conversions: Conversion[];
+  conversions: (Coordinate | { system: CoordinateSystem; error: string })[];
+  /** Whether the point lies outside UCS-2000's area of use, for the sections that write it. */
+  outsideAreaOfUse: boolean;
   /** The squares the input zone reaches; null for the point notation, or when nothing converts. */
   coverage: Coverage | null;
 };
 
-const coverageOf = (area: Area, system: Notation, precision: GridPrecision) => {
+const coverageOf = (area: Area, system: CoordinateSystem, precision: GridPrecision) => {
   try {
     return coveringSquares(area, system, { precision });
   } catch (error) {
@@ -444,18 +440,19 @@ const coverageOf = (area: Area, system: Notation, precision: GridPrecision) => {
 
 const resultOf = (section: Section, area: Area, precision: GridPrecision): SectionResult => ({
   conversions: section.systems.map((system) => tryFromWGS84(area.centre, system, { precision })),
+  outsideAreaOfUse: section.systems.includes("UCS-2000") && !insideUcs2000AreaOfUse(area.centre),
   coverage: section.id === "WGS84" ? null : coverageOf(area, section.systems[0], precision),
 });
 
 const squaresForMap = (coverage: Coverage | null): OutputSquare[] => {
   if (coverage === null) return [];
-  if (coverage.kind === "tooMany") return [{ area: coverage.primary.area, primary: true }];
+  if (coverage.kind === "tooMany") return [{ area: areaOf(coverage.primary), primary: true }];
 
   // Labels only when there is more than one square to tell apart.
   const labelled = coverage.squares.length > 1;
-  return coverage.squares.map(({ area, value }, index) => ({
-    area,
-    label: labelled ? value : undefined,
+  return coverage.squares.map((square, index) => ({
+    area: areaOf(square),
+    label: labelled ? write(square) : undefined,
     primary: index === 0,
   }));
 };
@@ -528,8 +525,8 @@ const Accordion = ({
 const summaryOf = (result: SectionResult | null) => {
   const first = result?.conversions[0];
   if (first === undefined) return "—";
-  if (!("value" in first)) return "не перетворюється";
-  return first.outsideAreaOfUse ? `⚠️ ${first.value}` : first.value;
+  if ("error" in first) return "не перетворюється";
+  return result?.outsideAreaOfUse ? `⚠️ ${write(first)}` : write(first);
 };
 
 const WARNING_STYLE = "text-amber-700";
@@ -579,15 +576,13 @@ const SectionBody = ({
           </tbody>
         </table>
 
-        {result.conversions.some(
-          (conversion) => "value" in conversion && conversion.outsideAreaOfUse,
-        ) && <OutsideAreaOfUse />}
+        {result.outsideAreaOfUse && !("error" in result.conversions[0]) && <OutsideAreaOfUse />}
 
         {section.id === "WGS84" ? (
           <p className="mt-1 opacity-60">Так точка зберігається в базі.</p>
         ) : (
-          "area" in result.conversions[0] && (
-            <AreaDiagram area={result.conversions[0].area} onPick={onPick} />
+          !("error" in result.conversions[0]) && (
+            <AreaDiagram area={areaOf(result.conversions[0])} onPick={onPick} />
           )
         )}
 
@@ -1019,7 +1014,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   // auto-detection would read a WGS84R pair as WGS84 and a USNG reference as MGRS.
   const pick: Pick = ({ system, value }) => {
     setText(value);
-    setInput(systemOf(system));
+    setInput(system);
     setFitView(true);
   };
 
@@ -1210,12 +1205,12 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           // as if it had been typed; under auto-detection, as plain WGS 84. A system that cannot
           // express the point — UCS-2000 outside Ukraine — falls back to WGS 84 as well.
           onPick={(coords) => {
-            const conversion = tryFromWGS84(coords, input === AUTO ? "WGS84" : input);
-            if ("value" in conversion) {
-              setText(conversion.value);
-            } else {
-              setText(fromWGS84(coords, "WGS84").value);
+            const converted = tryFromWGS84(coords, input === AUTO ? "WGS84" : input);
+            if ("error" in converted) {
+              setText(formatWGS84(coords));
               setInput("WGS84");
+            } else {
+              setText(write(converted));
             }
             setFitView(false);
             setPicking(false);

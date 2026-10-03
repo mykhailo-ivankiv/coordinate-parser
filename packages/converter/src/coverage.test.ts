@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { format } from "@coordinate-parser/formatter";
 import { coordinateParser, usngParser } from "@coordinate-parser/parser";
+import { describe, expect, it } from "vitest";
 import { areaOf } from "./coordinateConverter.ts";
 import { coveringSquares } from "./coverage.ts";
 
@@ -9,8 +10,13 @@ const areaFor = (input: string) => {
   return areaOf(result.result[0]);
 };
 
+// The squares as their references, for readable expectations.
 const values = (coverage: ReturnType<typeof coveringSquares>) =>
-  coverage.kind === "squares" ? coverage.squares.map(({ value }) => value) : [];
+  coverage.kind === "squares"
+    ? coverage.squares.map((square) =>
+        square.system === "WGS84" ? format([square, "WGS84"]) : format([square]),
+      )
+    : [];
 
 describe("covering squares", () => {
   it("gives a point exactly one square", () => {

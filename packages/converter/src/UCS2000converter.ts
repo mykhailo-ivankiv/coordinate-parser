@@ -1,5 +1,5 @@
+import type { UCS2000Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import type { Coordinates } from "./coordinates.ts";
-import type { UCS2000Coordinate } from "@coordinate-parser/types";
 import type { Box } from "./gridOverlay.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
 import { type Area, gridSquare } from "./area.ts";
@@ -122,7 +122,7 @@ export const ucs2000Zones = (): Ucs2000Zone[] =>
  * @param coords - The point, WGS 84 latitude and longitude.
  * @returns True inside the area of use.
  */
-export const insideUcs2000AreaOfUse = (coords: Coordinates) => {
+export const insideUcs2000AreaOfUse = (coords: WGS84Coordinate) => {
   const zone = Math.floor(coords.longitude / ZONE_WIDTH) + 1;
   const area = UCS2000_ZONE_AREAS.find((candidate) => candidate.zone === zone);
   return (
