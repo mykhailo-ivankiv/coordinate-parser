@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useSyncExternalStore } from "react";
+import { lazy, type ReactNode, Suspense, useState, useSyncExternalStore } from "react";
 import {
   ArticleAboutCoordinateSystems,
   GuideContentsBar,
@@ -183,34 +183,183 @@ const examples: ExampleGroup[] = [
   },
 ];
 
+// The quick picks above the field: one line of variety rather than one per system. They mix
+// separators, decimal commas, hemisphere letters against signs, typographic primes against ASCII
+// quotes, spaced and solid grid references and MGRS precisions, so a glance shows how loosely the
+// parser reads. Each chip is labelled with what the parser itself reports, so a change in the
+// grammar can never leave a label lying about its example.
+const quickPicks = [
+  "50.4501, 30.5234",
+  "50,4501 30,5234",
+  "-33.8688 151.2093",
+  "151.2093, -33.8688",
+  "33.8688°S, 151.2093°E",
+  "40.7128N, 74.0060W",
+  "50° 27.006′N, 30° 31.404′E",
+  `50°27'0.36"N, 30°31'24.24"E`,
+  "36UUA2418291607",
+  "10S GJ 06832 44683",
+  "4QFJ",
+  "36U 324182 5591608",
+  "17T6300844833438",
+  "55-91000 63-25000",
+].map((input) => {
+  const parsed = coordinateParser.run(input);
+  return { input, system: parsed.isError ? "?" : parsed.result.system };
+});
+
+type ParsedCoordinate = Extract<
+  ReturnType<typeof coordinateParser.run>,
+  { isError: false }
+>["result"];
+
+// Six decimals is about 10 cm on the ground; past that a minute or second turned into degrees only
+// shows floating-point noise.
+const degrees = (value: number) => `${+Math.abs(value).toFixed(6)}°`;
+const latitudeText = (value: number) => `${degrees(value)} ${value < 0 ? "пд. ш." : "пн. ш."}`;
+const longitudeText = (value: number) => `${degrees(value)} ${value < 0 ? "зх. д." : "сх. д."}`;
+
+const metres = (value: number) => (value >= 1000 ? `${value / 1000} км` : `${value} м`);
+
+// Grid eastings carry a false 500 000 m on the zone's central meridian; saying how far off it the
+// point lies is easier to picture than the raw number.
+const fromCentralMeridian = (easting: number) => {
+  const offset = easting - 500000;
+  return offset === 0
+    ? "точно на осьовому меридіані зони"
+    : `${metres(Math.abs(offset))} на ${offset < 0 ? "захід" : "схід"} від осьового меридіана зони`;
+};
+
+const notationText = {
+  WGS84: "Десяткові градуси, широта першою.",
+  WGS84R: "Десяткові градуси, довгота першою — порядок переставлено.",
+  DD: "Десяткові градуси, півкулю задає літера, а не знак.",
+  DDM: "Градуси й десяткові хвилини, зведені до десяткових градусів.",
+  DMS: "Градуси, хвилини й секунди, зведені до десяткових градусів.",
+};
+
+const Value = ({ children }: { children: ReactNode }) => (
+  <b className="font-mono font-normal whitespace-nowrap text-ink">{children}</b>
+);
+
+// The parse result in words: what each number means, rather than the raw object.
+const describeResult = (result: ParsedCoordinate): ReactNode => {
+  switch (result.system) {
+    case "WGS84":
+    case "WGS84R":
+    case "DD":
+    case "DDM":
+    case "DMS":
+      return (
+        <>
+          {notationText[result.system]} Широта <Value>{latitudeText(result.latitude)}</Value>,
+          довгота <Value>{longitudeText(result.longitude)}</Value>.
+        </>
+      );
+    // coordinateParser never reports USNG: MGRS reads the same strings and comes first.
+    case "MGRS":
+      return (
+        <>
+          Зона <Value>{result.zone}</Value>, смуга широти <Value>{result.band}</Value>, квадрат 100
+          км <Value>{result.square}</Value>.{" "}
+          {result.precision === 100000 ? (
+            <>Цифр немає, тож посилання — увесь квадрат 100 × 100 км.</>
+          ) : (
+            <>
+              Усередині квадрата — <Value>{result.easting} м</Value> на схід і{" "}
+              <Value>{result.northing} м</Value> на північ від його південно-західного кута.
+              Точність — квадрат <Value>{metres(result.precision)}</Value>.
+            </>
+          )}
+        </>
+      );
+    case "UTM":
+      return (
+        <>
+          Зона <Value>{result.zone}</Value>
+          {result.band && (
+            <>
+              , смуга широти <Value>{result.band}</Value>
+            </>
+          )}
+          , {result.hemisphere === "N" ? "північна" : "південна"} півкуля. Easting{" "}
+          <Value>{result.easting} м</Value> — {fromCentralMeridian(result.easting)}. Northing{" "}
+          <Value>{result.northing} м</Value>{" "}
+          {result.hemisphere === "N"
+            ? "— відстань на північ від екватора."
+            : "— відлік на південній півкулі йде від 10 000 км на екваторі."}
+        </>
+      );
+    case "UCS-2000":
+      return (
+        <>
+          Зона <Value>{result.zone}</Value> — перша цифра Y. X <Value>{result.northing} м</Value> —
+          відстань на північ від екватора. Y без номера зони <Value>{result.easting} м</Value> —{" "}
+          {fromCentralMeridian(result.easting)}.
+        </>
+      );
+  }
+};
+
+const PARSE_RESULT_ID = "parse-result";
+
 const CoordinateInput = () => {
   const [text, setText] = useState("");
   const result = coordinateParser.run(text);
+  // An empty field has nothing wrong with it yet, so only typed text that fails turns it red.
+  const invalid = text !== "" && result.isError;
 
   return (
     <div>
-      <input
-        type="text"
-        className="field w-full"
-        placeholder="Enter coordinates"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <div className="card mt-3 overflow-hidden text-sm">
-        <p
-          className={`border-b px-3 py-1.5 text-xs ${
-            text === "" ? "opacity-60" : result.isError ? "text-red-700" : "text-green-700"
-          }`}
-        >
-          {text === ""
-            ? "Результат розбору з'явиться тут"
-            : result.isError
-              ? "Не розпізнано"
-              : `Розпізнано як ${result.result.system}`}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5 text-sm">
+        <span className="opacity-60">Приклади:</span>
+        {quickPicks.map(({ input, system }) => (
+          <button
+            key={input}
+            type="button"
+            title="Підставити в поле"
+            className="group inline-flex cursor-pointer overflow-hidden rounded-full border border-black text-xs"
+            onClick={() => setText(input)}
+          >
+            <span className="bg-black px-2 py-0.5 font-bold text-white">
+              {system === "UCS-2000" ? "УСК-2000" : system}
+            </span>
+            <span className="px-2 py-0.5 font-mono group-hover:bg-black/10">{input}</span>
+          </button>
+        ))}
+      </div>
+      {/* The field and its verdict stay at the top while the examples scroll by, so a click far
+          down the list still shows what went in and how it was read. The paper background,
+          stretched over main's padding, hides the cards sliding underneath. */}
+      <div className="sticky top-0 z-10 -mx-4 -mt-2 bg-paper px-4 py-2">
+        <input
+          type="text"
+          className={`field w-full ${invalid ? "border-red-600! focus-visible:outline-red-600" : ""}`}
+          placeholder="Enter coordinates"
+          value={text}
+          aria-invalid={invalid}
+          aria-describedby={PARSE_RESULT_ID}
+          onChange={(e) => setText(e.target.value)}
+        />
+        {/* A caption under the field, not a panel: the verdict leads, the explanation follows. */}
+        <p id={PARSE_RESULT_ID} className="mt-1 text-xs leading-relaxed text-[#7b746a]">
+          {text === "" ? (
+            "Введіть координати в будь-якому з форматів нижче або оберіть приклад."
+          ) : result.isError ? (
+            <>
+              <span className="text-red-700">Не розпізнано.</span>{" "}
+              <span className="font-mono break-words">{result.error}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-green-700">
+                Розпізнано як{" "}
+                {result.result.system === "UCS-2000" ? "УСК-2000" : result.result.system}.
+              </span>{" "}
+              {describeResult(result.result)}
+            </>
+          )}
         </p>
-        <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed">
-          {JSON.stringify(result, null, 2)}
-        </pre>
       </div>
 
       <h2 className="mt-8 text-lg font-bold tracking-tight">Формати</h2>
