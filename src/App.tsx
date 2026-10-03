@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { ArticleAboutCoordinateSystems } from "./ArticleAboutCoordinateSystems.tsx";
+import { ConverterPage } from "./ConverterPage.tsx";
 import { coordinateParser } from "./parsers/coordinateParser.ts";
 
 // Grouped by the `system` coordinateParser actually reports, not by which parser module
@@ -311,16 +312,68 @@ const ReferenceList = ({ title, items }: { title: string; items: Reference[] }) 
   </section>
 );
 
+// Pages live in the URL hash rather than the path: the app is served from GitHub Pages, which has no
+// fallback to index.html, so "/coordinate-parser/convert" would 404 on reload while "#/convert" works.
+const pages = [
+  { hash: "", label: "Парсер" },
+  { hash: "#/convert", label: "Конвертер" },
+] as const;
+
+type PageHash = (typeof pages)[number]["hash"];
+
+const subscribeToHash = (onChange: () => void) => {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+};
+
+const currentPage = (): PageHash => (window.location.hash === "#/convert" ? "#/convert" : "");
+
+const Navigation = ({ active }: { active: PageHash }) => (
+  <nav className="mb-4 flex gap-4 text-sm">
+    {pages.map(({ hash, label }) =>
+      hash === active ? (
+        <span key={label} className="font-bold">
+          {label}
+        </span>
+      ) : (
+        <a
+          key={label}
+          href={hash === "" ? "#" : hash}
+          className="underline underline-offset-2 hover:no-underline"
+        >
+          {label}
+        </a>
+      ),
+    )}
+  </nav>
+);
+
+const ParserPage = () => (
+  <>
+    <h2>Парсер координат</h2>
+    <CoordinateInput />
+    <ArticleAboutCoordinateSystems />
+    <section className="mt-12">
+      <ReferenceList title="Матеріали" items={reading} />
+      <ReferenceList title="Першоджерела" items={sources} />
+    </section>
+  </>
+);
+
 function App() {
+  const page = useSyncExternalStore(subscribeToHash, currentPage);
+
   return (
     <main className="max-w-[60ch] p-4 m-auto">
-      <h2>Парсер координат</h2>
-      <CoordinateInput />
-      <ArticleAboutCoordinateSystems />
-      <section className="mt-12">
-        <ReferenceList title="Матеріали" items={reading} />
-        <ReferenceList title="Першоджерела" items={sources} />
-      </section>
+      <Navigation active={page} />
+      {page === "#/convert" ? (
+        <>
+          <h2>Конвертер координат</h2>
+          <ConverterPage />
+        </>
+      ) : (
+        <ParserPage />
+      )}
     </main>
   );
 }
