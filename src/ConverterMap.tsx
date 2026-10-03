@@ -9,6 +9,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useEffect, useRef } from "react";
 import type { Area } from "./converters/coordinateConverter.ts";
+import {
+  UCS2000_STRIPS,
+  UCS2000_ZONE_AREAS,
+  type ZoneArea,
+} from "./converters/UCS2000converter.ts";
 import { toDeclaredPrecision } from "./converters/precision.ts";
 import type { Coordinates } from "./parsers/commonParsers.ts";
 
@@ -26,6 +31,8 @@ const KYIV: [number, number] = [30.5234, 50.4501];
 // input zone and a converted square overlap the two tints mix, and the overlap reads at a glance.
 export const INPUT_COLOUR = "#16a34a";
 export const OUTPUT_COLOUR = "#dc2626";
+// Reference areas, like the zones UCS-2000 is defined in: a third colour, apart from input and result.
+export const ZONE_COLOUR = "#2563eb";
 
 export type OutputSquare = {
   area: Area;
@@ -44,6 +51,15 @@ type MapData = {
   outputSquares: OutputSquare[];
   /** Converted values that are points rather than squares: the WGS 84 latitude and longitude. */
   outputPoints: Coordinates[];
+  /** Which UCS-2000 reference layers to draw. */
+  ucs2000: Ucs2000Layers;
+};
+
+export type Ucs2000Layers = {
+  /** EPSG's area of use for zones 4-7: where a UCS-2000 value can be trusted. */
+  areas: boolean;
+  /** The strips 18°-42°E: where the converter computes UCS-2000 at all. */
+  strips: boolean;
 };
 
 // Taken from maplibre's own signature, so the project needs no separate GeoJSON type package.
@@ -97,10 +113,125 @@ const metresPerPixel = (latitude: number, zoom: number) =>
 const tooSmall = (area: Area, zoom: number) =>
   area.size / metresPerPixel(area.centre.latitude, zoom) < MIN_SQUARE_PIXELS;
 
-const SOURCES = ["input-area", "output-squares", "output-labels", "output-points", "centre"];
+// A zone's edges are meridians and parallels, which are straight lines on a web map, so its four
+// corners are its whole outline.
+const zonePolygons = (zones: ZoneArea[]) =>
+  collection(
+    zones.map(({ zone, west, south, east, north }) => ({
+      type: "Feature" as const,
+      properties: { zone },
+      geometry: {
+        type: "Polygon" as const,
+        coordinates: [
+          [
+            [west, south],
+            [east, south],
+            [east, north],
+            [west, north],
+            [west, south],
+          ],
+        ],
+      },
+    })),
+  );
+
+const zoneLabels = (zones: ZoneArea[]) =>
+  points(
+    zones.map(({ zone, west, south, east, north }) => ({
+      at: { latitude: (south + north) / 2, longitude: (west + east) / 2 },
+      label: `УСК-2000 · зона ${zone}`,
+    })),
+  );
+
+// A strip runs pole to pole, so a single label in its middle would sit on the equator, far off
+// screen. One every ten degrees keeps one in view wherever the map is; MapLibre hides any that clash.
+const stripLabels = (strips: ZoneArea[]) =>
+  points(
+    strips.flatMap(({ zone, west, east }) =>
+      Array.from({ length: 15 }, (_, index) => ({
+        at: { latitude: -70 + index * 10 + 5, longitude: (west + east) / 2 },
+        label: `смуга зони ${zone} · ${west}–${east}° сх. д.`,
+      })),
+    ),
+  );
+
+// Around Ukraine: the strips run pole to pole, so fitting all of them would show the whole globe.
+const STRIPS_VIEW = new LngLatBounds([18, 40], [42, 57]);
+
+const zoneBounds = (zones: ZoneArea[]) =>
+  new LngLatBounds(
+    [Math.min(...zones.map(({ west }) => west)), Math.min(...zones.map(({ south }) => south))],
+    [Math.max(...zones.map(({ east }) => east)), Math.max(...zones.map(({ north }) => north))],
+  );
+
+const SOURCES = [
+  "strips",
+  "strip-labels",
+  "zones",
+  "zone-labels",
+  "input-area",
+  "output-squares",
+  "output-labels",
+  "output-points",
+  "centre",
+];
 
 const addLayers = (map: Map) => {
   for (const id of SOURCES) map.addSource(id, { type: "geojson", data: collection([]) });
+
+  // Beneath everything else: a backdrop for the squares, not something to compete with them. The
+  // strips are fainter still, beneath the areas of use they contain.
+  map.addLayer({
+    id: "strips-fill",
+    type: "fill",
+    source: "strips",
+    paint: { "fill-color": ZONE_COLOUR, "fill-opacity": 0.035 },
+  });
+  map.addLayer({
+    id: "strips-line",
+    type: "line",
+    source: "strips",
+    paint: { "line-color": ZONE_COLOUR, "line-width": 1, "line-dasharray": [1, 2] },
+  });
+  map.addLayer({
+    id: "strip-labels",
+    type: "symbol",
+    source: "strip-labels",
+    layout: {
+      "text-field": ["get", "label"],
+      "text-font": ["Noto Sans Regular"],
+      "text-size": 11,
+    },
+    paint: {
+      "text-color": ZONE_COLOUR,
+      "text-opacity": 0.7,
+      "text-halo-color": "#ffffff",
+      "text-halo-width": 1.5,
+    },
+  });
+  map.addLayer({
+    id: "zones-fill",
+    type: "fill",
+    source: "zones",
+    paint: { "fill-color": ZONE_COLOUR, "fill-opacity": 0.07 },
+  });
+  map.addLayer({
+    id: "zones-line",
+    type: "line",
+    source: "zones",
+    paint: { "line-color": ZONE_COLOUR, "line-width": 1.5, "line-dasharray": [4, 2] },
+  });
+  map.addLayer({
+    id: "zone-labels",
+    type: "symbol",
+    source: "zone-labels",
+    layout: {
+      "text-field": ["get", "label"],
+      "text-font": ["Noto Sans Regular"],
+      "text-size": 12,
+    },
+    paint: { "text-color": ZONE_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+  });
 
   map.addLayer({
     id: "input-area-fill",
@@ -184,11 +315,17 @@ const setData = (map: Map, id: string, data: FeatureCollection) =>
  * Fills the sources for the current zoom: squares big enough to see as polygons, the rest as rings.
  * Returns which squares came out as rings, so a zoom that changes nothing can skip the redraw.
  */
-const draw = (map: Map, { centre, inputArea, outputSquares, outputPoints }: MapData) => {
+const draw = (map: Map, { centre, inputArea, outputSquares, outputPoints, ucs2000 }: MapData) => {
+  const zones = ucs2000.areas ? UCS2000_ZONE_AREAS : [];
+  const strips = ucs2000.strips ? UCS2000_STRIPS : [];
   const zoom = map.getZoom();
   const visible = outputSquares.filter(({ area }) => !tooSmall(area, zoom));
   const rings = outputSquares.filter(({ area }) => tooSmall(area, zoom));
 
+  setData(map, "strips", zonePolygons(strips));
+  setData(map, "strip-labels", stripLabels(strips));
+  setData(map, "zones", zonePolygons(zones));
+  setData(map, "zone-labels", zoneLabels(zones));
   setData(map, "centre", points(centre === null ? [] : [{ at: centre }]));
   setData(map, "input-area", polygons(inputArea ? [{ area: inputArea }] : []));
   setData(map, "output-squares", polygons(visible));
@@ -230,17 +367,31 @@ const fit = (map: Map, { centre, inputArea, outputSquares }: MapData) => {
   map.fitBounds(bounds, { padding: 60, maxZoom: MAX_FIT_ZOOM, duration: 600 });
 };
 
-const Swatch = ({ colour, dashed = false }: { colour: string; dashed?: boolean }) => (
+const Swatch = ({
+  colour,
+  dashed = false,
+  dotted = false,
+}: {
+  colour: string;
+  dashed?: boolean;
+  dotted?: boolean;
+}) => (
   <span
     className="inline-block h-3 w-5 align-middle"
     style={{
       backgroundColor: `${colour}26`,
-      border: `2px ${dashed ? "dashed" : "solid"} ${colour}`,
+      border: `2px ${dotted ? "dotted" : dashed ? "dashed" : "solid"} ${colour}`,
     }}
   />
 );
 
-const Legend = () => (
+const Legend = ({
+  ucs2000,
+  onUcs2000Change,
+}: {
+  ucs2000: Ucs2000Layers;
+  onUcs2000Change: (layers: Ucs2000Layers) => void;
+}) => (
   <ul className="absolute bottom-8 left-2 flex flex-col gap-1 rounded-sm bg-white/90 p-2 text-xs text-black shadow">
     <li>
       <Swatch colour={INPUT_COLOUR} /> введене значення
@@ -258,6 +409,26 @@ const Legend = () => (
     <li>
       <Swatch colour={OUTPUT_COLOUR} dashed /> інші квадрати, куди сягає вхідна зона
     </li>
+    <li className="mt-1 border-t pt-1">
+      <label className="flex cursor-pointer items-center gap-1">
+        <input
+          type="checkbox"
+          checked={ucs2000.areas}
+          onChange={(e) => onUcs2000Change({ ...ucs2000, areas: e.target.checked })}
+        />
+        <Swatch colour={ZONE_COLOUR} dashed /> зона визначення УСК-2000
+      </label>
+    </li>
+    <li>
+      <label className="flex cursor-pointer items-center gap-1">
+        <input
+          type="checkbox"
+          checked={ucs2000.strips}
+          onChange={(e) => onUcs2000Change({ ...ucs2000, strips: e.target.checked })}
+        />
+        <Swatch colour={ZONE_COLOUR} dotted /> смуги, де рахується УСК-2000
+      </label>
+    </li>
   </ul>
 );
 
@@ -271,9 +442,17 @@ type Picking = {
    * user chose it where they were looking, so the view stays put and only the drawing changes.
    */
   fitView: boolean;
+  /** Called when the UCS-2000 layers are switched from the legend. */
+  onUcs2000Change: (layers: Ucs2000Layers) => void;
 };
 
-export const ConverterMap = ({ picking, onPick, fitView, ...data }: MapData & Picking) => {
+export const ConverterMap = ({
+  picking,
+  onPick,
+  fitView,
+  onUcs2000Change,
+  ...data
+}: MapData & Picking) => {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<Map | null>(null);
   const loaded = useRef(false);
@@ -343,6 +522,20 @@ export const ConverterMap = ({ picking, onPick, fitView, ...data }: MapData & Pi
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
+  // Switching the zones on brings them into view, the whole of Ukraine, as long as the view is
+  // allowed to move at all.
+  const { areas, strips } = data.ucs2000;
+  useEffect(() => {
+    if (!areas || !fitView || map.current === null || !loaded.current) return;
+    map.current.fitBounds(zoneBounds(UCS2000_ZONE_AREAS), { padding: 40, duration: 600 });
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- only the switching on matters.
+  }, [areas]);
+  useEffect(() => {
+    if (!strips || !fitView || map.current === null || !loaded.current) return;
+    map.current.fitBounds(STRIPS_VIEW, { padding: 40, duration: 600 });
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- only the switching on matters.
+  }, [strips]);
+
   // Turning fitting back on brings the view onto what is already drawn, without waiting for the
   // data to change. It runs after the effect above, so it sees data that changed in the same render.
   useEffect(() => {
@@ -357,7 +550,7 @@ export const ConverterMap = ({ picking, onPick, fitView, ...data }: MapData & Pi
           Клікніть на карті, щоб вибрати точку · Esc — скасувати
         </p>
       )}
-      <Legend />
+      <Legend ucs2000={data.ucs2000} onUcs2000Change={onUcs2000Change} />
     </div>
   );
 };

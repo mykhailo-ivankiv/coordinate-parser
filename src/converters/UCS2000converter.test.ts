@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Coordinates } from "../parsers/commonParsers.ts";
 import { UCS2000parser } from "../parsers/UCS2000parser.ts";
 import { project } from "./transverseMercator.ts";
-import { formatUCS2000, fromUCS2000, toUCS2000 } from "./UCS2000converter.ts";
+import { fromWGS84 } from "./coordinateConverter.ts";
+import {
+  formatUCS2000,
+  fromUCS2000,
+  insideUcs2000AreaOfUse,
+  toUCS2000,
+} from "./UCS2000converter.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), EPSG:4326 to EPSG:5562-5565. PROJ chooses
@@ -104,5 +110,32 @@ describe("UCS-2000 to WGS 84", () => {
       latitude: 50.4238014,
       longitude: 30.5356689,
     });
+  });
+});
+
+describe("area of use", () => {
+  it("counts Kyiv, Lviv and Kharkiv as inside it", () => {
+    for (const { coords } of references.filter(({ name }) => name !== "Luhansk")) {
+      expect(insideUcs2000AreaOfUse(coords)).toBe(true);
+    }
+  });
+
+  it("leaves Minsk, Bucharest and Istanbul outside it, though all three are in zones 4-7", () => {
+    expect(insideUcs2000AreaOfUse({ latitude: 53.9006, longitude: 27.559 })).toBe(false);
+    expect(insideUcs2000AreaOfUse({ latitude: 44.4268, longitude: 26.1025 })).toBe(false);
+    expect(insideUcs2000AreaOfUse({ latitude: 41.0082, longitude: 28.9784 })).toBe(false);
+  });
+
+  it("takes in Chișinău, because EPSG's areas are boxes around Ukraine, not its border", () => {
+    expect(insideUcs2000AreaOfUse({ latitude: 47.0105, longitude: 28.8638 })).toBe(true);
+  });
+
+  it("still converts a point outside it, flagged", () => {
+    const converted = fromWGS84({ latitude: 44.4268, longitude: 26.1025 }, "UCS-2000");
+    expect(converted.value).toMatch(/^\d{7} 5\d{6}$/);
+    expect(converted.outsideAreaOfUse).toBe(true);
+    expect(fromWGS84({ latitude: 50.4501, longitude: 30.5234 }, "UCS-2000")).not.toHaveProperty(
+      "outsideAreaOfUse",
+    );
   });
 });

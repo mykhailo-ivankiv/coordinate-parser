@@ -14,7 +14,12 @@ import {
 } from "./MGRSconverter.ts";
 import { toDeclaredPrecision } from "./precision.ts";
 import { formatDD, formatDDM, formatDMS, formatWGS84, formatWGS84R } from "./sexagesimalFormat.ts";
-import { formatUCS2000, toUCS2000, ucs2000Area } from "./UCS2000converter.ts";
+import {
+  formatUCS2000,
+  insideUcs2000AreaOfUse,
+  toUCS2000,
+  ucs2000Area,
+} from "./UCS2000converter.ts";
 import { formatUTM, toUTM, utmArea } from "./UTMconverter.ts";
 
 // WGS 84 latitude/longitude is the pivot: every supported system converts to it and from it, and
@@ -155,6 +160,11 @@ export type Converted = {
   value: string;
   /** What `value` designates, back in WGS 84: the square containing the point, for a grid. */
   area: Area;
+  /**
+   * Set for a UCS-2000 value outside the system's area of use, Ukraine. The value is computed all
+   * the same, but the datum shift behind it is only defined there; see insideUcs2000AreaOfUse.
+   */
+  outsideAreaOfUse?: true;
 };
 
 /**
@@ -167,8 +177,11 @@ export const fromWGS84 = (
   system: CoordinateSystem,
   { precision = 1 }: ConversionOptions = {},
 ): Converted => {
-  const encoded = encode(toDeclaredPrecision(coords), system, precision);
-  return { system, value: format(encoded), area: areaOf(encoded) };
+  const point = toDeclaredPrecision(coords);
+  const encoded = encode(point, system, precision);
+  const converted: Converted = { system, value: format(encoded), area: areaOf(encoded) };
+  if (system === "UCS-2000" && !insideUcs2000AreaOfUse(point)) converted.outsideAreaOfUse = true;
+  return converted;
 };
 
 export type Conversion = Converted | { system: CoordinateSystem; error: string };

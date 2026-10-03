@@ -1,5 +1,10 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { ConverterMap, type OutputSquare, OUTPUT_COLOUR } from "./ConverterMap.tsx";
+import {
+  ConverterMap,
+  type OutputSquare,
+  OUTPUT_COLOUR,
+  type Ucs2000Layers,
+} from "./ConverterMap.tsx";
 import {
   type Area,
   areaOf,
@@ -13,6 +18,7 @@ import {
 } from "./converters/coordinateConverter.ts";
 import { type Coverage, coveringSquares, MAX_COVERING_SQUARES } from "./converters/coverage.ts";
 import { formatWGS84 } from "./converters/sexagesimalFormat.ts";
+import { insideUcs2000AreaOfUse } from "./converters/UCS2000converter.ts";
 import type { Coordinates } from "./parsers/commonParsers.ts";
 import { coordinateParser, systemParsers } from "./parsers/coordinateParser.ts";
 
@@ -485,8 +491,19 @@ const Accordion = ({
 const summaryOf = (result: SectionResult | null) => {
   const first = result?.conversions[0];
   if (first === undefined) return "—";
-  return "value" in first ? first.value : "не перетворюється";
+  if (!("value" in first)) return "не перетворюється";
+  return first.outsideAreaOfUse ? `⚠️ ${first.value}` : first.value;
 };
+
+const WARNING_STYLE = "text-amber-700";
+
+/** Shown wherever a UCS-2000 value lies outside Ukraine, the system's area of use. */
+const OutsideAreaOfUse = () => (
+  <p className={`mt-1 ${WARNING_STYLE}`}>
+    ⚠️ Поза зоною визначення УСК-2000: зсув датуму EPSG:5840 підібрано для України, тож точність тут
+    не гарантована.
+  </p>
+);
 
 const SectionBody = ({
   section,
@@ -527,6 +544,10 @@ const SectionBody = ({
               ))}
             </tbody>
           </table>
+
+          {result.conversions.some(
+            (conversion) => "value" in conversion && conversion.outsideAreaOfUse,
+          ) && <OutsideAreaOfUse />}
 
           {section.id === "WGS84" ? (
             <p className="mt-1 opacity-60">Так точка зберігається в базі.</p>
@@ -705,6 +726,76 @@ const OwnCodeAnswer = () => (
   </>
 );
 
+// Pulkovo 1942 to WGS 84 in the EPSG registry: one datum, many regional fits.
+const SK42_TRANSFORMATIONS = [
+  ["Pulkovo 1942 to WGS 84 (1)", "Росія, усереднено", "999 м — фактично «не використовувати»"],
+  ["(16)", "уся пострадянська територія", "4,5 м"],
+  ["(20)", "Росія", "3 м"],
+  ["(7)", "Казахстан", "44 м"],
+  ["(2), (6), (21)", "Литва, Латвія, Естонія", "4–9 м"],
+];
+
+const Sk42Answer = () => (
+  <>
+    <p>
+      СК-42 (Пулково 1942) — спільна радянська система координат, і визначена вона для всього
+      колишнього СРСР, а не для однієї країни. За реєстром EPSG (
+      <ExternalLink href="https://epsg.io/4284">EPSG:4284</ExternalLink>) це суходіл Росії від
+      Калінінграда до Чукотки, України, Білорусі, Молдови, країн Балтії, Закавказзя й Центральної
+      Азії: від 35,14° до 81,91° пн. ш. і від 19,57° сх. д. через антимеридіан до 168,97° зх. д. Для
+      країн колишнього Варшавського договору є окремі реалізації — Pulkovo 1942(58) і Pulkovo
+      1942(83).
+    </p>
+    <p className="mt-2">
+      Зони Гаусса-Крюгера такі самі шестиградусні, з 4-ї по 32-гу (EPSG:28404–28432), але кожна
+      охоплює всі пострадянські країни, через які проходить. Зона 4, наприклад, — це захід України
+      до 24° сх. д., Білорусь, Литва, Латвія, Естонія й Калінінград, від 47,95° до 59,44° пн. ш.;
+      зона 6 — смуга 30–36° сх. д. від Криму до 70° пн. ш. УСК-2000 використовує лише зони 4–7 і
+      лише в межах України.
+    </p>
+    <p className="mt-2">
+      Одного переходу до WGS 84 для такої території немає: реєстр тримає кілька регіональних, і
+      глобальний із них найгірший.
+    </p>
+    <table className="mt-1">
+      <tbody>
+        {SK42_TRANSFORMATIONS.map(([name, where, accuracy]) => (
+          <tr key={name} className="align-top">
+            <th className="py-0.5 pr-3 text-left font-normal whitespace-nowrap">{name}</th>
+            <td className="py-0.5 pr-3">{where}</td>
+            <td className="py-0.5 whitespace-nowrap">{accuracy}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p className="mt-2">
+      Еліпсоїд Красовського й проєкція Гаусса-Крюгера в обох систем спільні, тож рядки координат
+      виглядають однаково, і за самим рядком СК-42 від УСК-2000 не відрізнити. Різниця лише в
+      датумі. Для Києва, за PROJ:
+    </p>
+    <table className="mt-1 font-mono">
+      <tbody>
+        <tr>
+          <th className="py-0.5 pr-3 text-left font-normal font-sans">СК-42, зона 6</th>
+          <td className="py-0.5">5593957 6324232</td>
+        </tr>
+        <tr>
+          <th className="py-0.5 pr-3 text-left font-normal font-sans">УСК-2000, зона 6</th>
+          <td className="py-0.5">5593954 6324226</td>
+        </tr>
+      </tbody>
+    </table>
+    <p className="mt-2">
+      Близько 3 м по X і 6 м по Y. Координати СК-42, прочитані як УСК-2000, зсувають точку на кілька
+      метрів, і помітити це за самим рядком неможливо.
+    </p>
+    <p className="mt-2">
+      Цей конвертер СК-42 не підтримує. Додати її нескладно — той самий код з іншим зсувом датуму й
+      ширшими зонами; головне рішення — яку з регіональних трансформацій брати для якої території.
+    </p>
+  </>
+);
+
 // Questions that come up about how the converter works, each folded until it is opened.
 const QUESTIONS: { question: string; answer: ReactNode }[] = [
   { question: "Що таке PROJ і що він робить?", answer: <ProjAnswer /> },
@@ -714,6 +805,7 @@ const QUESTIONS: { question: string; answer: ReactNode }[] = [
     question: "Чому ArcGIS рахує через WebAssembly, а тут вистачає кількох сотень рядків?",
     answer: <WasmAnswer />,
   },
+  { question: "Чим СК-42 відрізняється від УСК-2000?", answer: <Sk42Answer /> },
 ];
 
 const QuestionsAndAnswers = () => (
@@ -739,6 +831,10 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [fitView, setFitView] = useState(true);
   // The user's own switch: off, the map never moves on its own, whatever changes.
   const [followResult, setFollowResult] = useState(true);
+  const [ucs2000Layers, setUcs2000Layers] = useState<Ucs2000Layers>({
+    areas: false,
+    strips: false,
+  });
   const [open, setOpen] = useState<Record<SectionId, boolean>>({
     WGS84: false,
     MGRS: true,
@@ -872,6 +968,9 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                   Розпізнано як <b>{describeSystem(outcome.system)}</b>
                 </p>
               )}
+              {outcome.system === "UCS-2000" && !insideUcs2000AreaOfUse(outcome.area.centre) && (
+                <OutsideAreaOfUse />
+              )}
             </>
           )}
         </div>
@@ -892,6 +991,30 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                   setFitView(true);
                 }}
               >
+                {section.id === "UCS-2000" && (
+                  <div className="mb-2 flex flex-col gap-1">
+                    <label className="flex w-fit cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={ucs2000Layers.areas}
+                        onChange={(e) =>
+                          setUcs2000Layers({ ...ucs2000Layers, areas: e.target.checked })
+                        }
+                      />
+                      підсвітити зону визначення
+                    </label>
+                    <label className="flex w-fit cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={ucs2000Layers.strips}
+                        onChange={(e) =>
+                          setUcs2000Layers({ ...ucs2000Layers, strips: e.target.checked })
+                        }
+                      />
+                      показати смуги, де рахується перетворення
+                    </label>
+                  </div>
+                )}
                 <SectionBody
                   section={section}
                   result={result}
@@ -954,6 +1077,8 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           picking={picking}
           onPick={pickOnMap}
           fitView={followResult && fitView}
+          ucs2000={ucs2000Layers}
+          onUcs2000Change={setUcs2000Layers}
         />
       </div>
     </div>
