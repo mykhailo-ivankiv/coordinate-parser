@@ -23,7 +23,7 @@ const MODULES: {
   {
     id: "types",
     title: "Типи",
-    importLine: `import type { Coordinate, WrittenCoordinate } from "@coordinate-parser/types";`,
+    importLine: `import type { Coordinate, CoordinateSystem } from "@coordinate-parser/types";`,
     groups: [{ id: "types", title: "Типи" }],
   },
   {

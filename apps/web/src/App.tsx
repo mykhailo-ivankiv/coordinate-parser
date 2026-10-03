@@ -12,8 +12,14 @@ const ConverterPage = lazy(() =>
 // Also on demand: the generated reference is data only this page needs.
 const ApiPage = lazy(() => import("./ApiPage.tsx").then(({ ApiPage }) => ({ default: ApiPage })));
 import { coordinateParser } from "@coordinate-parser/parser";
-import type { WGS84Format, WrittenCoordinate } from "@coordinate-parser/types";
-import { isWGS84, labelOf } from "./labels.ts";
+import type {
+  MGRSCoordinate,
+  UCS2000Coordinate,
+  USNGCoordinate,
+  UTMCoordinate,
+  WGS84Coordinate,
+} from "@coordinate-parser/types";
+import { labelOf } from "./labels.ts";
 
 // Grouped by the `system` coordinateParser actually reports, not by which parser module
 // produced the match — the European variants are a spelling of WGS84, not a system of
@@ -229,9 +235,9 @@ const fromCentralMeridian = (easting: number) => {
     : `${metres(Math.abs(offset))} на ${offset < 0 ? "захід" : "схід"} від осьового меридіана зони`;
 };
 
-const formatText: Record<WGS84Format, string> = {
-  decimal: "Десяткові градуси, широта першою.",
-  decimalLongitudeFirst: "Десяткові градуси, довгота першою — порядок переставлено.",
+const formatText = {
+  WGS84: "Десяткові градуси, широта першою.",
+  WGS84R: "Десяткові градуси, довгота першою — порядок переставлено.",
   DD: "Десяткові градуси, півкулю задає літера, а не знак.",
   DDM: "Градуси й десяткові хвилини, зведені до десяткових градусів.",
   DMS: "Градуси, хвилини й секунди, зведені до десяткових градусів.",
@@ -242,17 +248,24 @@ const Value = ({ children }: { children: ReactNode }) => (
 );
 
 // The parse result in words: what each number means, rather than the raw object.
-const describeResult = (written: WrittenCoordinate): ReactNode => {
-  if (isWGS84(written)) {
+const describeResult = (
+  written:
+    | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
+    | [MGRSCoordinate]
+    | [USNGCoordinate]
+    | [UTMCoordinate]
+    | [UCS2000Coordinate],
+): ReactNode => {
+  if (written.length === 2) {
+    const [coordinate, format] = written;
     return (
       <>
-        {formatText[written.format]} Широта{" "}
-        <Value>{latitudeText(written.coordinate.latitude)}</Value>, довгота{" "}
-        <Value>{longitudeText(written.coordinate.longitude)}</Value>
+        {formatText[format]} Широта <Value>{latitudeText(coordinate.latitude)}</Value>, довгота{" "}
+        <Value>{longitudeText(coordinate.longitude)}</Value>
       </>
     );
   }
-  const result = written.coordinate;
+  const result = written[0];
   switch (result.system) {
     // coordinateParser never reports USNG: MGRS reads the same strings and comes first.
     case "MGRS":

@@ -6,5 +6,9 @@ export {
   ucs2000Parser,
   usngParser,
   utmParser,
+  wgs84ddmParser,
+  wgs84ddParser,
+  wgs84dmsParser,
   wgs84Parser,
+  wgs84rParser,
 } from "./coordinateParser.ts";

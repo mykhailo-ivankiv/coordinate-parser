@@ -6,7 +6,7 @@ import { coveringSquares } from "./coverage.ts";
 const areaFor = (input: string) => {
   const result = coordinateParser.run(input);
   if (result.isError) throw new Error(result.error);
-  return areaOf(result.result.coordinate);
+  return areaOf(result.result[0]);
 };
 
 const values = (coverage: ReturnType<typeof coveringSquares>) =>
@@ -60,8 +60,8 @@ describe("covering squares", () => {
   it("includes the squares of a USNG reference read with its own parser", () => {
     const usng = usngParser.run("36U UA 24 91");
     if (usng.isError) throw new Error(usng.error);
-    expect(
-      values(coveringSquares(areaOf(usng.result.coordinate), "USNG", { precision: 10000 })),
-    ).toEqual(["36U UA 2 9"]);
+    expect(values(coveringSquares(areaOf(usng.result[0]), "USNG", { precision: 10000 }))).toEqual([
+      "36U UA 2 9",
+    ]);
   });
 });

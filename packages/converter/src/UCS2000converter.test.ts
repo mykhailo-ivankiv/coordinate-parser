@@ -91,10 +91,7 @@ describe("WGS 84 to UCS-2000", () => {
     expect(written).toBe("5593954 6324226");
     expect(ucs2000Parser.run(written)).toMatchObject({
       isError: false,
-      result: {
-        coordinate: { system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 },
-        format: "plain",
-      },
+      result: [{ system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 }],
     });
   });
 

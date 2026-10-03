@@ -20,9 +20,20 @@ import {
   ucs2000Parser,
   usngParser,
   utmParser,
+  wgs84ddmParser,
+  wgs84ddParser,
+  wgs84dmsParser,
   wgs84Parser,
 } from "@coordinate-parser/parser";
-import type { CoordinateSystem, WrittenCoordinate } from "@coordinate-parser/types";
+import type {
+  CoordinateSystem,
+  MGRSCoordinate,
+  UCS2000Coordinate,
+  USNGCoordinate,
+  UTMCoordinate,
+  WGS84Coordinate,
+} from "@coordinate-parser/types";
+import { choice } from "arcsecond";
 import { labelOf, systemLabel } from "./labels.ts";
 
 const AUTO = "auto";
@@ -51,9 +62,9 @@ const groups: { label: string; systems: CoordinateSystem[] }[] = [
 // The examples: WGS 84 as the plain signed pair, plus the grids. Its other formats are still read.
 const EXAMPLE_SYSTEMS: CoordinateSystem[] = ["WGS84", ...GRID_SYSTEMS];
 
-// WGS 84 is offered once, and reads every format of it; see `parsers` below.
+// WGS 84 is offered once, and reads every latitude-first notation of it; see `parsers` below.
 const notationLabels: Partial<Record<CoordinateSystem, string>> = {
-  WGS84: "десяткові, DD, DDM або DMS",
+  WGS84: "десяткові, DD, DDM або DMS, широта першою",
 };
 
 const optionLabel = (system: CoordinateSystem) =>
@@ -62,13 +73,33 @@ const optionLabel = (system: CoordinateSystem) =>
 type Outcome =
   | { kind: "empty" }
   | { kind: "parseError"; message: string }
-  | { kind: "conversionError"; written: WrittenCoordinate; message: string }
-  | { kind: "converted"; written: WrittenCoordinate; area: Area };
+  | {
+      kind: "conversionError";
+      written:
+        | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
+        | [MGRSCoordinate]
+        | [USNGCoordinate]
+        | [UTMCoordinate]
+        | [UCS2000Coordinate];
+      message: string;
+    }
+  | {
+      kind: "converted";
+      written:
+        | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
+        | [MGRSCoordinate]
+        | [USNGCoordinate]
+        | [UTMCoordinate]
+        | [UCS2000Coordinate];
+      area: Area;
+    };
 
-// The parser behind each choice in the system select.
+// The parser behind each choice in the system select. WGS 84 reads every latitude-first notation,
+// since the select offers it once for all of them; WGS84R is left out, as a longitude-first pair is
+// far likelier a mistake there than a choice.
 const parsers = {
   [AUTO]: coordinateParser,
-  WGS84: wgs84Parser,
+  WGS84: choice([wgs84Parser, wgs84ddParser, wgs84ddmParser, wgs84dmsParser]),
   MGRS: mgrsParser,
   USNG: usngParser,
   UTM: utmParser,
@@ -84,7 +115,7 @@ const convert = (text: string, input: InputChoice): Outcome => {
   if (parsed.isError) return { kind: "parseError", message: parsed.error };
 
   try {
-    return { kind: "converted", written: parsed.result, area: areaOf(parsed.result.coordinate) };
+    return { kind: "converted", written: parsed.result, area: areaOf(parsed.result[0]) };
   } catch (error) {
     if (!(error instanceof RangeError)) throw error;
     return { kind: "conversionError", written: parsed.result, message: error.message };
@@ -1089,12 +1120,13 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           {outcome.kind === "converted" && (
             <>
               {/* Plain decimal latitude and longitude needs no telling; any other notation does. */}
-              {(input === AUTO || input === "WGS84") && outcome.written.format !== "decimal" && (
-                <p>
-                  Розпізнано як <b>{labelOf(outcome.written)}</b>
-                </p>
-              )}
-              {outcome.written.coordinate.system === "UCS-2000" &&
+              {(input === AUTO || input === "WGS84") &&
+                !(outcome.written.length === 2 && outcome.written[1] === "WGS84") && (
+                  <p>
+                    Розпізнано як <b>{labelOf(outcome.written)}</b>
+                  </p>
+                )}
+              {outcome.written[0].system === "UCS-2000" &&
                 !insideUcs2000AreaOfUse(outcome.area.centre) && <OutsideAreaOfUse />}
             </>
           )}

@@ -219,28 +219,25 @@ describe("coordinateParser", () => {
   const sydney = { latitude: -33.8688, longitude: 151.2093 };
 
   it.each([
-    ["50.4501, 30.5234", kyiv, "decimal"],
-    ["50,4501 30,5234", kyiv, "decimal"],
-    ["151.2093, -33.8688", sydney, "decimalLongitudeFirst"],
-    ["151,2093 -33,8688", sydney, "decimalLongitudeFirst"],
+    ["50.4501, 30.5234", kyiv, "WGS84"],
+    ["50,4501 30,5234", kyiv, "WGS84"],
+    ["151.2093, -33.8688", sydney, "WGS84R"],
+    ["151,2093 -33,8688", sydney, "WGS84R"],
   ])("reads %j as WGS 84, format %#", (input, expected, format) => {
-    expect(parsed(coordinateParser, input)).toEqual({
-      coordinate: { system: "WGS84", ...expected },
-      format,
-    });
+    expect(parsed(coordinateParser, input)).toEqual([{ system: "WGS84", ...expected }, format]);
   });
 
   it("prefers latitude first when both orders are in range", () => {
-    expect(parsed(coordinateParser, "50.4501 30.5234")).toEqual({
-      coordinate: { system: "WGS84", ...kyiv },
-      format: "decimal",
-    });
+    expect(parsed(coordinateParser, "50.4501 30.5234")).toEqual([
+      { system: "WGS84", ...kyiv },
+      "WGS84",
+    ]);
   });
 
   it("falls back to longitude first when latitude is out of range", () => {
-    expect(parsed(coordinateParser, "151.2093 -33.8688")).toEqual({
-      coordinate: { system: "WGS84", ...sydney },
-      format: "decimalLongitudeFirst",
-    });
+    expect(parsed(coordinateParser, "151.2093 -33.8688")).toEqual([
+      { system: "WGS84", ...sydney },
+      "WGS84R",
+    ]);
   });
 });

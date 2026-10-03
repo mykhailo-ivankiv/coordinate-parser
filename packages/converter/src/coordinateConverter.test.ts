@@ -6,7 +6,11 @@ import {
   ucs2000Parser,
   usngParser,
   utmParser,
+  wgs84ddmParser,
+  wgs84ddParser,
+  wgs84dmsParser,
   wgs84Parser,
+  wgs84rParser,
 } from "@coordinate-parser/parser";
 import type { Coordinate } from "@coordinate-parser/types";
 import { project } from "./transverseMercator.ts";
@@ -24,7 +28,7 @@ import {
 const parse = (input: string): Coordinate => {
   const result = coordinateParser.run(input);
   if (result.isError) throw new Error(`expected "${input}" to parse, but got: ${result.error}`);
-  return result.result.coordinate;
+  return result.result[0];
 };
 
 const kyiv: Coordinates = { latitude: 50.4501, longitude: 30.5234 };
@@ -69,7 +73,7 @@ describe("to WGS 84", () => {
   it("accepts a USNG reference, which coordinateParser reports as MGRS", () => {
     const usng = usngParser.run("18T WL 83959 07350");
     if (usng.isError) throw new Error(usng.error);
-    expect(toWGS84(usng.result.coordinate)).toEqual(toWGS84(parse("18TWL8395907350")));
+    expect(toWGS84(usng.result[0])).toEqual(toWGS84(parse("18TWL8395907350")));
   });
 });
 
@@ -83,8 +87,8 @@ describe("round trip through every system", () => {
   // Every system rounds or truncates to the metre, so a round trip comes back within one: 1e-5° is
   // about 1.1 m of latitude, and less than that of longitude this far north.
   //
-  // WGS84R is left out: every Ukrainian longitude is also a valid latitude, so "30.5234, 50.4501"
-  // reads latitude first. See the Sydney case below.
+  // WGS84R is left to its own parser: coordinateParser tries latitude first, and every Ukrainian
+  // longitude is also a valid latitude, so "30.5234, 50.4501" reads latitude first there.
   describe.each(points)("%s", (_, coords) => {
     it.each(CONVERTIBLE_SYSTEMS.filter((system) => system !== "WGS84R"))(
       "survives %s",
@@ -94,35 +98,35 @@ describe("round trip through every system", () => {
         expect(Math.abs(back.longitude - coords.longitude)).toBeLessThan(1e-5);
       },
     );
-  });
 
-  it("survives WGS84R where the longitude cannot pass for a latitude", () => {
-    const sydney = { latitude: -33.8688, longitude: 151.2093 };
-    expect(wgs84Parser.run(fromWGS84(sydney, "WGS84R").value)).toMatchObject({
-      isError: false,
-      result: { coordinate: sydney, format: "decimalLongitudeFirst" },
+    it("survives WGS84R, read by wgs84rParser", () => {
+      expect(wgs84rParser.run(fromWGS84(coords, "WGS84R").value)).toMatchObject({
+        isError: false,
+        result: [coords, "WGS84R"],
+      });
     });
   });
 });
 
 describe("reading back with the system's own parser", () => {
-  // Unlike coordinateParser, the per-system parsers reach USNG too, so every grid round-trips, and
-  // the WGS 84 notations come back as their format.
+  // Unlike coordinateParser, the per-notation parsers reach USNG and WGS84R too, so every notation
+  // round-trips, and comes back as its system, and for WGS 84 its format.
   it.each([
-    ["WGS84", wgs84Parser, { system: "WGS84", format: "decimal" }],
-    ["DD", wgs84Parser, { system: "WGS84", format: "DD" }],
-    ["DDM", wgs84Parser, { system: "WGS84", format: "DDM" }],
-    ["DMS", wgs84Parser, { system: "WGS84", format: "DMS" }],
-    ["MGRS", mgrsParser, { system: "MGRS", format: "compact" }],
-    ["USNG", usngParser, { system: "USNG", format: "spaced" }],
-    ["UTM", utmParser, { system: "UTM", format: "spaced" }],
-    ["UCS-2000", ucs2000Parser, { system: "UCS-2000", format: "plain" }],
-  ] as const)("reads %s back", (notation, parser, { system, format }) => {
+    ["WGS84", wgs84Parser, { system: "WGS84", format: "WGS84" }],
+    ["WGS84R", wgs84rParser, { system: "WGS84", format: "WGS84R" }],
+    ["DD", wgs84ddParser, { system: "WGS84", format: "DD" }],
+    ["DDM", wgs84ddmParser, { system: "WGS84", format: "DDM" }],
+    ["DMS", wgs84dmsParser, { system: "WGS84", format: "DMS" }],
+    ["MGRS", mgrsParser, { system: "MGRS" }],
+    ["USNG", usngParser, { system: "USNG" }],
+    ["UTM", utmParser, { system: "UTM" }],
+    ["UCS-2000", ucs2000Parser, { system: "UCS-2000" }],
+  ] as const)("reads %s back", (notation, parser, expected) => {
     const result = parser.run(fromWGS84(kyiv, notation).value);
     if (result.isError) throw new Error(result.error);
-    expect(result.result.coordinate.system).toBe(system);
-    expect(result.result.format).toBe(format);
-    const back = toWGS84(result.result.coordinate);
+    expect(result.result[0].system).toBe(expected.system);
+    expect(result.result[1]).toBe("format" in expected ? expected.format : undefined);
+    const back = toWGS84(result.result[0]);
     expect(Math.abs(back.latitude - kyiv.latitude)).toBeLessThan(1e-5);
     expect(Math.abs(back.longitude - kyiv.longitude)).toBeLessThan(1e-5);
   });
@@ -278,12 +282,12 @@ describe("WGS 84 in any latitude-first notation", () => {
   it.each([
     ["50.4501, 30.5234", wgs84Parser],
     ["50,4501 30,5234", wgs84Parser],
-    ["50.4501°N, 30.5234°E", wgs84Parser],
-    ["50° 27.006'N, 30° 31.404'E", wgs84Parser],
-    [`50° 27' 0.36"N, 30° 31' 24.24"E`, wgs84Parser],
+    ["50.4501°N, 30.5234°E", wgs84ddParser],
+    ["50° 27.006'N, 30° 31.404'E", wgs84ddmParser],
+    [`50° 27' 0.36"N, 30° 31' 24.24"E`, wgs84dmsParser],
   ])("converts %s to the same point", (input, parser) => {
     const result = parser.run(input);
     if (result.isError) throw new Error(result.error);
-    expect(toWGS84(result.result.coordinate)).toEqual(kyiv);
+    expect(toWGS84(result.result[0])).toEqual(kyiv);
   });
 });

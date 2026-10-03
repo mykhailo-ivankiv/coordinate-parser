@@ -86,18 +86,18 @@ export const GRID_SYSTEMS: Notation[] = ["MGRS", "USNG", "UTM", "UCS-2000"];
  * The area a coordinate designates, in WGS 84: a point for WGS 84 latitude and longitude, a square
  * for the grid references.
  *
- * @param coordinate - A coordinate in any system, such as a parser's `result.coordinate`.
+ * @param coordinate - A coordinate in any system, such as the first element of a parser's result.
  * @returns The point, or the square with its corners and outline.
  * @throws RangeError on a reference the parser accepts but no place matches: an MGRS column letter
  * not used in its zone, or a band that contradicts the northing.
  *
  * @example
  * ```ts
- * areaOf(coordinateParser.run("36UUA2491").result.coordinate).size
+ * areaOf(coordinateParser.run("36UUA2491").result[0]).size
  * // → 1000
- * areaOf(coordinateParser.run("36UUA2491").result.coordinate).corners.southWest
+ * areaOf(coordinateParser.run("36UUA2491").result[0]).corners.southWest
  * // → { latitude: 50.4445861, longitude: 30.5211213 }
- * areaOf(coordinateParser.run("17N 630084 4833438").result.coordinate)
+ * areaOf(coordinateParser.run("17N 630084 4833438").result[0])
  * // throws RangeError
  * ```
  */
@@ -119,15 +119,15 @@ export const areaOf = (coordinate: Coordinate): Area => {
  * A coordinate in any system to the WGS 84 latitude/longitude it is stored as: the centre of the
  * area it designates, to seven decimal places.
  *
- * @param coordinate - A coordinate in any system, such as a parser's `result.coordinate`.
+ * @param coordinate - A coordinate in any system, such as the first element of a parser's result.
  * @returns Latitude and longitude in decimal degrees.
  * @throws RangeError where areaOf does.
  *
  * @example
  * ```ts
- * toWGS84(coordinateParser.run("36UUA2491").result.coordinate)
+ * toWGS84(coordinateParser.run("36UUA2491").result[0])
  * // → { latitude: 50.4492283, longitude: 30.5279224 }
- * toWGS84(coordinateParser.run("50° 27.006'N, 30° 31.404'E").result.coordinate)
+ * toWGS84(coordinateParser.run("50° 27.006'N, 30° 31.404'E").result[0])
  * // → { latitude: 50.4501, longitude: 30.5234 }
  * ```
  */

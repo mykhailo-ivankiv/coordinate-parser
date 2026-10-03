@@ -60,7 +60,7 @@ const OUR_PARSERS = { MGRS: mgrsParser, USNG: usngParser, UTM: utmParser };
 const ourReading = (point: Coordinates, system: keyof typeof OUR_PARSERS) => {
   const value = fromWGS84(point, system).value;
   const parsed = OUR_PARSERS[system].run(value);
-  return { value, coords: parsed.isError ? null : toWGS84(parsed.result.coordinate) };
+  return { value, coords: parsed.isError ? null : toWGS84(parsed.result[0]) };
 };
 
 const sameString =

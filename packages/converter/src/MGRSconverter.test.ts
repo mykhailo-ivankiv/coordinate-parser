@@ -59,7 +59,7 @@ const references: { name: string; coords: Coordinates; metre: string; kilometre:
 const parse = (input: string) => {
   const result = mgrsParser.run(input);
   if (result.isError) throw new Error(result.error);
-  return result.result.coordinate;
+  return result.result[0];
 };
 
 describe("WGS 84 to MGRS", () => {

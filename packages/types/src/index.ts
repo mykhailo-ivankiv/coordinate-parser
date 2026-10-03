@@ -1,6 +1,6 @@
 // The shapes the parser, the converter and the formatter share. A coordinate is data alone: where a
-// point or square is, in one coordinate system. How it was or will be written is a separate thing,
-// its format; a parser reports both, a formatter takes both, and the converter works on the data.
+// point or square is, in one coordinate system. The format WGS 84 was written in — WGS84, WGS84R, DD,
+// DDM or DMS — is kept beside the data by the parser, never in it.
 
 /** The coordinate systems: one datum and, for the grids, one projection or grid each. */
 export type CoordinateSystem = "WGS84" | "MGRS" | "USNG" | "UTM" | "UCS-2000";
@@ -79,31 +79,3 @@ export type Coordinate =
   | USNGCoordinate
   | UTMCoordinate
   | UCS2000Coordinate;
-
-// Formats. Each names a way of writing that changes the shape of the text, not a detail inside it:
-// a comma or a space between two values, or a decimal comma for a point, is read either way and
-// written one way.
-
-/**
- * How WGS 84 is written: signed decimal degrees latitude first ("50.4501, 30.5234") or longitude
- * first ("30.5234, 50.4501"), or with hemisphere letters in decimal degrees, degrees and decimal
- * minutes, or degrees, minutes and seconds (ISO 6709 Annex D).
- */
-export type WGS84Format = "decimal" | "decimalLongitudeFirst" | "DD" | "DDM" | "DMS";
-
-/** How an MGRS or USNG reference is written: "4QFJ1234567890" or "4Q FJ 12345 67890". */
-export type GridReferenceFormat = "compact" | "spaced";
-
-/** How a UTM position is written: "36U 324182 5591608" or "36U3241825591608". */
-export type UTMFormat = "spaced" | "compact";
-
-/** How UCS-2000 is written: "5591000 6325000", or grouped for legibility "55-91000 63-25000". */
-export type UCS2000Format = "plain" | "grouped";
-
-/** A coordinate together with how it is written: what a parser returns and a formatter takes. */
-export type WrittenCoordinate =
-  | { coordinate: WGS84Coordinate; format: WGS84Format }
-  | { coordinate: MGRSCoordinate; format: GridReferenceFormat }
-  | { coordinate: USNGCoordinate; format: GridReferenceFormat }
-  | { coordinate: UTMCoordinate; format: UTMFormat }
-  | { coordinate: UCS2000Coordinate; format: UCS2000Format };
