@@ -1,6 +1,10 @@
-import { useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useState, useSyncExternalStore } from "react";
 import { ArticleAboutCoordinateSystems } from "./ArticleAboutCoordinateSystems.tsx";
-import { ConverterPage } from "./ConverterPage.tsx";
+
+// Loaded on demand: the map library is most of the bundle, and the parser page has no use for it.
+const ConverterPage = lazy(() =>
+  import("./ConverterPage.tsx").then(({ ConverterPage }) => ({ default: ConverterPage })),
+);
 import { coordinateParser } from "./parsers/coordinateParser.ts";
 
 // Grouped by the `system` coordinateParser actually reports, not by which parser module
@@ -363,17 +367,29 @@ const ParserPage = () => (
 function App() {
   const page = useSyncExternalStore(subscribeToHash, currentPage);
 
+  // The converter takes the whole width, the form on the left and the map filling the rest; the
+  // parser page stays a single readable column.
+  if (page === "#/convert") {
+    return (
+      <main>
+        <Suspense fallback={<p className="p-4 text-sm opacity-60">Завантаження…</p>}>
+          <ConverterPage
+            header={
+              <>
+                <Navigation active={page} />
+                <h2>Конвертер координат</h2>
+              </>
+            }
+          />
+        </Suspense>
+      </main>
+    );
+  }
+
   return (
     <main className="max-w-[60ch] p-4 m-auto">
       <Navigation active={page} />
-      {page === "#/convert" ? (
-        <>
-          <h2>Конвертер координат</h2>
-          <ConverterPage />
-        </>
-      ) : (
-        <ParserPage />
-      )}
+      <ParserPage />
     </main>
   );
 }

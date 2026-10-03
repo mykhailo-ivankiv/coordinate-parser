@@ -3,6 +3,8 @@ import type { Coordinates } from "../parsers/commonParsers.ts";
 import { coordinateParser, systemParsers } from "../parsers/coordinateParser.ts";
 import { USNGparser } from "../parsers/USNGparser.ts";
 import { WGS84Rparser } from "../parsers/WGS84Rparser.ts";
+import { project } from "./transverseMercator.ts";
+import { utmProjection } from "./UTMconverter.ts";
 import {
   areaOf,
   CONVERTIBLE_SYSTEMS,
@@ -122,19 +124,33 @@ describe("every system at once", () => {
 
 describe("the area a value designates", () => {
   // Corner references computed with PROJ 9.3: EPSG:32636 and EPSG:5564 to EPSG:4326.
+  const kyivCorners = {
+    southWest: { latitude: 50.4445861, longitude: 30.5211213 },
+    southEast: { latitude: 50.4448851, longitude: 30.535192 },
+    northEast: { latitude: 50.4538701, longitude: 30.5347249 },
+    northWest: { latitude: 50.453571, longitude: 30.5206516 },
+  };
   const kyivKilometre = {
     centre: { latitude: 50.4492283, longitude: 30.5279224 },
-    corners: {
-      southWest: { latitude: 50.4445861, longitude: 30.5211213 },
-      southEast: { latitude: 50.4448851, longitude: 30.535192 },
-      northEast: { latitude: 50.4538701, longitude: 30.5347249 },
-      northWest: { latitude: 50.453571, longitude: 30.5206516 },
-    },
+    corners: kyivCorners,
+    // Over 1 km an edge strays from a straight line by about 2 cm, so the outline is the corners.
+    outline: [
+      kyivCorners.southWest,
+      kyivCorners.southEast,
+      kyivCorners.northEast,
+      kyivCorners.northWest,
+      kyivCorners.southWest,
+    ],
     size: 1000,
   };
 
   it("gives a latitude/longitude notation a point and no corners", () => {
-    expect(fromWGS84(kyiv, "DMS").area).toEqual({ centre: kyiv, corners: null, size: 0 });
+    expect(fromWGS84(kyiv, "DMS").area).toEqual({
+      centre: kyiv,
+      corners: null,
+      outline: null,
+      size: 0,
+    });
   });
 
   it("gives an MGRS reference the square it names, matching PROJ at every corner", () => {
@@ -198,6 +214,45 @@ describe("grouping", () => {
 
   it("gives every notation of WGS 84 the same point", () => {
     const areas = LATITUDE_LONGITUDE_NOTATIONS.map((system) => fromWGS84(kyiv, system).area);
-    for (const area of areas) expect(area).toEqual({ centre: kyiv, corners: null, size: 0 });
+    for (const area of areas)
+      expect(area).toEqual({ centre: kyiv, corners: null, outline: null, size: 0 });
+  });
+});
+
+describe("the outline of a large square", () => {
+  // 36UUA is the 100 km square from 300000E 5500000N in zone 36, south-west of Kyiv. Its southern
+  // edge bows some 230 m away from the straight line between its corners on a web map.
+  const outline = areaOf(parse("36UUA")).outline ?? [];
+
+  it("follows the curved edges with extra points", () => {
+    expect(outline.length).toBeGreaterThan(5);
+  });
+
+  it("closes the ring on the south-west corner", () => {
+    expect(outline.at(-1)).toEqual(outline[0]);
+  });
+
+  it("puts every point on the square's edge, not on a chord", () => {
+    for (const vertex of outline) {
+      const { easting, northing } = project(vertex, utmProjection(36, "N"));
+      const onEdge = [
+        easting - 300000,
+        easting - 400000,
+        northing - 5500000,
+        northing - 5600000,
+      ].some((offset) => Math.abs(offset) < 0.02);
+      expect(onEdge).toBe(true);
+    }
+  });
+
+  it("passes through the middle of the southern edge where PROJ puts it", () => {
+    // EPSG:32636 → EPSG:4326 on 350000E 5500000N.
+    expect(outline).toContainEqual({ latitude: 49.6339036, longitude: 30.9226471 });
+  });
+
+  it("gives a 10 km square only the few points its gentler curve needs", () => {
+    const tenKilometres = areaOf(parse("36UUA20")).outline ?? [];
+    expect(tenKilometres.length).toBeGreaterThan(5);
+    expect(tenKilometres.length).toBeLessThan(outline.length);
   });
 });
