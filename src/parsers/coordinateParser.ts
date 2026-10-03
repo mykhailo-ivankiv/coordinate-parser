@@ -8,6 +8,7 @@ import { DDparser } from "./DDparser.ts";
 import { DMSparser } from "./DMSparser.ts";
 import { MGRSparser } from "./MGRSparser.ts";
 import { UCS2000parser } from "./UCS2000parser.ts";
+import { USNGparser } from "./USNGparser.ts";
 import { UTMparser } from "./UTMparser.ts";
 
 // Order matters: the reversed variants only get a turn once the straight ones have
@@ -31,3 +32,24 @@ export const coordinateParser = choice([
   // this parser already accepts every string that one does.
   UTMparser.map((coords) => ({ ...coords, system: "UTM" as const })),
 ]);
+
+// One parser per system, for when the caller already knows which system the input is in. Unlike the
+// `choice` above nothing competes here, so the systems it can never report are reachable: USNG,
+// which MGRS claims first, and a WGS84R pair whose longitude would also pass as a latitude.
+export const systemParsers = {
+  WGS84: choice([WGS84parser, EuropeanWGS84parser]).map((coords) => ({
+    ...coords,
+    system: "WGS84" as const,
+  })),
+  WGS84R: choice([WGS84Rparser, EuropeanWGS84Rparser]).map((coords) => ({
+    ...coords,
+    system: "WGS84R" as const,
+  })),
+  DD: DDparser.map((coords) => ({ ...coords, system: "DD" as const })),
+  DDM: DDMparser.map((coords) => ({ ...coords, system: "DDM" as const })),
+  DMS: DMSparser.map((coords) => ({ ...coords, system: "DMS" as const })),
+  MGRS: MGRSparser.map((coords) => ({ ...coords, system: "MGRS" as const })),
+  USNG: USNGparser.map((coords) => ({ ...coords, system: "USNG" as const })),
+  UTM: UTMparser.map((coords) => ({ ...coords, system: "UTM" as const })),
+  "UCS-2000": UCS2000parser.map((coords) => ({ ...coords, system: "UCS-2000" as const })),
+};

@@ -2,7 +2,7 @@ import type { Coordinates } from "../parsers/commonParsers.ts";
 import { LATITUDE_BANDS } from "../parsers/gridReference.ts";
 import type { UTMCoordinate } from "../parsers/UTMparser.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
-import { toDeclaredPrecision } from "./precision.ts";
+import { type Area, gridSquare } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UTM, per NGA.STND.0037_2.0.0_GRIDS §2 —
@@ -92,27 +92,33 @@ export const unprojectUTM = (location: Projected, zone: number, hemisphere: "N" 
 // About ten metres of slack absorbs that and still catches a band that is simply wrong.
 export const BAND_TOLERANCE = 0.0001;
 
-/** UTM to WGS 84. When the reference names a latitude band, the result is checked against it. */
-export const fromUTM = ({
-  zone,
-  hemisphere,
-  band,
-  easting,
-  northing,
-}: UTMCoordinate): Coordinates => {
-  const coords = unprojectUTM({ easting, northing }, zone, hemisphere);
+/**
+ * The square a UTM reference names, in WGS 84: written to the whole metre, it stands for everything
+ * within half a metre of its easting and northing. When the reference names a latitude band, the
+ * result is checked against it.
+ */
+export const utmArea = ({ zone, hemisphere, band, easting, northing }: UTMCoordinate): Area => {
+  const area = gridSquare(
+    (location) => unprojectUTM(location, zone, hemisphere),
+    { easting: easting - 0.5, northing: northing - 0.5 },
+    1,
+  );
 
   if (band !== undefined) {
     const [south, north] = bandLimits(band);
-    if (coords.latitude < south - BAND_TOLERANCE || coords.latitude > north + BAND_TOLERANCE) {
+    const { latitude } = area.centre;
+    if (latitude < south - BAND_TOLERANCE || latitude > north + BAND_TOLERANCE) {
       throw new RangeError(
-        `UTM band ${band} spans ${south}° to ${north}°, but northing ${northing} lies at ${coords.latitude.toFixed(4)}°`,
+        `UTM band ${band} spans ${south}° to ${north}°, but northing ${northing} lies at ${latitude.toFixed(4)}°`,
       );
     }
   }
 
-  return toDeclaredPrecision(coords);
+  return area;
 };
+
+/** UTM to WGS 84, the centre of the referenced square. */
+export const fromUTM = (reference: UTMCoordinate): Coordinates => utmArea(reference).centre;
 
 export const formatUTM = ({ zone, band, hemisphere, easting, northing }: UTMCoordinate) =>
   `${zone}${band ?? hemisphere} ${easting} ${northing}`;

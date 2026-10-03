@@ -2,7 +2,7 @@ import type { Coordinates } from "../parsers/commonParsers.ts";
 import { type GridLocation, MAX_DIGITS_PER_AXIS, ROW_LETTERS } from "../parsers/gridReference.ts";
 import type { MGRSCoordinate } from "../parsers/MGRSparser.ts";
 import type { USNGCoordinate } from "../parsers/USNGparser.ts";
-import { toDeclaredPrecision } from "./precision.ts";
+import { type Area, gridSquare } from "./area.ts";
 import { project } from "./transverseMercator.ts";
 import {
   BAND_TOLERANCE,
@@ -67,10 +67,10 @@ export const toUSNG = (coords: Coordinates, precision: Exclude<GridPrecision, 10
   toMGRS(coords, precision) as USNGCoordinate;
 
 /**
- * MGRS or USNG to WGS 84. A reference names a square rather than a point, so this returns the
- * square's centre: the best single estimate, at most half a square from anywhere inside it.
+ * The square an MGRS or USNG reference names, in WGS 84. The reference gives the square's
+ * south-west corner — truncation, not rounding, put it there — and its precision gives the side.
  */
-export const fromMGRS = ({
+export const mgrsArea = ({
   zone,
   band,
   square,
@@ -81,7 +81,7 @@ export const fromMGRS = ({
   zone: number;
   band: string;
   square: string;
-}): Coordinates => {
+}): Area => {
   const [columnLetter, rowLetter] = square;
 
   const column = columnSet(zone).indexOf(columnLetter) + 1;
@@ -94,7 +94,7 @@ export const fromMGRS = ({
   const row =
     (ROW_LETTERS.indexOf(rowLetter) - rowOffset(zone) + ROW_LETTERS.length) % ROW_LETTERS.length;
 
-  const [bandSouth] = bandLimits(band);
+  const [bandSouth, bandNorth] = bandLimits(band);
   const hemisphere = bandSouth < 0 ? "S" : "N";
 
   // The band's southern edge is lowest on the central meridian, so a northing taken there is a
@@ -110,26 +110,32 @@ export const fromMGRS = ({
   let squareNorthing = row * SQUARE;
   while (squareNorthing < bandFloor) squareNorthing += ROW_CYCLE;
 
-  const half = precision / 2;
-  const coords = unprojectUTM(
-    { easting: column * SQUARE + easting + half, northing: squareNorthing + northing + half },
-    zone,
-    hemisphere,
+  const area = gridSquare(
+    (location) => unprojectUTM(location, zone, hemisphere),
+    { easting: column * SQUARE + easting, northing: squareNorthing + northing },
+    precision,
   );
 
   // The row letter only recurs every 2000 km, so a band spanning less than that leaves some row
   // letters with no square inside it. Such a reference is malformed rather than merely imprecise.
   // A coarse square may hang over the band edge, so the check allows for the square's own size.
-  const [, bandNorth] = bandLimits(band);
+  const { latitude } = area.centre;
   const slack = precision / METRES_PER_DEGREE + BAND_TOLERANCE;
-  if (coords.latitude < bandSouth - slack || coords.latitude > bandNorth + slack) {
+  if (latitude < bandSouth - slack || latitude > bandNorth + slack) {
     throw new RangeError(
       `MGRS square ${square} has no part in band ${band} of zone ${zone}, which spans ${bandSouth}° to ${bandNorth}°`,
     );
   }
 
-  return toDeclaredPrecision(coords);
+  return area;
 };
+
+/**
+ * MGRS or USNG to WGS 84. A reference names a square rather than a point, so this returns the
+ * square's centre: the best single estimate, at most half a square from anywhere inside it.
+ */
+export const fromMGRS = (reference: Parameters<typeof mgrsArea>[0]): Coordinates =>
+  mgrsArea(reference).centre;
 
 const digitsOf = (metres: number, precision: number) => {
   const width = MAX_DIGITS_PER_AXIS - Math.log10(precision);

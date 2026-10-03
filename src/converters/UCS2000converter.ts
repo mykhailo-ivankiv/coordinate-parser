@@ -1,7 +1,7 @@
 import type { Coordinates } from "../parsers/commonParsers.ts";
 import type { UCS2000Coordinate } from "../parsers/UCS2000parser.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
-import { toDeclaredPrecision } from "./precision.ts";
+import { type Area, gridSquare } from "./area.ts";
 import { type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UCS-2000 (УСК-2000) Gauss-Kruger rectangular coordinates.
@@ -43,15 +43,21 @@ export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
   return { zone, northing: Math.round(northing), easting: Math.round(easting) };
 };
 
-/** UCS-2000 to WGS 84. */
-export const fromUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate): Coordinates =>
-  toDeclaredPrecision(
-    localToWGS84(
-      unproject({ easting, northing }, gaussKruger(zone)),
-      KRASSOWSKY_1940,
-      UCS2000_TO_WGS84,
-    ),
+/**
+ * The square a UCS-2000 reference names, in WGS 84: everything within half a metre of X and Y.
+ * Each corner goes through the datum shift on its own, as any point would.
+ */
+export const ucs2000Area = ({ zone, northing, easting }: UCS2000Coordinate): Area =>
+  gridSquare(
+    (location) =>
+      localToWGS84(unproject(location, gaussKruger(zone)), KRASSOWSKY_1940, UCS2000_TO_WGS84),
+    { easting: easting - 0.5, northing: northing - 0.5 },
+    1,
   );
+
+/** UCS-2000 to WGS 84, the centre of the referenced square. */
+export const fromUCS2000 = (reference: UCS2000Coordinate): Coordinates =>
+  ucs2000Area(reference).centre;
 
 /** X, then Y with the zone digit in front: "5593954 6324226". */
 export const formatUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
