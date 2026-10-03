@@ -1,0 +1,22 @@
+{
+  "name": "@coordinate-parser/converter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Converts parsed coordinates to and from WGS 84, with the area each written value designates.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:slow": "vitest run --config vitest.slow.config.ts"
+  },
+  "dependencies": {
+    "@coordinate-parser/parser": "workspace:*"
+  },
+  "devDependencies": {
+    "@arcgis/core": "^5.1.26",
+    "mgrs": "^2.2.0",
+    "proj4": "^2.22.0"
+  }
+}

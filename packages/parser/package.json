@@ -1,0 +1,16 @@
+{
+  "name": "@coordinate-parser/parser",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Parses coordinates in nine notations: WGS 84 decimal, DD, DDM, DMS, MGRS, USNG, UTM and UCS-2000.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "arcsecond": "^5.0.0"
+  }
+}

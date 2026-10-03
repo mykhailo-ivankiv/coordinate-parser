@@ -1,4 +1,17 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+  "references": [
+    {
+      "path": "./packages/parser"
+    },
+    {
+      "path": "./packages/converter"
+    },
+    {
+      "path": "./apps/web/tsconfig.app.json"
+    },
+    {
+      "path": "./apps/web/tsconfig.node.json"
+    }
+  ]
 }

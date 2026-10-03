@@ -1,2 +1,6 @@
+packages:
+  - packages/*
+  - apps/*
+
 allowBuilds:
-  '@vaadin/vaadin-usage-statistics': false
+  "@vaadin/vaadin-usage-statistics": false
