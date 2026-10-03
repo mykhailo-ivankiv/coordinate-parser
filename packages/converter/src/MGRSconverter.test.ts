@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { usngParser, mgrsParser } from "@coordinate-parser/parser";
-import { formatMGRS, formatUSNG, fromMGRS, toMGRS, toUSNG } from "./MGRSconverter.ts";
+import { formatMGRS, formatUSNG } from "@coordinate-parser/formatter";
+import { fromMGRS, toMGRS, toUSNG } from "./MGRSconverter.ts";
 
 // Reference strings computed with the `mgrs` Python package 1.5, which wraps NGA's GEOTRANS.
 

@@ -20,6 +20,7 @@ const PACKAGES: Record<string, { module: ApiEntry["module"]; directory: string }
   "@coordinate-parser/types": { module: "types", directory: "packages/types" },
   "@coordinate-parser/parser": { module: "parser", directory: "packages/parser" },
   "@coordinate-parser/converter": { module: "converter", directory: "packages/converter" },
+  "@coordinate-parser/formatter": { module: "formatter", directory: "packages/formatter" },
 };
 
 const text = (parts: readonly CommentDisplayPart[] = []) =>

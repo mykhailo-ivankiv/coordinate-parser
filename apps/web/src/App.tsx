@@ -619,7 +619,13 @@ function App() {
       <main className="m-auto px-4 py-6 lg:grid lg:grid-cols-[minmax(14rem,1fr)_minmax(0,64ch)_minmax(0,1fr)] lg:gap-x-12">
         <Suspense fallback={<p className="text-sm opacity-60">Завантаження…</p>}>
           <ApiPage
-            header={<PageHeader active={page} title="API" subtitle="Типи, парсер і конвертер." />}
+            header={
+              <PageHeader
+                active={page}
+                title="API"
+                subtitle="Типи, парсер, конвертер і форматер."
+              />
+            }
           />
         </Suspense>
       </main>

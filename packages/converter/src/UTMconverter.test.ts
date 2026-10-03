@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
-import { formatUTM, fromUTM, projectToUTM, toUTM } from "./UTMconverter.ts";
+import { formatUTM } from "@coordinate-parser/formatter";
+import { fromUTM, projectToUTM, toUTM } from "./UTMconverter.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), WGS 84 to EPSG:326xx / EPSG:327xx.
 

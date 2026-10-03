@@ -12,6 +12,7 @@
     "test:slow": "vitest run --config vitest.slow.config.ts"
   },
   "dependencies": {
+    "@coordinate-parser/formatter": "workspace:*",
     "@coordinate-parser/types": "workspace:*"
   },
   "devDependencies": {

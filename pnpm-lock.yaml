@@ -29,6 +29,9 @@ importers:
       '@coordinate-parser/converter':
         specifier: workspace:*
         version: link:../../packages/converter
+      '@coordinate-parser/formatter':
+        specifier: workspace:*
+        version: link:../../packages/formatter
       '@coordinate-parser/parser':
         specifier: workspace:*
         version: link:../../packages/parser
@@ -96,6 +99,9 @@ importers:
 
   packages/converter:
     dependencies:
+      '@coordinate-parser/formatter':
+        specifier: workspace:*
+        version: link:../formatter
       '@coordinate-parser/types':
         specifier: workspace:*
         version: link:../types
@@ -112,6 +118,16 @@ importers:
       proj4:
         specifier: ^2.22.0
         version: 2.22.0
+
+  packages/formatter:
+    dependencies:
+      '@coordinate-parser/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      '@coordinate-parser/parser':
+        specifier: workspace:*
+        version: link:../parser
 
   packages/parser:
     dependencies:

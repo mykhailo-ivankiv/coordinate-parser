@@ -1,14 +1,10 @@
+import { formatUCS2000 } from "@coordinate-parser/formatter";
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { ucs2000Parser } from "@coordinate-parser/parser";
 import { project } from "./transverseMercator.ts";
 import { fromWGS84 } from "./coordinateConverter.ts";
-import {
-  formatUCS2000,
-  fromUCS2000,
-  insideUcs2000AreaOfUse,
-  toUCS2000,
-} from "./UCS2000converter.ts";
+import { fromUCS2000, insideUcs2000AreaOfUse, toUCS2000 } from "./UCS2000converter.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), EPSG:4326 to EPSG:5562-5565. PROJ chooses

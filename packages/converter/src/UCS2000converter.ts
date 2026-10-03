@@ -71,10 +71,6 @@ export const ucs2000Area = ({ zone, northing, easting }: UCS2000Coordinate): Are
 export const fromUCS2000 = (reference: UCS2000Coordinate): Coordinates =>
   ucs2000Area(reference).centre;
 
-/** X, then Y with the zone digit in front: "5593954 6324226". */
-export const formatUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
-  `${northing} ${zone}${String(easting).padStart(6, "0")}`;
-
 /**
  * Where each UCS-2000 zone is defined: EPSG's area of use for the zone CRSs, EPSG:5562-5565. These
  * are bounding boxes of the part of Ukraine each zone covers, not the border itself. The converter

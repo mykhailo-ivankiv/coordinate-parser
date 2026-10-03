@@ -8,22 +8,20 @@ import type {
 } from "@coordinate-parser/types";
 import { type Area, pointArea } from "./area.ts";
 import {
+  formatDD,
+  formatDDM,
+  formatDMS,
   formatMGRS,
-  formatUSNG,
-  type GridPrecision,
-  mgrsArea,
-  toMGRS,
-  toUSNG,
-} from "./MGRSconverter.ts";
-import { toDeclaredPrecision } from "./precision.ts";
-import { formatDD, formatDDM, formatDMS, formatWGS84, formatWGS84R } from "./sexagesimalFormat.ts";
-import {
   formatUCS2000,
-  insideUcs2000AreaOfUse,
-  toUCS2000,
-  ucs2000Area,
-} from "./UCS2000converter.ts";
-import { formatUTM, toUTM, utmArea } from "./UTMconverter.ts";
+  formatUSNG,
+  formatUTM,
+  formatWGS84,
+  formatWGS84R,
+} from "@coordinate-parser/formatter";
+import { type GridPrecision, mgrsArea, toMGRS, toUSNG } from "./MGRSconverter.ts";
+import { toDeclaredPrecision } from "./precision.ts";
+import { insideUcs2000AreaOfUse, toUCS2000, ucs2000Area } from "./UCS2000converter.ts";
+import { toUTM, utmArea } from "./UTMconverter.ts";
 
 // WGS 84 latitude/longitude is the pivot: every supported system converts to it and from it, and
 // it is the form coordinates are stored in. Converting between any two other systems is the two
@@ -52,7 +50,7 @@ export type Notation =
   | "UCS-2000";
 
 /** A point encoded for one notation, ready for format. */
-export type NotatedCoordinate =
+type NotatedCoordinate =
   | (Coordinates & { system: "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS" })
   | MGRSCoordinate
   | USNGCoordinate
@@ -167,30 +165,19 @@ const encode = (
   }
 };
 
-/**
- * A parsed or encoded coordinate written out, in a form the system's parser reads back.
- *
- * @param coordinate - The coordinate to write, in the system its `system` names.
- * @returns The written value.
- *
- * @example
- * ```ts
- * format({ system: "DMS", latitude: 50.4501, longitude: 30.5234 })
- * // → `50° 27' 0.36"N, 30° 31' 24.24"E`
- * ```
- */
-export const format = (coordinate: NotatedCoordinate): string => {
+// Until the converter stops returning strings, its values are written through the formatter.
+const format = (coordinate: NotatedCoordinate): string => {
   switch (coordinate.system) {
     case "WGS84":
-      return formatWGS84(coordinate);
+      return formatWGS84({ ...coordinate, system: "WGS84" });
     case "WGS84R":
-      return formatWGS84R(coordinate);
+      return formatWGS84R({ ...coordinate, system: "WGS84" });
     case "DD":
-      return formatDD(coordinate);
+      return formatDD({ ...coordinate, system: "WGS84" });
     case "DDM":
-      return formatDDM(coordinate);
+      return formatDDM({ ...coordinate, system: "WGS84" });
     case "DMS":
-      return formatDMS(coordinate);
+      return formatDMS({ ...coordinate, system: "WGS84" });
     case "MGRS":
       return formatMGRS(coordinate);
     case "USNG":

@@ -27,9 +27,11 @@ https://mykhailo-ivankiv.github.io/coordinate-parser/
 | `@coordinate-parser/types`     | `packages/types/`     | The coordinate types the other packages share                   |
 | `@coordinate-parser/parser`    | `packages/parser/`    | Reads a string into a coordinate, and the format for WGS 84     |
 | `@coordinate-parser/converter` | `packages/converter/` | Converts parsed coordinates to and from WGS 84, with their area |
+| `@coordinate-parser/formatter` | `packages/formatter/` | Writes a coordinate as text, the inverse of the parser          |
 | `@coordinate-parser/web`       | `apps/web/`           | The site: parser, converter with a map, guide, API reference    |
 
-The parser and the converter depend on the types, not on each other. The packages export their
+The parser, the converter and the formatter depend on the types, not on each other; for now the
+converter still writes its results through the formatter. The packages export their
 TypeScript source directly (`"exports": "./src/index.ts"`); there is no build step and none is
 published to npm.
 

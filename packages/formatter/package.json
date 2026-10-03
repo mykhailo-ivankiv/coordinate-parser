@@ -1,0 +1,19 @@
+{
+  "name": "@coordinate-parser/formatter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Writes coordinates out as text, the inverse of the parser.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@coordinate-parser/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@coordinate-parser/parser": "workspace:*"
+  }
+}

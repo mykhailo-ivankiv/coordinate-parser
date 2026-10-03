@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import * as converter from "@coordinate-parser/converter";
+import * as formatter from "@coordinate-parser/formatter";
 import * as parser from "@coordinate-parser/parser";
 import { extractApiDocs } from "./extract.ts";
 
@@ -19,7 +20,7 @@ import { extractApiDocs } from "./extract.ts";
 
 const docs = await extractApiDocs();
 
-const api = { ...parser, ...converter };
+const api = { ...parser, ...converter, ...formatter };
 const names = Object.keys(api);
 const values = Object.values(api);
 const evaluate = (expression: string): unknown =>

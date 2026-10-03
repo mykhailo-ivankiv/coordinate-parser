@@ -46,6 +46,12 @@ const MODULES: {
       { id: "types", title: "Типи" },
     ],
   },
+  {
+    id: "formatter",
+    title: "Форматер",
+    importLine: `import { format, formatDMS } from "@coordinate-parser/formatter";`,
+    groups: [{ id: "functions", title: "Функції" }],
+  },
 ];
 
 const entriesOf = (module: ApiEntry["module"], group: ApiEntry["group"]) =>

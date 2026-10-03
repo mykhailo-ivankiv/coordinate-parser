@@ -134,6 +134,3 @@ export const utmArea = ({ zone, hemisphere, band, easting, northing }: UTMCoordi
 
 /** UTM to WGS 84, the centre of the referenced square. */
 export const fromUTM = (reference: UTMCoordinate): Coordinates => utmArea(reference).centre;
-
-export const formatUTM = ({ zone, band, hemisphere, easting, northing }: UTMCoordinate) =>
-  `${zone}${band ?? hemisphere} ${easting} ${northing}`;

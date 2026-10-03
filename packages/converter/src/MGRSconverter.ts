@@ -1,6 +1,6 @@
 import type { Coordinates } from "./coordinates.ts";
 import type { MGRSCoordinate, USNGCoordinate } from "@coordinate-parser/types";
-import { MAX_DIGITS_PER_AXIS, ROW_LETTERS } from "./notation.ts";
+import { ROW_LETTERS } from "./notation.ts";
 import { type Area, gridSquare } from "./area.ts";
 import { project } from "./transverseMercator.ts";
 import {
@@ -134,23 +134,3 @@ export const mgrsArea = ({
  */
 export const fromMGRS = (reference: Parameters<typeof mgrsArea>[0]): Coordinates =>
   mgrsArea(reference).centre;
-
-const digitsOf = (metres: number, precision: number) => {
-  const width = MAX_DIGITS_PER_AXIS - Math.log10(precision);
-  return width === 0 ? "" : String(metres / precision).padStart(width, "0");
-};
-
-/** The compact form NGA.STND.0037 prints: "4QFJ1234567890". */
-export const formatMGRS = ({ zone, band, square, easting, northing, precision }: MGRSCoordinate) =>
-  `${zone}${band}${square}${digitsOf(easting, precision)}${digitsOf(northing, precision)}`;
-
-/** The spaced form FGDC-STD-011-2001 prescribes: "10S GJ 06832 44683". */
-export const formatUSNG = ({
-  zone,
-  band,
-  square,
-  easting,
-  northing,
-  precision,
-}: MGRSCoordinate | USNGCoordinate) =>
-  `${zone}${band} ${square} ${digitsOf(easting, precision)} ${digitsOf(northing, precision)}`;

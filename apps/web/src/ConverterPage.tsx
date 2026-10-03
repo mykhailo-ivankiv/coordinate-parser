@@ -7,13 +7,13 @@ import {
   type Coordinates,
   type Coverage,
   coveringSquares,
-  format,
   fromWGS84,
   type GridPrecision,
   insideUcs2000AreaOfUse,
   type Notation,
   tryFromWGS84,
 } from "@coordinate-parser/converter";
+import { formatWGS84 } from "@coordinate-parser/formatter";
 import {
   coordinateParser,
   mgrsParser,
@@ -227,7 +227,7 @@ const CoordinateLabel = ({
   anchor: "start" | "middle" | "end";
   onPick: Pick;
 }) => {
-  const value = format({ ...coords, system: "WGS84" });
+  const value = formatWGS84({ ...coords, system: "WGS84" });
   const [latitude, longitude] = value.split(", ");
   const pick = () => onPick({ system: "WGS84", value });
   return (
@@ -293,7 +293,7 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
         viewBox={`0 0 ${DIAGRAM_WIDTH} ${DIAGRAM_HEIGHT}`}
         className="w-full max-w-sm"
         role="img"
-        aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${format({ ...centre, system: "WGS84" })}`}
+        aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${formatWGS84({ ...centre, system: "WGS84" })}`}
       >
         <path
           d={`${outline

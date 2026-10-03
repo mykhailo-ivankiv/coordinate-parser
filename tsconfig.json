@@ -8,6 +8,9 @@
       "path": "./packages/parser"
     },
     {
+      "path": "./packages/formatter"
+    },
+    {
       "path": "./packages/converter"
     },
     {

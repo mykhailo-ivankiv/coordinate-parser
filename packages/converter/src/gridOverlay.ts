@@ -1,6 +1,7 @@
 import type { Coordinates } from "./coordinates.ts";
 import { LATITUDE_BANDS } from "./notation.ts";
-import { formatUSNG, toMGRS } from "./MGRSconverter.ts";
+import { formatUSNG } from "@coordinate-parser/formatter";
+import { toMGRS } from "./MGRSconverter.ts";
 import { project } from "./transverseMercator.ts";
 import {
   bandLimits,
@@ -202,7 +203,7 @@ export const mgrsGrid = (
           const centre = point(easting + spacing / 2, northing + spacing / 2);
           if (!belongs(centre)) continue;
           // A 100 km reference has no digits; its empty digit groups are dropped with the spaces.
-          const [zoneAndBand, ...rest] = formatUSNG(toMGRS(centre, spacing))
+          const [zoneAndBand, ...rest] = formatUSNG({ ...toMGRS(centre, spacing), system: "USNG" })
             .split(" ")
             .filter(Boolean);
           labels.push({
