@@ -1,10 +1,11 @@
-import { type ReactNode, useState } from "react";
-import { ConverterMap, type OutputSquare } from "./ConverterMap.tsx";
+import { type ReactNode, useEffect, useState } from "react";
+import { ConverterMap, type OutputSquare, OUTPUT_COLOUR } from "./ConverterMap.tsx";
 import {
   type Area,
   areaOf,
   type Conversion,
   type CoordinateSystem,
+  fromWGS84,
   GRID_SYSTEMS,
   type GridPrecision,
   LATITUDE_LONGITUDE_NOTATIONS,
@@ -12,6 +13,7 @@ import {
 } from "./converters/coordinateConverter.ts";
 import { type Coverage, coveringSquares, MAX_COVERING_SQUARES } from "./converters/coverage.ts";
 import { formatWGS84 } from "./converters/sexagesimalFormat.ts";
+import type { Coordinates } from "./parsers/commonParsers.ts";
 import { coordinateParser, systemParsers } from "./parsers/coordinateParser.ts";
 
 const AUTO = "auto";
@@ -135,40 +137,184 @@ const ConversionValue = ({
     <span className="opacity-60">{conversion.error}</span>
   );
 
-// The corners in the order you would walk round the square, starting from the one the reference
-// itself names for MGRS and USNG.
-const CORNER_LABELS = [
-  ["southWest", "Пд-Зх кут"],
-  ["southEast", "Пд-Сх кут"],
-  ["northEast", "Пн-Сх кут"],
-  ["northWest", "Пн-Зх кут"],
-] as const;
+// The diagram's drawing space, in SVG units: the square is fitted into SQUARE_SIZE around the middle,
+// leaving room outside its corners for their coordinates.
+const DIAGRAM_WIDTH = 360;
+const DIAGRAM_HEIGHT = 250;
+const SQUARE_SIZE = 150;
 
-const AreaTable = ({ area, caption = "Квадрат" }: { area: Area; caption?: string }) => {
-  if (area.corners === null) return <p className="mt-1 opacity-60">Точка — без квадрата.</p>;
+/** A coordinate as two SVG text lines, latitude over longitude, anchored at (x, y). */
+type Pick = (conversion: { system: CoordinateSystem; value: string }) => void;
 
-  const { corners } = area;
+/**
+ * A coordinate as two SVG text lines, latitude over longitude, anchored at (x, y). Clicking it, or
+ * Enter or Space on it, puts the point into the input as WGS 84, like every other value on the page.
+ */
+const CoordinateLabel = ({
+  coords,
+  x,
+  y,
+  anchor,
+  onPick,
+}: {
+  coords: Coordinates;
+  x: number;
+  y: number;
+  anchor: "start" | "middle" | "end";
+  onPick: Pick;
+}) => {
+  const value = formatWGS84(coords);
+  const [latitude, longitude] = value.split(", ");
+  const pick = () => onPick({ system: "WGS84", value });
   return (
-    <>
-      <p className="mt-1 opacity-60">
-        {caption} {sizeLabel(area.size)} × {sizeLabel(area.size)}, координати у WGS 84:
-      </p>
-      <table className="mt-1">
-        <tbody>
-          {[
-            ["Центр", area.centre] as const,
-            ...CORNER_LABELS.map(([key, label]) => [label, corners[key]] as const),
-          ].map(([label, coords]) => (
-            <tr key={label}>
-              <th className="py-0.5 pr-3 text-left font-normal whitespace-nowrap opacity-60">
-                {label}
-              </th>
-              <td className="py-0.5 font-mono">{formatWGS84(coords)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
+    <g
+      role="button"
+      tabIndex={0}
+      aria-label={`Підставити ${value} як вхідне значення`}
+      className="cursor-pointer hover:opacity-70 focus:outline-none focus-visible:opacity-70"
+      onClick={pick}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        pick();
+      }}
+    >
+      <title>Підставити як вхідне значення</title>
+      <text
+        x={x}
+        y={y}
+        textAnchor={anchor}
+        className="fill-current font-mono underline underline-offset-2"
+        fontSize={11}
+      >
+        <tspan x={x}>{latitude}</tspan>
+        <tspan x={x} dy={13}>
+          {longitude}
+        </tspan>
+      </text>
+    </g>
+  );
+};
+
+/**
+ * The square a converted value names, drawn to scale from its outline: north up as on the map, so a
+ * square away from its central meridian sits a little turned, and the edges of a large one bow. Each
+ * corner's WGS 84 coordinates are set diagonally off that corner, the centre's in the middle. In the
+ * same red as the result squares on the map, so the two read as one thing.
+ */
+const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
+  const { corners, outline, centre, size } = area;
+  if (corners === null || outline === null) {
+    return <p className="mt-1 opacity-60">Точка — без квадрата.</p>;
+  }
+
+  // A local flat view around the centre: east to the right, north up, a degree of longitude
+  // shortened by the cosine of the latitude so that the square keeps its shape.
+  const shrink = Math.cos((centre.latitude * Math.PI) / 180);
+  const local = ({ latitude, longitude }: Coordinates) => ({
+    x: (((((longitude - centre.longitude) % 360) + 540) % 360) - 180) * shrink,
+    y: latitude - centre.latitude,
+  });
+  const ring = outline.map(local);
+  const extent = Math.max(...ring.map(({ x, y }) => Math.max(Math.abs(x), Math.abs(y))));
+  const scale = SQUARE_SIZE / 2 / extent;
+  const toSvg = (coords: Coordinates) => {
+    const { x, y } = local(coords);
+    return { x: DIAGRAM_WIDTH / 2 + x * scale, y: DIAGRAM_HEIGHT / 2 - y * scale };
+  };
+
+  const path = `${outline
+    .map(toSvg)
+    .map(({ x, y }, index) => `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`)
+    .join(" ")} Z`;
+
+  const nw = toSvg(corners.northWest);
+  const ne = toSvg(corners.northEast);
+  const sw = toSvg(corners.southWest);
+  const se = toSvg(corners.southEast);
+  const middle = { x: DIAGRAM_WIDTH / 2, y: DIAGRAM_HEIGHT / 2 };
+
+  return (
+    <figure className="mt-2">
+      <svg
+        viewBox={`0 0 ${DIAGRAM_WIDTH} ${DIAGRAM_HEIGHT}`}
+        className="w-full max-w-sm"
+        role="img"
+        aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${formatWGS84(centre)}`}
+      >
+        <path
+          d={path}
+          fill={OUTPUT_COLOUR}
+          fillOpacity={0.08}
+          stroke={OUTPUT_COLOUR}
+          strokeWidth={2}
+        />
+        {[nw, ne, sw, se].map(({ x, y }, index) => (
+          <circle key={index} cx={x} cy={y} r={4} fill={OUTPUT_COLOUR} />
+        ))}
+
+        <CoordinateLabel
+          coords={corners.northWest}
+          x={nw.x - 6}
+          y={nw.y - 22}
+          anchor="end"
+          onPick={onPick}
+        />
+        <CoordinateLabel
+          coords={corners.northEast}
+          x={ne.x + 6}
+          y={ne.y - 22}
+          anchor="start"
+          onPick={onPick}
+        />
+        <CoordinateLabel
+          coords={corners.southWest}
+          x={sw.x - 6}
+          y={sw.y + 16}
+          anchor="end"
+          onPick={onPick}
+        />
+        <CoordinateLabel
+          coords={corners.southEast}
+          x={se.x + 6}
+          y={se.y + 16}
+          anchor="start"
+          onPick={onPick}
+        />
+
+        <text
+          x={middle.x}
+          y={middle.y - 14}
+          textAnchor="middle"
+          className="fill-current"
+          fontSize={11}
+          opacity={0.6}
+        >
+          {sizeLabel(size)} × {sizeLabel(size)}
+        </text>
+        <circle cx={middle.x} cy={middle.y} r={4} fill={OUTPUT_COLOUR} />
+        <CoordinateLabel
+          coords={centre}
+          x={middle.x}
+          y={middle.y + 20}
+          anchor="middle"
+          onPick={onPick}
+        />
+        <text
+          x={middle.x}
+          y={middle.y + 48}
+          textAnchor="middle"
+          className="fill-current"
+          fontSize={11}
+          opacity={0.6}
+        >
+          центр
+        </text>
+      </svg>
+      <figcaption className="text-xs opacity-60">
+        Кути й центр квадрата у WGS 84; північ угорі, форма й поворот — у масштабі.
+      </figcaption>
+    </figure>
   );
 };
 
@@ -385,7 +531,8 @@ const SectionBody = ({
           {section.id === "WGS84" ? (
             <p className="mt-1 opacity-60">Так точка зберігається в базі.</p>
           ) : (
-            first !== undefined && "area" in first && <AreaTable area={first.area} />
+            first !== undefined &&
+            "area" in first && <AreaDiagram area={first.area} onPick={onPick} />
           )}
 
           <CoverageList coverage={result.coverage} system={section.systems[0]} onPick={onPick} />
@@ -587,6 +734,11 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [text, setText] = useState("");
   const [input, setInput] = useState<InputChoice>(AUTO);
   const [precision, setPrecision] = useState<GridPrecision>(1);
+  // False while the input is a point just picked on the map, so the map does not move under the
+  // user's cursor; anything else they change brings the view back onto the result.
+  const [fitView, setFitView] = useState(true);
+  // The user's own switch: off, the map never moves on its own, whatever changes.
+  const [followResult, setFollowResult] = useState(true);
   const [open, setOpen] = useState<Record<SectionId, boolean>>({
     WGS84: false,
     MGRS: true,
@@ -600,7 +752,33 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
     "UCS-2000": true,
   });
 
+  const [picking, setPicking] = useState(false);
   const outcome = convert(text, input);
+
+  // A point picked on the map is written in the system chosen for input, so the field reads as if it
+  // had been typed; under auto-detection, as plain WGS 84. A system that cannot express the point —
+  // UCS-2000 outside Ukraine — falls back to WGS 84 as well.
+  const pickOnMap = (coords: Coordinates) => {
+    const system = input === AUTO ? "WGS84" : input;
+    const conversion = tryFromWGS84(coords, system);
+    if ("value" in conversion) {
+      setText(conversion.value);
+    } else {
+      setText(fromWGS84(coords, "WGS84").value);
+      setInput("WGS84");
+    }
+    setFitView(false);
+    setPicking(false);
+  };
+
+  useEffect(() => {
+    if (!picking) return;
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPicking(false);
+    };
+    window.addEventListener("keydown", cancel);
+    return () => window.removeEventListener("keydown", cancel);
+  }, [picking]);
   const results = new Map(
     sections.map((section) => [
       section.id,
@@ -613,6 +791,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const pick = ({ system, value }: { system: CoordinateSystem; value: string }) => {
     setText(value);
     setInput(system);
+    setFitView(true);
   };
 
   const outputSquares = sections.flatMap((section) =>
@@ -624,15 +803,50 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
     <div className="lg:grid lg:h-screen lg:grid-cols-[minmax(0,60ch)_1fr]">
       <div className="p-4 lg:overflow-y-auto">
         {header}
-        <SystemSelect value={input} onChange={setInput} />
-
-        <input
-          type="text"
-          className="mt-3 p-2 w-full border rounded-sm"
-          placeholder={input === AUTO ? "Enter coordinates" : examples[input]}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+        <SystemSelect
+          value={input}
+          onChange={(value) => {
+            setInput(value);
+            setFitView(true);
+          }}
         />
+
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            className="min-w-0 flex-1 p-2 border rounded-sm"
+            placeholder={input === AUTO ? "Enter coordinates" : examples[input]}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setFitView(true);
+            }}
+          />
+          <button
+            type="button"
+            aria-pressed={picking}
+            title="Вибрати точку на карті"
+            aria-label="Вибрати точку на карті"
+            className={`cursor-pointer whitespace-nowrap rounded-sm border px-3 text-sm ${
+              picking ? "bg-black text-white" : ""
+            }`}
+            onClick={() => setPicking(!picking)}
+          >
+            🎯
+          </button>
+        </div>
+
+        <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={followResult}
+            onChange={(e) => {
+              setFollowResult(e.target.checked);
+              setFitView(true);
+            }}
+          />
+          Наближати карту до результату
+        </label>
 
         <div className="mt-4 text-sm">
           {outcome.kind === "empty" && (
@@ -658,19 +872,6 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                   Розпізнано як <b>{describeSystem(outcome.system)}</b>
                 </p>
               )}
-              {outcome.area.corners !== null && (
-                <div className="mt-2">
-                  <AreaTable area={outcome.area} caption="Вхідне значення — квадрат" />
-                </div>
-              )}
-              <a
-                href={`https://www.openstreetmap.org/?mlat=${outcome.area.centre.latitude}&mlon=${outcome.area.centre.longitude}#map=15/${outcome.area.centre.latitude}/${outcome.area.centre.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${linkStyle} mt-2 inline-block`}
-              >
-                показати на карті
-              </a>
             </>
           )}
         </div>
@@ -686,13 +887,19 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                 open={open[section.id]}
                 onToggle={() => setOpen({ ...open, [section.id]: !open[section.id] })}
                 shown={shown[section.id]}
-                onShow={(value) => setShown({ ...shown, [section.id]: value })}
+                onShow={(value) => {
+                  setShown({ ...shown, [section.id]: value });
+                  setFitView(true);
+                }}
               >
                 <SectionBody
                   section={section}
                   result={result}
                   precision={precision}
-                  onPrecision={setPrecision}
+                  onPrecision={(value) => {
+                    setPrecision(value);
+                    setFitView(true);
+                  }}
                   onPick={pick}
                 />
               </Accordion>
@@ -744,6 +951,9 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           inputArea={outcome.kind === "converted" ? outcome.area : null}
           outputSquares={outputSquares}
           outputPoints={outputPoints}
+          picking={picking}
+          onPick={pickOnMap}
+          fitView={followResult && fitView}
         />
       </div>
     </div>

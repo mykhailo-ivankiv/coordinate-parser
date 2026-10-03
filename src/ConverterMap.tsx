@@ -9,6 +9,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useEffect, useRef } from "react";
 import type { Area } from "./converters/coordinateConverter.ts";
+import { toDeclaredPrecision } from "./converters/precision.ts";
 import type { Coordinates } from "./parsers/commonParsers.ts";
 
 // OpenFreeMap: free vector tiles from OpenStreetMap data, no API key and no registration.
@@ -23,8 +24,8 @@ const KYIV: [number, number] = [30.5234, 50.4501];
 
 // Green is what was typed in, red is what it converts to. Both fills are translucent, so where an
 // input zone and a converted square overlap the two tints mix, and the overlap reads at a glance.
-const INPUT_COLOUR = "#16a34a";
-const OUTPUT_COLOUR = "#dc2626";
+export const INPUT_COLOUR = "#16a34a";
+export const OUTPUT_COLOUR = "#dc2626";
 
 export type OutputSquare = {
   area: Area;
@@ -260,7 +261,19 @@ const Legend = () => (
   </ul>
 );
 
-export const ConverterMap = (data: MapData) => {
+type Picking = {
+  /** While true, a click on the map picks a point instead of doing nothing. */
+  picking: boolean;
+  /** Called with the point clicked while picking. */
+  onPick: (coords: Coordinates) => void;
+  /**
+   * Whether a change of data moves the view onto it. False after a point was picked on the map: the
+   * user chose it where they were looking, so the view stays put and only the drawing changes.
+   */
+  fitView: boolean;
+};
+
+export const ConverterMap = ({ picking, onPick, fitView, ...data }: MapData & Picking) => {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<Map | null>(null);
   const loaded = useRef(false);
@@ -268,6 +281,8 @@ export const ConverterMap = (data: MapData) => {
   const latest = useRef(data);
   // Which squares are currently drawn as rings, to tell whether a zoom needs a redraw.
   const drawn = useRef("");
+  // Read by the click handler, which is bound once when the map is created.
+  const pick = useRef({ picking, onPick });
 
   useEffect(() => {
     if (container.current === null) return;
@@ -294,6 +309,12 @@ export const ConverterMap = (data: MapData) => {
         .join();
       if (rings !== drawn.current) drawn.current = draw(instance, latest.current);
     });
+    instance.on("click", ({ lngLat }) => {
+      if (!pick.current.picking) return;
+      // wrap(): a map panned past the antimeridian reports longitudes beyond ±180.
+      const { lat, lng } = lngLat.wrap();
+      pick.current.onPick(toDeclaredPrecision({ latitude: lat, longitude: lng }));
+    });
     map.current = instance;
 
     return () => {
@@ -303,6 +324,12 @@ export const ConverterMap = (data: MapData) => {
     };
   }, []);
 
+  useEffect(() => {
+    pick.current = { picking, onPick };
+    const canvas = map.current?.getCanvasContainer();
+    if (canvas) canvas.style.cursor = picking ? "crosshair" : "";
+  }, [picking, onPick]);
+
   // Keyed on the content, not the object identity: the page rebuilds these objects on every render,
   // and refitting the view on a render that changed nothing would fight the user panning around.
   const key = JSON.stringify(data);
@@ -310,13 +337,26 @@ export const ConverterMap = (data: MapData) => {
     latest.current = data;
     if (map.current === null || !loaded.current) return;
     drawn.current = draw(map.current, data);
-    fit(map.current, data);
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `key` is `data`, serialised.
+    if (fitView) fit(map.current, data);
+    // `key` is `data`, serialised. `fitView` only says how to react to a change of data, so it is
+    // read here but is not itself a reason to redraw or refit.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+
+  // Turning fitting back on brings the view onto what is already drawn, without waiting for the
+  // data to change. It runs after the effect above, so it sees data that changed in the same render.
+  useEffect(() => {
+    if (fitView && map.current !== null && loaded.current) fit(map.current, latest.current);
+  }, [fitView]);
 
   return (
     <div className="relative h-full w-full">
       <div ref={container} className="h-full w-full" />
+      {picking && (
+        <p className="absolute top-2 left-1/2 -translate-x-1/2 rounded-sm bg-white/90 px-3 py-1 text-xs text-black shadow">
+          Клікніть на карті, щоб вибрати точку · Esc — скасувати
+        </p>
+      )}
       <Legend />
     </div>
   );
