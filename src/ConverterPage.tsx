@@ -5,23 +5,18 @@ import {
   areaOf,
   type Conversion,
   type CoordinateSystem,
-  GRID_PRECISION_SYSTEMS,
   GRID_SYSTEMS,
   type GridPrecision,
   LATITUDE_LONGITUDE_NOTATIONS,
-  toAllSystems,
   tryFromWGS84,
 } from "./converters/coordinateConverter.ts";
 import { type Coverage, coveringSquares, MAX_COVERING_SQUARES } from "./converters/coverage.ts";
 import { formatWGS84 } from "./converters/sexagesimalFormat.ts";
-import type { Coordinates } from "./parsers/commonParsers.ts";
 import { coordinateParser, systemParsers } from "./parsers/coordinateParser.ts";
 
 const AUTO = "auto";
-const ALL = "all";
 
 type InputChoice = CoordinateSystem | typeof AUTO;
-type OutputChoice = CoordinateSystem | typeof ALL;
 
 // One example per system, all naming roughly the same spot in Kyiv, so switching between them shows
 // the conversion settling on the same latitude and longitude every time.
@@ -44,15 +39,9 @@ const groups: { label: string; systems: CoordinateSystem[] }[] = [
   { label: "Прямокутні сітки", systems: GRID_SYSTEMS },
 ];
 
-// What results are shown in, and what the examples cover: WGS 84 once, as the plain signed pair,
-// plus the grids. The other notations are the same latitude and longitude written differently, so
-// listing them as results would only repeat one value five times. They are still read on input.
-const displayGroups: { label: string; systems: CoordinateSystem[] }[] = [
-  { label: "WGS 84 — широта й довгота", systems: ["WGS84"] },
-  { label: "Прямокутні сітки", systems: GRID_SYSTEMS },
-];
-
-const DISPLAY_SYSTEMS = displayGroups.flatMap(({ systems }) => systems);
+// The examples: WGS 84 once, as the plain signed pair, plus the grids. The other notations are the
+// same latitude and longitude written differently; they are still read on input.
+const EXAMPLE_SYSTEMS: CoordinateSystem[] = ["WGS84", ...GRID_SYSTEMS];
 
 const notationLabels: Partial<Record<CoordinateSystem, string>> = {
   WGS84: "десяткові градуси, широта першою",
@@ -98,28 +87,22 @@ const sizeLabel = (metres: number) => (metres >= 1000 ? `${metres / 1000} км` 
 
 const linkStyle = "cursor-pointer underline underline-offset-2 hover:no-underline";
 
-const SystemSelect = <T extends string>({
-  label,
+const SystemSelect = ({
   value,
   onChange,
-  extra,
-  options,
 }: {
-  label: string;
-  value: T;
-  onChange: (value: T) => void;
-  extra: { value: T; label: string };
-  options: { label: string; systems: CoordinateSystem[] }[];
+  value: InputChoice;
+  onChange: (value: InputChoice) => void;
 }) => (
-  <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-    <span className="truncate opacity-60">{label}</span>
+  <label className="flex min-w-0 flex-col gap-1 text-sm">
+    <span className="truncate opacity-60">Вводимо в системі</span>
     <select
       className="w-full p-2 border rounded-sm bg-transparent"
       value={value}
-      onChange={(e) => onChange(e.target.value as T)}
+      onChange={(e) => onChange(e.target.value as InputChoice)}
     >
-      <option value={extra.value}>{extra.label}</option>
-      {options.map(({ label, systems }) => (
+      <option value={AUTO}>Визначити автоматично</option>
+      {groups.map(({ label, systems }) => (
         <optgroup key={label} label={label}>
           {systems.map((system) => (
             <option key={system} value={system}>
@@ -237,99 +220,50 @@ const CoverageList = ({
   );
 };
 
-const Output = ({
-  conversions,
-  coverage,
-  output,
-  onPick,
-}: {
+// The results, one section per coordinate system. MGRS and USNG share a section: USNG adopts the
+// MGRS grid unchanged, so at a given precision both name the same square and differ only in how it
+// is written. Splitting them would show one square twice, with two precision controls to keep in step.
+type SectionId = "WGS84" | "MGRS" | "UTM" | "UCS-2000";
+
+type Section = {
+  id: SectionId;
+  title: string;
+  /** The systems the section writes the point in; the first one names the squares. */
+  systems: CoordinateSystem[];
+  /** Whether the section's squares come in a choice of sizes. */
+  hasPrecision: boolean;
+};
+
+const sections: Section[] = [
+  { id: "WGS84", title: "WGS 84", systems: ["WGS84"], hasPrecision: false },
+  { id: "MGRS", title: "MGRS / USNG", systems: ["MGRS", "USNG"], hasPrecision: true },
+  { id: "UTM", title: "UTM", systems: ["UTM"], hasPrecision: false },
+  { id: "UCS-2000", title: "УСК-2000", systems: ["UCS-2000"], hasPrecision: false },
+];
+
+type SectionResult = {
   conversions: Conversion[];
+  /** The squares the input zone reaches; null for the point notation, or when nothing converts. */
   coverage: Coverage | null;
-  output: OutputChoice;
-  onPick: (conversion: { system: CoordinateSystem; value: string }) => void;
-}) => {
-  if (output !== ALL) {
-    const [conversion] = conversions;
-    return (
-      <div className="mt-4">
-        <h3 className="font-bold">{describeSystem(output)}</h3>
-        <p className="mt-1 text-base">
-          <ConversionValue conversion={conversion} onPick={onPick} />
-        </p>
-        {"area" in conversion && <AreaTable area={conversion.area} />}
-        <CoverageList coverage={coverage} system={output} onPick={onPick} />
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <h3 className="mt-4 font-bold">У кожній системі</h3>
-      <table className="mt-1 w-full">
-        {displayGroups.map(({ label, systems }) => (
-          <tbody key={label}>
-            <tr>
-              <th colSpan={3} className="pt-2 pb-1 text-left">
-                {label}
-              </th>
-            </tr>
-            {conversions
-              .filter(({ system }) => systems.includes(system))
-              .map((conversion) => (
-                <tr key={conversion.system} className="align-top">
-                  <th className="py-1 pr-3 pl-3 text-left font-normal whitespace-nowrap opacity-60">
-                    {conversion.system}
-                  </th>
-                  <td className="py-1">
-                    <ConversionValue conversion={conversion} onPick={onPick} />
-                  </td>
-                  <td className="py-1 pl-3 text-right whitespace-nowrap opacity-60">
-                    {"area" in conversion && conversion.area.corners !== null
-                      ? `квадрат ${sizeLabel(conversion.area.size)}`
-                      : ""}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        ))}
-      </table>
-    </>
-  );
 };
 
-const convertOutput = (coords: Coordinates, output: OutputChoice, precision: GridPrecision) =>
-  output === ALL
-    ? toAllSystems(coords, { precision }).filter(({ system }) => DISPLAY_SYSTEMS.includes(system))
-    : [tryFromWGS84(coords, output, { precision })];
-
-// Each square is drawn once: MGRS and USNG name the same one, and the metre squares of UTM and
-// UCS-2000 are indistinguishable from the point at any zoom where the larger ones are visible.
-const distinctSquares = (conversions: Conversion[]): Area[] => {
-  const seen = new Set<string>();
-  return conversions.flatMap((conversion) => {
-    if (!("area" in conversion) || conversion.area.corners === null) return [];
-    const key = JSON.stringify(conversion.area.corners);
-    if (seen.has(key)) return [];
-    seen.add(key);
-    return [conversion.area];
-  });
-};
-
-// Only for a single output system: across all of them at once the overlaps would bury each other.
-const coverageOf = (area: Area, output: OutputChoice, precision: GridPrecision) => {
-  if (output === ALL) return null;
+const coverageOf = (area: Area, system: CoordinateSystem, precision: GridPrecision) => {
   try {
-    return coveringSquares(area, output, { precision });
+    return coveringSquares(area, system, { precision });
   } catch (error) {
-    // The system cannot express the input at all; Output already says why.
+    // The system cannot express the input at all; the section already shows why.
     if (error instanceof RangeError) return null;
     throw error;
   }
 };
 
-const squaresForMap = (conversions: Conversion[], coverage: Coverage | null): OutputSquare[] => {
-  if (coverage === null)
-    return distinctSquares(conversions).map((area) => ({ area, primary: true }));
+const resultOf = (section: Section, area: Area, precision: GridPrecision): SectionResult => ({
+  conversions: section.systems.map((system) => tryFromWGS84(area.centre, system, { precision })),
+  coverage: section.id === "WGS84" ? null : coverageOf(area, section.systems[0], precision),
+});
+
+const squaresForMap = (coverage: Coverage | null): OutputSquare[] => {
+  if (coverage === null) return [];
   if (coverage.kind === "tooMany") return [{ area: coverage.primary.area, primary: true }];
 
   // Labels only when there is more than one square to tell apart.
@@ -341,16 +275,150 @@ const squaresForMap = (conversions: Conversion[], coverage: Coverage | null): Ou
   }));
 };
 
+const PrecisionRange = ({
+  value,
+  onChange,
+}: {
+  value: GridPrecision;
+  onChange: (value: GridPrecision) => void;
+}) => (
+  <label className="flex items-center gap-2">
+    <span className="opacity-60">Точність</span>
+    <input
+      type="range"
+      className="flex-1"
+      min={0}
+      max={PRECISIONS.length - 1}
+      step={1}
+      value={PRECISIONS.indexOf(value)}
+      onChange={(e) => onChange(PRECISIONS[Number(e.target.value)])}
+    />
+    <span className="w-14 text-right font-mono">{sizeLabel(value)}</span>
+  </label>
+);
+
+const Accordion = ({
+  title,
+  summary,
+  open,
+  onToggle,
+  shown,
+  onShow,
+  children,
+}: {
+  title: string;
+  summary: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  shown: boolean;
+  onShow: (shown: boolean) => void;
+  children: ReactNode;
+}) => (
+  <section className="border-t py-2">
+    <div className="flex items-center gap-2">
+      {/* The checkbox sits beside the toggle rather than inside it, so ticking it never folds the section. */}
+      <button
+        type="button"
+        aria-expanded={open}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
+        onClick={onToggle}
+      >
+        <span className="w-3 opacity-60">{open ? "▾" : "▸"}</span>
+        <span className="font-bold whitespace-nowrap">{title}</span>
+        {!open && <span className="truncate font-mono opacity-60">{summary}</span>}
+      </button>
+      <label className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs">
+        <input type="checkbox" checked={shown} onChange={(e) => onShow(e.target.checked)} />
+        на карті
+      </label>
+    </div>
+    {open && <div className="mt-2 pl-5">{children}</div>}
+  </section>
+);
+
+const summaryOf = (result: SectionResult | null) => {
+  const first = result?.conversions[0];
+  if (first === undefined) return "—";
+  return "value" in first ? first.value : "не перетворюється";
+};
+
+const SectionBody = ({
+  section,
+  result,
+  precision,
+  onPrecision,
+  onPick,
+}: {
+  section: Section;
+  result: SectionResult | null;
+  precision: GridPrecision;
+  onPrecision: (precision: GridPrecision) => void;
+  onPick: (conversion: { system: CoordinateSystem; value: string }) => void;
+}) => {
+  const [first] = result?.conversions ?? [];
+
+  return (
+    <>
+      {section.hasPrecision && <PrecisionRange value={precision} onChange={onPrecision} />}
+
+      {result === null ? (
+        <p className="mt-1 opacity-60">Введіть координати, щоб побачити значення.</p>
+      ) : (
+        <>
+          <table className={section.hasPrecision ? "mt-2" : ""}>
+            <tbody>
+              {result.conversions.map((conversion) => (
+                <tr key={conversion.system} className="align-top">
+                  {result.conversions.length > 1 && (
+                    <th className="py-0.5 pr-3 text-left font-normal opacity-60">
+                      {conversion.system}
+                    </th>
+                  )}
+                  <td className="py-0.5 text-base">
+                    <ConversionValue conversion={conversion} onPick={onPick} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {section.id === "WGS84" ? (
+            <p className="mt-1 opacity-60">Так точка зберігається в базі.</p>
+          ) : (
+            first !== undefined && "area" in first && <AreaTable area={first.area} />
+          )}
+
+          <CoverageList coverage={result.coverage} system={section.systems[0]} onPick={onPick} />
+        </>
+      )}
+    </>
+  );
+};
+
 export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [text, setText] = useState("");
   const [input, setInput] = useState<InputChoice>(AUTO);
-  const [output, setOutput] = useState<OutputChoice>(ALL);
   const [precision, setPrecision] = useState<GridPrecision>(1);
+  const [open, setOpen] = useState<Record<SectionId, boolean>>({
+    WGS84: false,
+    MGRS: true,
+    UTM: false,
+    "UCS-2000": false,
+  });
+  const [shown, setShown] = useState<Record<SectionId, boolean>>({
+    WGS84: true,
+    MGRS: true,
+    UTM: true,
+    "UCS-2000": true,
+  });
+
   const outcome = convert(text, input);
-  const conversions =
-    outcome.kind === "converted" ? convertOutput(outcome.area.centre, output, precision) : [];
-  const coverage =
-    outcome.kind === "converted" ? coverageOf(outcome.area, output, precision) : null;
+  const results = new Map(
+    sections.map((section) => [
+      section.id,
+      outcome.kind === "converted" ? resultOf(section, outcome.area, precision) : null,
+    ]),
+  );
 
   // A converted value is fed back in under its own system rather than through auto-detection:
   // auto-detection would read a WGS84R pair as WGS84 and a USNG reference as MGRS.
@@ -359,63 +427,16 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
     setInput(system);
   };
 
-  // Swapping turns the current result into the next input, so the direction of the conversion
-  // flips without retyping anything.
-  const swap = () => {
-    if (outcome.kind === "converted" && output !== ALL) {
-      const conversion = tryFromWGS84(outcome.area.centre, output, { precision });
-      if ("value" in conversion) setText(conversion.value);
-    }
-    setInput(output === ALL ? AUTO : output);
-    // Results come as plain WGS84, so a DD, DMS or other notation on input swaps to that.
-    setOutput(input === AUTO ? ALL : DISPLAY_SYSTEMS.includes(input) ? input : "WGS84");
-  };
+  const outputSquares = sections.flatMap((section) =>
+    shown[section.id] ? squaresForMap(results.get(section.id)?.coverage ?? null) : [],
+  );
+  const outputPoints = outcome.kind === "converted" && shown.WGS84 ? [outcome.area.centre] : [];
 
   return (
     <div className="lg:grid lg:h-screen lg:grid-cols-[minmax(0,60ch)_1fr]">
       <div className="p-4 lg:overflow-y-auto">
         {header}
-        <div className="flex items-end gap-2">
-          <SystemSelect
-            label="Вводимо в системі"
-            value={input}
-            onChange={setInput}
-            extra={{ value: AUTO, label: "Визначити автоматично" }}
-            options={groups}
-          />
-          <button
-            type="button"
-            className="p-2 border rounded-sm cursor-pointer text-sm"
-            title="Поміняти системи місцями"
-            onClick={swap}
-          >
-            ⇄
-          </button>
-          <SystemSelect
-            label="Відображаємо в системі"
-            value={output}
-            onChange={setOutput}
-            extra={{ value: ALL, label: "Усі системи" }}
-            options={displayGroups}
-          />
-        </div>
-
-        {(output === ALL || GRID_PRECISION_SYSTEMS.includes(output)) && (
-          <label className="mt-2 flex items-center gap-2 text-sm">
-            <span className="opacity-60">Точність MGRS і USNG</span>
-            <select
-              className="p-1 border rounded-sm bg-transparent"
-              value={precision}
-              onChange={(e) => setPrecision(Number(e.target.value) as GridPrecision)}
-            >
-              {PRECISIONS.map((metres) => (
-                <option key={metres} value={metres}>
-                  {sizeLabel(metres)}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <SystemSelect value={input} onChange={setInput} />
 
         <input
           type="text"
@@ -449,11 +470,8 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                   Розпізнано як <b>{describeSystem(outcome.system)}</b>
                 </p>
               )}
-
-              <Output conversions={conversions} coverage={coverage} output={output} onPick={pick} />
-
               {outcome.area.corners !== null && (
-                <div className="mt-4">
+                <div className="mt-2">
                   <AreaTable area={outcome.area} caption="Вхідне значення — квадрат" />
                 </div>
               )}
@@ -461,7 +479,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
                 href={`https://www.openstreetmap.org/?mlat=${outcome.area.centre.latitude}&mlon=${outcome.area.centre.longitude}#map=15/${outcome.area.centre.latitude}/${outcome.area.centre.longitude}`}
                 target="_blank"
                 rel="noreferrer"
-                className={`${linkStyle} mt-4 inline-block`}
+                className={`${linkStyle} mt-2 inline-block`}
               >
                 показати на карті
               </a>
@@ -469,27 +487,47 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           )}
         </div>
 
+        <div className="mt-4 text-sm">
+          {sections.map((section) => {
+            const result = results.get(section.id) ?? null;
+            return (
+              <Accordion
+                key={section.id}
+                title={section.title}
+                summary={summaryOf(result)}
+                open={open[section.id]}
+                onToggle={() => setOpen({ ...open, [section.id]: !open[section.id] })}
+                shown={shown[section.id]}
+                onShow={(value) => setShown({ ...shown, [section.id]: value })}
+              >
+                <SectionBody
+                  section={section}
+                  result={result}
+                  precision={precision}
+                  onPrecision={setPrecision}
+                  onPick={pick}
+                />
+              </Accordion>
+            );
+          })}
+        </div>
+
         <section className="mt-6 text-sm">
           <h3 className="font-bold">Приклади</h3>
-          {displayGroups.map(({ label, systems }) => (
-            <div key={label} className="mt-2">
-              <h4 className="opacity-60">{label}</h4>
-              <ul className="mt-1 flex flex-col gap-1">
-                {systems.map((system) => (
-                  <li key={system}>
-                    <span className="inline-block w-20 opacity-60">{system}</span>
-                    <button
-                      type="button"
-                      className={`${linkStyle} font-mono`}
-                      onClick={() => pick({ system, value: examples[system] })}
-                    >
-                      {examples[system]}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <ul className="mt-1 flex flex-col gap-1">
+            {EXAMPLE_SYSTEMS.map((system) => (
+              <li key={system}>
+                <span className="inline-block w-20 opacity-60">{system}</span>
+                <button
+                  type="button"
+                  className={`${linkStyle} font-mono`}
+                  onClick={() => pick({ system, value: examples[system] })}
+                >
+                  {examples[system]}
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section className="mt-6 text-sm opacity-60">
@@ -514,7 +552,8 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
         <ConverterMap
           centre={outcome.kind === "converted" ? outcome.area.centre : null}
           inputArea={outcome.kind === "converted" ? outcome.area : null}
-          outputSquares={squaresForMap(conversions, coverage)}
+          outputSquares={outputSquares}
+          outputPoints={outputPoints}
         />
       </div>
     </div>

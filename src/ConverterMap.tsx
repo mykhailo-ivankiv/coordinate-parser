@@ -41,6 +41,8 @@ type MapData = {
   inputArea: Area | null;
   /** The squares the input converts to; several when the input zone reaches more than one. */
   outputSquares: OutputSquare[];
+  /** Converted values that are points rather than squares: the WGS 84 latitude and longitude. */
+  outputPoints: Coordinates[];
 };
 
 // Taken from maplibre's own signature, so the project needs no separate GeoJSON type package.
@@ -70,16 +72,31 @@ const polygons = (squares: { area: Area; primary?: boolean }[]) =>
     ),
   );
 
-const points = (items: { at: Coordinates; label?: string }[]) =>
+const points = (items: { at: Coordinates; label?: string; primary?: boolean }[]) =>
   collection(
-    items.map(({ at, label }) => ({
+    items.map(({ at, label, primary = true }) => ({
       type: "Feature" as const,
-      properties: { label: label ?? "" },
+      properties: { label: label ?? "", primary },
       geometry: { type: "Point" as const, coordinates: lngLat(at) },
     })),
   );
 
-const SOURCES = ["input-area", "output-squares", "output-labels", "centre"];
+// The closest the view zooms to on its own; 17 still shows streets. Closer is the user's call.
+const MAX_FIT_ZOOM = 17;
+
+// Below this many pixels across, a square is drawn as a ring at its centre instead: a metre square,
+// every UTM and UCS-2000 reference, is two or three pixels at street level and would otherwise look
+// like nothing was drawn at all. Zooming in turns the ring back into the square.
+const MIN_SQUARE_PIXELS = 8;
+
+// MapLibre's zoom 0 shows the equator as one 512 px tile.
+const metresPerPixel = (latitude: number, zoom: number) =>
+  (40075016.686 * Math.cos((latitude * Math.PI) / 180)) / (512 * 2 ** zoom);
+
+const tooSmall = (area: Area, zoom: number) =>
+  area.size / metresPerPixel(area.centre.latitude, zoom) < MIN_SQUARE_PIXELS;
+
+const SOURCES = ["input-area", "output-squares", "output-labels", "output-points", "centre"];
 
 const addLayers = (map: Map) => {
   for (const id of SOURCES) map.addSource(id, { type: "geojson", data: collection([]) });
@@ -130,15 +147,31 @@ const addLayers = (map: Map) => {
     },
     paint: { "text-color": OUTPUT_COLOUR, "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
   });
+  // A red ring around the green centre: the converted point sits exactly on the input's centre, so
+  // a filled dot would only hide it.
+  map.addLayer({
+    id: "output-points",
+    type: "circle",
+    source: "output-points",
+    paint: {
+      "circle-radius": 10,
+      "circle-color": "rgba(0, 0, 0, 0)",
+      "circle-stroke-color": OUTPUT_COLOUR,
+      "circle-stroke-width": 2.5,
+      // A ring standing in for one of the other squares the input zone reaches, not the result.
+      "circle-stroke-opacity": ["case", ["get", "primary"], 1, 0.45],
+    },
+  });
   map.addLayer({
     id: "centre",
     type: "circle",
     source: "centre",
     paint: {
-      "circle-radius": 6,
+      // Small enough that a metre square around it stays visible at the closest zoom.
+      "circle-radius": 3.5,
       "circle-color": INPUT_COLOUR,
       "circle-stroke-color": "#ffffff",
-      "circle-stroke-width": 2,
+      "circle-stroke-width": 1.5,
     },
   });
 };
@@ -146,20 +179,42 @@ const addLayers = (map: Map) => {
 const setData = (map: Map, id: string, data: FeatureCollection) =>
   (map.getSource(id) as GeoJSONSource).setData(data);
 
-const show = (map: Map, { centre, inputArea, outputSquares }: MapData) => {
+/**
+ * Fills the sources for the current zoom: squares big enough to see as polygons, the rest as rings.
+ * Returns which squares came out as rings, so a zoom that changes nothing can skip the redraw.
+ */
+const draw = (map: Map, { centre, inputArea, outputSquares, outputPoints }: MapData) => {
+  const zoom = map.getZoom();
+  const visible = outputSquares.filter(({ area }) => !tooSmall(area, zoom));
+  const rings = outputSquares.filter(({ area }) => tooSmall(area, zoom));
+
   setData(map, "centre", points(centre === null ? [] : [{ at: centre }]));
   setData(map, "input-area", polygons(inputArea ? [{ area: inputArea }] : []));
-  setData(map, "output-squares", polygons(outputSquares));
+  setData(map, "output-squares", polygons(visible));
+  setData(
+    map,
+    "output-points",
+    points([
+      ...outputPoints.map((at) => ({ at })),
+      ...rings.map(({ area, primary }) => ({ at: area.centre, primary })),
+    ]),
+  );
+  // Labels only on squares drawn as squares: on a pile of rings they would stack on one spot.
   setData(
     map,
     "output-labels",
     points(
-      outputSquares.flatMap(({ area, label }) =>
-        label === undefined || area.outline === null ? [] : [{ at: area.centre, label }],
+      visible.flatMap(({ area, label }) =>
+        label === undefined ? [] : [{ at: area.centre, label }],
       ),
     ),
   );
 
+  return outputSquares.map(({ area }) => tooSmall(area, zoom)).join();
+};
+
+/** Moves the view onto the point and every square around it. */
+const fit = (map: Map, { centre, inputArea, outputSquares }: MapData) => {
   if (centre === null) return;
 
   const bounds = new LngLatBounds(lngLat(centre), lngLat(centre));
@@ -171,8 +226,7 @@ const show = (map: Map, { centre, inputArea, outputSquares }: MapData) => {
     for (const vertex of outline ?? []) bounds.extend(lngLat(vertex));
   }
 
-  // A bare point, or a metre square, would zoom in past anything useful; 17 still shows streets.
-  map.fitBounds(bounds, { padding: 60, maxZoom: 17, duration: 600 });
+  map.fitBounds(bounds, { padding: 60, maxZoom: MAX_FIT_ZOOM, duration: 600 });
 };
 
 const Swatch = ({ colour, dashed = false }: { colour: string; dashed?: boolean }) => (
@@ -194,6 +248,13 @@ const Legend = () => (
       <Swatch colour={OUTPUT_COLOUR} /> результат — містить центр
     </li>
     <li>
+      <span
+        className="inline-block h-3 w-3 rounded-full align-middle"
+        style={{ border: `2px solid ${OUTPUT_COLOUR}` }}
+      />{" "}
+      результат-точка: WGS 84, або квадрат, замалий для цього масштабу
+    </li>
+    <li>
       <Swatch colour={OUTPUT_COLOUR} dashed /> інші квадрати, куди сягає вхідна зона
     </li>
   </ul>
@@ -203,8 +264,10 @@ export const ConverterMap = (data: MapData) => {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<Map | null>(null);
   const loaded = useRef(false);
-  // What the map should show once its style has loaded; the load handler reads it from here.
+  // What the map should show once its style has loaded; the load and zoom handlers read it here.
   const latest = useRef(data);
+  // Which squares are currently drawn as rings, to tell whether a zoom needs a redraw.
+  const drawn = useRef("");
 
   useEffect(() => {
     if (container.current === null) return;
@@ -219,7 +282,17 @@ export const ConverterMap = (data: MapData) => {
     instance.on("load", () => {
       addLayers(instance);
       loaded.current = true;
-      show(instance, latest.current);
+      drawn.current = draw(instance, latest.current);
+      fit(instance, latest.current);
+    });
+    // Squares switch between ring and polygon as they cross the size threshold. The check is cheap;
+    // the redraw only happens on the frames where something actually crosses it.
+    instance.on("zoom", () => {
+      if (!loaded.current) return;
+      const rings = latest.current.outputSquares
+        .map(({ area }) => tooSmall(area, instance.getZoom()))
+        .join();
+      if (rings !== drawn.current) drawn.current = draw(instance, latest.current);
     });
     map.current = instance;
 
@@ -235,7 +308,9 @@ export const ConverterMap = (data: MapData) => {
   const key = JSON.stringify(data);
   useEffect(() => {
     latest.current = data;
-    if (map.current !== null && loaded.current) show(map.current, data);
+    if (map.current === null || !loaded.current) return;
+    drawn.current = draw(map.current, data);
+    fit(map.current, data);
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- `key` is `data`, serialised.
   }, [key]);
 
