@@ -433,10 +433,13 @@ function App() {
 
   // The guide is a long read: on wide screens its contents stay in a column to the left, on narrow
   // ones they fold into a bar at the top. The article keeps the same reading width either way.
+  // Equal flexible tracks on both sides keep the article in the middle of the screen, with the
+  // contents hugging it from the left; once the left track hits its 14rem minimum, the right one
+  // gives way and the article drifts right rather than squeezing the contents.
   if (page === "#/guide") {
     return (
-      <main className="m-auto px-4 py-6 lg:grid lg:grid-cols-[14rem_minmax(0,64ch)] lg:justify-center lg:gap-x-12">
-        <aside className="hidden lg:block">
+      <main className="m-auto px-4 py-6 lg:grid lg:grid-cols-[minmax(14rem,1fr)_minmax(0,64ch)_minmax(0,1fr)] lg:gap-x-12">
+        <aside className="hidden w-56 justify-self-end lg:block">
           <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto">
             <GuideContentsSidebar />
           </div>

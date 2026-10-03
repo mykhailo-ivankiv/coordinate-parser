@@ -287,10 +287,11 @@ const GridSquare = ({
 // Only the drawing breaks out — the caption stays in the column, where its lines remain readable.
 const FULL_BLEED =
   "relative left-1/2 w-[calc(100vw-2rem)] max-w-none -translate-x-1/2 " +
-  // On wide screens the contents sit to the left, so the column is no longer the viewport's centre.
-  // The drawing then runs from the column's left edge to a rem short of the screen's right edge:
-  // the column plus the right-hand margin, which is half of what the 17rem sidebar-and-gap leaves.
-  "lg:left-0 lg:w-[calc(50%+50vw-9.5rem)] lg:translate-x-0";
+  // On wide screens the contents sit to the left, so the drawing starts at the column's left edge
+  // instead and runs to a rem short of the screen's right edge. The column is centred while the
+  // screen can afford it, leaving half of the rest on the right (50% + 50vw); on narrower screens
+  // the 18rem of padding, contents and gap on the left wins and the right gets whatever remains.
+  "lg:left-0 lg:w-[calc(min(50%+50vw,100vw-18rem)-1rem)] lg:translate-x-0";
 
 // innerHTML parses as HTML, which has no use for an XML prolog or a DOCTYPE.
 const svgBody = (markup: string) => markup.slice(markup.indexOf("<svg"));
@@ -301,23 +302,30 @@ const Illustration = ({
   caption,
   credit,
   fullBleed,
+  width,
 }: {
   markup: string;
   label: string;
   caption: ReactNode;
   credit: ReactNode;
   fullBleed?: boolean;
+  /**
+   * Fixed drawing width in px. The drawing then sits to the left of its caption, or above it,
+   * centred, on screens too narrow for the two side by side.
+   */
+  width?: number;
 }) => (
-  <figure>
+  <figure className={width ? "sm:flex sm:items-center sm:gap-6" : undefined}>
     <div
       role="img"
       aria-label={label}
-      className={`[&>svg]:h-auto [&>svg]:w-full ${fullBleed ? `my-4 ${FULL_BLEED}` : ""}`}
+      className={`[&>svg]:h-auto [&>svg]:w-full ${fullBleed ? `my-4 ${FULL_BLEED}` : ""} ${width ? "mx-auto shrink-0 sm:mx-0" : ""}`}
+      style={width ? { width } : undefined}
       // Both files were downloaded, read and edited by hand; neither contains script or external
       // references, and nothing here comes from user input.
       dangerouslySetInnerHTML={{ __html: svgBody(markup) }}
     />
-    <figcaption>
+    <figcaption className={width ? "sm:mt-0!" : undefined}>
       {caption} <span className="opacity-80">{credit}</span>
     </figcaption>
   </figure>
@@ -409,7 +417,8 @@ export const ArticleAboutCoordinateSystems = () => (
     </P>
     <Illustration
       markup={latitudeLongitudeSvg}
-      label="Куля з сіткою паралелей і меридіанів: широта φ — кут від площини екватора, довгота λ — кут від Гринвіцького меридіана"
+      width={240}
+      label="Земна куля з материками й сіткою паралелей і меридіанів: широта φ — кут від площини екватора, довгота λ — кут від Гринвіцького меридіана"
       caption={
         <>
           Широта <Code>φ</Code> — кут від площини екватора, довгота <Code>λ</Code> — кут у площині
@@ -425,7 +434,9 @@ export const ArticleAboutCoordinateSystems = () => (
             Latitude and longitude graticule on a sphere
           </Link>{" "}
           — Peter Mercator, Wikimedia Commons, суспільне надбання. Перефарбовано під стиль статті,
-          лінії потоншено; геометрія й підписи оригіналу збережені.
+          сітку перемальовано тонкими лініями в тій самій перспективі, підписи оригіналу збережені.
+          Материки — <Link href="https://www.naturalearthdata.com/">Natural Earth</Link> (1:110 млн,
+          суспільне надбання).
         </>
       }
     />
