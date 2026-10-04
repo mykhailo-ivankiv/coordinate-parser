@@ -1,22 +1,16 @@
 import type { Coordinate, CoordinateSystem, WGS84Coordinate } from "@coordinate-parser/types";
 import { type Area, pointArea, toDeclaredPrecision } from "./area.ts";
-import { type GridPrecision, mgrsArea, fromWgs84ToMgrs, fromWgs84ToUsng } from "./mgrs.ts";
+import { mgrsArea, fromWgs84ToMgrs, fromWgs84ToUsng } from "./mgrs.ts";
 import { fromWgs84ToUcs2000, ucs2000Area } from "./ucs2000.ts";
 import { fromWgs84ToUtm, utmArea } from "./utm.ts";
 
-// WGS 84 latitude/longitude is the pivot: every system converts to it and from it, and it is the
-// form coordinates are stored in. Converting between any two other systems is the two halves
-// chained, `fromWGS84(toWGS84(coordinate), system)`. Only data goes in and out; writing a coordinate
-// as text is the formatter's job.
-//
 // A grid reference names a square, not a point: areaOf gives its corners, which say how far the
 // stored centre can be from the truth. See area.ts.
+//
+// fromWGS84 and toWGS84 pick the conversion by system. They are not public — the per-system
+// functions in mgrs.ts, utm.ts and ucs2000.ts are — but coverage.ts and the tests need them.
 
-export type { Area, Corners } from "./area.ts";
-export type { GridPrecision } from "./mgrs.ts";
-
-/** Every system, in the order toAllSystems reports them. */
-const SYSTEMS: CoordinateSystem[] = ["WGS84", "MGRS", "USNG", "UTM", "UCS-2000"];
+export type { Area } from "./area.ts";
 
 /**
  * The area a coordinate designates, in WGS 84: a point for WGS 84 latitude and longitude, a square
@@ -31,7 +25,7 @@ const SYSTEMS: CoordinateSystem[] = ["WGS84", "MGRS", "USNG", "UTM", "UCS-2000"]
  * ```ts
  * areaOf(coordinateParser.run("36UUA2491").result[0]).size
  * // → 1000
- * areaOf(coordinateParser.run("36UUA2491").result[0]).corners.southWest
+ * areaOf(coordinateParser.run("36UUA2491").result[0]).southWest
  * // → { system: "WGS84", latitude: 50.4445861, longitude: 30.5211213 }
  * areaOf(coordinateParser.run("17N 630084 4833438").result[0])
  * // throws RangeError
@@ -51,34 +45,13 @@ export const areaOf = (coordinate: Coordinate): Area => {
   }
 };
 
-/**
- * A coordinate in any system to the WGS 84 latitude/longitude it is stored as: the centre of the
- * area it designates, to seven decimal places.
- *
- * @param coordinate - A coordinate in any system, such as the first element of a parser's result.
- * @returns The point, WGS 84 latitude and longitude.
- * @throws RangeError where areaOf does.
- *
- * @example
- * ```ts
- * toWGS84(coordinateParser.run("36UUA2491").result[0])
- * // → { system: "WGS84", latitude: 50.4492283, longitude: 30.5279224 }
- * toWGS84(coordinateParser.run("50° 27.006'N, 30° 31.404'E").result[0])
- * // → { system: "WGS84", latitude: 50.4501, longitude: 30.5234 }
- * ```
- */
+// Any coordinate as the WGS 84 point it is stored as: the centre of the area it designates.
 export const toWGS84 = (coordinate: Coordinate): WGS84Coordinate => areaOf(coordinate).centre;
-
-/** Options for fromWGS84, tryFromWGS84 and toAllSystems. */
-export type ConversionOptions = {
-  /** Side of the MGRS or USNG square to name, in metres. Defaults to 1. */
-  precision?: GridPrecision;
-};
 
 const encode = (
   point: WGS84Coordinate,
   system: CoordinateSystem,
-  precision: GridPrecision,
+  precision: 1 | 10 | 100 | 1000 | 10000 | 100000,
 ): Coordinate => {
   switch (system) {
     case "WGS84":
@@ -86,7 +59,7 @@ const encode = (
     case "MGRS":
       return fromWgs84ToMgrs(point, precision);
     case "USNG":
-      return fromWgs84ToUsng(point, precision as Exclude<GridPrecision, 100000>);
+      return fromWgs84ToUsng(point, precision as 1 | 10 | 100 | 1000 | 10000);
     case "UTM":
       return fromWgs84ToUtm(point);
     case "UCS-2000":
@@ -94,78 +67,11 @@ const encode = (
   }
 };
 
-/**
- * A WGS 84 point in another system. For a grid that is the square the point falls in, as small as
- * `options.precision` asks for MGRS and USNG, 1 m otherwise.
- *
- * @param point - The point, WGS 84 latitude and longitude.
- * @param system - The system to convert it to.
- * @param options - The MGRS or USNG precision; 1 m unless given.
- * @returns The coordinate in `system`.
- * @throws RangeError where the system does not reach the point: UTM, MGRS and USNG stop short of
- * the poles, and UCS-2000 ends outside its zones 4-7. Also for USNG at a precision of 100000, which
- * USNG cannot express.
- *
- * @example
- * ```ts
- * fromWGS84({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, "UCS-2000")
- * // → { system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 }
- * fromWGS84({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, "MGRS", { precision: 1000 })
- * // → { system: "MGRS", zone: 36, band: "U", square: "UA", easting: 24000, northing: 91000, precision: 1000 }
- * fromWGS84({ system: "WGS84", latitude: 89, longitude: 0 }, "UTM")
- * // throws RangeError
- * ```
- */
+// A WGS 84 point in `system`; throws a RangeError where the system does not reach it.
 export const fromWGS84 = <S extends CoordinateSystem>(
   point: WGS84Coordinate,
   system: S,
-  options: ConversionOptions = {},
+  options: { precision?: 1 | 10 | 100 | 1000 | 10000 | 100000 } = {},
 ): Extract<Coordinate, { system: S }> =>
   // encode returns the member of `system`; TypeScript cannot follow a switch into a generic.
   encode(point, system, options.precision ?? 1) as Extract<Coordinate, { system: S }>;
-
-/**
- * Like fromWGS84, but reports a system that cannot express the point instead of throwing.
- *
- * @param point - The point, WGS 84 latitude and longitude.
- * @param system - The system to convert it to.
- * @param options - The MGRS or USNG precision; 1 m unless given.
- * @returns The coordinate in `system`, or `{ system, error }` with the reason.
- *
- * @example
- * ```ts
- * tryFromWGS84({ system: "WGS84", latitude: 89, longitude: 0 }, "UTM")
- * // → { system: "UTM", error: "UTM covers latitudes -80° to 84°, but got 89°; the polar caps belong to UPS, which is not supported" }
- * ```
- */
-export const tryFromWGS84 = <S extends CoordinateSystem>(
-  point: WGS84Coordinate,
-  system: S,
-  options?: ConversionOptions,
-): Extract<Coordinate, { system: S }> | { system: S; error: string } => {
-  try {
-    return fromWGS84(point, system, options);
-  } catch (error) {
-    if (error instanceof RangeError) return { system, error: error.message };
-    throw error;
-  }
-};
-
-/**
- * The point in every system, with the reason wherever one cannot express it.
- *
- * @param point - The point, WGS 84 latitude and longitude.
- * @param options - The MGRS and USNG precision; 1 m unless given.
- * @returns One result per system: WGS84, MGRS, USNG, UTM, UCS-2000.
- *
- * @example
- * ```ts
- * toAllSystems({ system: "WGS84", latitude: 52.52, longitude: 13.405 }).map((result) => "error" in result)
- * // → [false, false, false, false, true]
- * ```
- */
-export const toAllSystems = (
-  point: WGS84Coordinate,
-  options?: ConversionOptions,
-): (Coordinate | { system: CoordinateSystem; error: string })[] =>
-  SYSTEMS.map((system) => tryFromWGS84(point, system, options));

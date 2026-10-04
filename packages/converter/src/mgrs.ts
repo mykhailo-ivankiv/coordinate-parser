@@ -36,9 +36,6 @@ const METRES_PER_DEGREE = 111000;
 const columnSet = (zone: number) => COLUMN_SETS[(zone - 1) % COLUMN_SETS.length];
 const rowOffset = (zone: number) => (zone % 2 === 0 ? EVEN_ZONE_ROW_OFFSET : 0);
 
-/** Size of the referenced square in metres, 1 to 100000. */
-export type GridPrecision = 1 | 10 | 100 | 1000 | 10000 | 100000;
-
 /**
  * A WGS 84 point as the MGRS reference of the square it falls in. The position within the square is
  * truncated, never rounded: rounding up could name the neighbouring square.
@@ -56,7 +53,7 @@ export type GridPrecision = 1 | 10 | 100 | 1000 | 10000 | 100000;
  */
 export const fromWgs84ToMgrs = (
   point: WGS84Coordinate,
-  precision: GridPrecision = 1,
+  precision: 1 | 10 | 100 | 1000 | 10000 | 100000 = 1,
 ): MGRSCoordinate => {
   const { zone, band, easting, northing } = projectToUTM(toDeclaredPrecision(point));
 
@@ -92,10 +89,10 @@ export const fromWgs84ToMgrs = (
  */
 export const fromWgs84ToUsng = (
   point: WGS84Coordinate,
-  precision: Exclude<GridPrecision, 100000> = 1,
+  precision: 1 | 10 | 100 | 1000 | 10000 = 1,
 ): USNGCoordinate => {
   // The type rules it out; this is for callers the type does not reach.
-  if ((precision as GridPrecision) === 100000) {
+  if ((precision as number) === 100000) {
     throw new RangeError(
       "USNG requires at least one digit per axis, so its coarsest square is 10 km",
     );

@@ -36,12 +36,14 @@ published to npm.
 
 ```ts
 import { coordinateParser } from "@coordinate-parser/parser";
-import { fromWGS84, toWGS84 } from "@coordinate-parser/converter";
-import { format } from "@coordinate-parser/formatter";
+import { fromMgrsToWgs84, fromWgs84ToUcs2000 } from "@coordinate-parser/converter";
+import { formatUCS2000 } from "@coordinate-parser/formatter";
 
 const parsed = coordinateParser.run("36UUA2418291607");
 // parsed.result is [coordinate] for a grid, [coordinate, format] for WGS 84
-if (!parsed.isError) format([fromWGS84(toWGS84(parsed.result[0]), "UCS-2000")]);
+if (!parsed.isError && parsed.result[0].system === "MGRS") {
+  formatUCS2000(fromWgs84ToUcs2000(fromMgrsToWgs84(parsed.result[0])));
+}
 ```
 
 The API reference on the site is generated from each package's `src/index.ts` and its JSDoc; every

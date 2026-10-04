@@ -12,7 +12,7 @@ import {
 } from "@coordinate-parser/parser";
 import type { Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { describe, expect, it } from "vitest";
-import { areaOf, fromWGS84, toAllSystems, toWGS84 } from "./coordinateConverter.ts";
+import { areaOf, fromWGS84, toWGS84 } from "./coordinateConverter.ts";
 import { project } from "./transverseMercator.ts";
 import { utmProjection } from "./utm.ts";
 
@@ -128,21 +128,6 @@ describe("written by the formatter and read by the parser", () => {
   });
 });
 
-describe("every system at once", () => {
-  it("reports why a system cannot express the point instead of failing the rest", () => {
-    const results = toAllSystems(wgs84(52.52, 13.405));
-    expect(results.map(({ system }) => system)).toEqual([
-      "WGS84",
-      "MGRS",
-      "USNG",
-      "UTM",
-      "UCS-2000",
-    ]);
-    expect(results[4]).toHaveProperty("error");
-    expect(results[1]).toMatchObject({ system: "MGRS", zone: 33, band: "U", square: "UU" });
-  });
-});
-
 describe("the area a coordinate designates", () => {
   // Corner references computed with PROJ 9.3: EPSG:32636 and EPSG:5564 to EPSG:4326.
   const kyivCorners = {
@@ -153,7 +138,7 @@ describe("the area a coordinate designates", () => {
   };
   const kyivKilometre = {
     centre: wgs84(50.4492283, 30.5279224),
-    corners: kyivCorners,
+    ...kyivCorners,
     // Over 1 km an edge strays from a straight line by about 2 cm, so the outline is the corners.
     outline: [
       kyivCorners.southWest,
@@ -166,7 +151,15 @@ describe("the area a coordinate designates", () => {
   };
 
   it("gives WGS 84 a point and no corners", () => {
-    expect(areaOf(kyiv)).toEqual({ centre: kyiv, corners: null, outline: null, size: 0 });
+    expect(areaOf(kyiv)).toEqual({
+      centre: kyiv,
+      southWest: null,
+      southEast: null,
+      northEast: null,
+      northWest: null,
+      outline: null,
+      size: 0,
+    });
   });
 
   it("gives an MGRS reference the square it names, matching PROJ at every corner", () => {
@@ -178,20 +171,15 @@ describe("the area a coordinate designates", () => {
   });
 
   it("puts the point inside the square it converts to", () => {
-    const { corners } = areaOf(fromWGS84(kyiv, "USNG", { precision: 10000 }));
-    if (corners === null) throw new Error("expected a square");
-    expect(kyiv.latitude).toBeGreaterThan(
-      Math.max(corners.southWest.latitude, corners.southEast.latitude),
+    const { southWest, southEast, northEast, northWest } = areaOf(
+      fromWGS84(kyiv, "USNG", { precision: 10000 }),
     );
-    expect(kyiv.latitude).toBeLessThan(
-      Math.min(corners.northWest.latitude, corners.northEast.latitude),
-    );
-    expect(kyiv.longitude).toBeGreaterThan(
-      Math.max(corners.southWest.longitude, corners.northWest.longitude),
-    );
-    expect(kyiv.longitude).toBeLessThan(
-      Math.min(corners.southEast.longitude, corners.northEast.longitude),
-    );
+    if (southWest === null || southEast === null || northEast === null || northWest === null)
+      throw new Error("expected a square");
+    expect(kyiv.latitude).toBeGreaterThan(Math.max(southWest.latitude, southEast.latitude));
+    expect(kyiv.latitude).toBeLessThan(Math.min(northWest.latitude, northEast.latitude));
+    expect(kyiv.longitude).toBeGreaterThan(Math.max(southWest.longitude, northWest.longitude));
+    expect(kyiv.longitude).toBeLessThan(Math.min(southEast.longitude, northEast.longitude));
   });
 
   it("leaves the stored centre where toWGS84 puts it", () => {
@@ -200,16 +188,16 @@ describe("the area a coordinate designates", () => {
   });
 
   it("gives a UTM reference the metre square around its easting and northing", () => {
-    const { size, corners } = areaOf(parse("36U 324182 5591608"));
+    const { size, southWest } = areaOf(parse("36U 324182 5591608"));
     expect(size).toBe(1);
-    expect(corners).not.toBeNull();
+    expect(southWest).not.toBeNull();
   });
 
   it("shifts every UCS-2000 corner through the datum, matching PROJ", () => {
-    const { corners, size } = areaOf(parse("5593954 6324226"));
+    const { southWest, northEast, size } = areaOf(parse("5593954 6324226"));
     expect(size).toBe(1);
-    expect(corners?.southWest).toEqual(wgs84(50.4500965, 30.5233959));
-    expect(corners?.northEast).toEqual(wgs84(50.4501058, 30.5234095));
+    expect(southWest).toEqual(wgs84(50.4500965, 30.5233959));
+    expect(northEast).toEqual(wgs84(50.4501058, 30.5234095));
   });
 });
 

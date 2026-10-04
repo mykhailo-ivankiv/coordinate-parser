@@ -32,19 +32,14 @@ export const toDeclaredPrecision = (coords: {
 /** A latitude/longitude box, in degrees. */
 export type Box = { west: number; south: number; east: number; north: number };
 
-/** The four corners of a grid square, in WGS 84. */
-export type Corners = {
-  southWest: WGS84Coordinate;
-  southEast: WGS84Coordinate;
-  northEast: WGS84Coordinate;
-  northWest: WGS84Coordinate;
-};
-
 /** What a written coordinate designates: a point, or a grid square around its centre. */
 export type Area = {
   centre: WGS84Coordinate;
-  /** The square's corners in WGS 84, or null when the notation names a point. */
-  corners: Corners | null;
+  /** The square's corners in WGS 84; null when the coordinate names a point. */
+  southWest: WGS84Coordinate | null;
+  southEast: WGS84Coordinate | null;
+  northEast: WGS84Coordinate | null;
+  northWest: WGS84Coordinate | null;
   /**
    * The square's boundary as a closed ring, south-west corner first and last, going east: the
    * corners, plus whatever points along the edges it takes to follow them as curves. Null for a point.
@@ -56,7 +51,10 @@ export type Area = {
 
 export const pointArea = (coords: WGS84Coordinate): Area => ({
   centre: toDeclaredPrecision(coords),
-  corners: null,
+  southWest: null,
+  southEast: null,
+  northEast: null,
+  northWest: null,
   outline: null,
   size: 0,
 });
@@ -141,7 +139,10 @@ export const gridSquare = (
 
   return {
     centre: at(size / 2, size / 2),
-    corners: { southWest, southEast, northEast, northWest },
+    southWest,
+    southEast,
+    northEast,
+    northWest,
     outline: [
       southWest,
       ...edges.flatMap(([along, from, to]) => followEdge(along, [0, 1], from, to)),

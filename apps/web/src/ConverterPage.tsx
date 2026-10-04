@@ -3,10 +3,11 @@ import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "
 import {
   type Area,
   areaOf,
-  type Coverage,
   coveringSquares,
-  type GridPrecision,
-  tryFromWGS84,
+  fromWgs84ToMgrs,
+  fromWgs84ToUcs2000,
+  fromWgs84ToUsng,
+  fromWgs84ToUtm,
 } from "@coordinate-parser/converter";
 import { format, formatWGS84 } from "@coordinate-parser/formatter";
 import { insideUcs2000AreaOfUse } from "./ucs2000AreaOfUse.ts";
@@ -119,7 +120,7 @@ const convert = (text: string, input: InputChoice): Outcome => {
   }
 };
 
-const PRECISIONS: GridPrecision[] = [1, 10, 100, 1000, 10000, 100000];
+const PRECISIONS: (1 | 10 | 100 | 1000 | 10000 | 100000)[] = [1, 10, 100, 1000, 10000, 100000];
 
 const sizeLabel = (metres: number) => (metres >= 1000 ? `${metres / 1000} км` : `${metres} м`);
 
@@ -261,8 +262,8 @@ const CoordinateLabel = ({
  * same red as the result squares on the map, so the two read as one thing.
  */
 const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
-  const { corners, outline, centre, size } = area;
-  if (corners === null || outline === null) {
+  const { outline, centre, size } = area;
+  if (outline === null) {
     return <p className="mt-1 opacity-60">Точка — без квадрата.</p>;
   }
 
@@ -300,12 +301,14 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
           strokeWidth={2}
         />
         {CORNER_LABELS.map(({ corner, dx, dy, anchor }) => {
-          const at = toSvg(corners[corner]);
+          const point = area[corner];
+          if (point === null) return null;
+          const at = toSvg(point);
           return (
             <g key={corner}>
               <circle cx={at.x} cy={at.y} r={4} fill={OUTPUT_COLOUR} />
               <CoordinateLabel
-                coords={corners[corner]}
+                coords={point}
                 x={at.x + dx}
                 y={at.y + dy}
                 anchor={anchor}
@@ -359,6 +362,9 @@ const squaresWord = (count: number) => {
   if (last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)) return "квадрати";
   return "квадратів";
 };
+
+// What coveringSquares finds: the squares, or how many there would be past its limit.
+type Coverage = ReturnType<typeof coveringSquares>;
 
 const CoverageList = ({
   coverage,
@@ -428,7 +434,38 @@ type SectionResult = {
   coverage: Coverage | null;
 };
 
-const coverageOf = (area: Area, system: CoordinateSystem, precision: GridPrecision) => {
+// A WGS 84 point in `system`, or the reason the system cannot express it: UTM, MGRS and USNG stop
+// short of the poles, UCS-2000 at its zones, and USNG has no 100 km squares.
+const inSystem = (
+  point: WGS84Coordinate,
+  system: CoordinateSystem,
+  precision: 1 | 10 | 100 | 1000 | 10000 | 100000 = 1,
+): Coordinate | { system: CoordinateSystem; error: string } => {
+  try {
+    switch (system) {
+      case "WGS84":
+        return point;
+      case "MGRS":
+        return fromWgs84ToMgrs(point, precision);
+      case "USNG":
+        // A precision of 100000 gets past the type here and is refused with a RangeError instead.
+        return fromWgs84ToUsng(point, precision as 1 | 10 | 100 | 1000 | 10000);
+      case "UTM":
+        return fromWgs84ToUtm(point);
+      case "UCS-2000":
+        return fromWgs84ToUcs2000(point);
+    }
+  } catch (error) {
+    if (error instanceof RangeError) return { system, error: error.message };
+    throw error;
+  }
+};
+
+const coverageOf = (
+  area: Area,
+  system: CoordinateSystem,
+  precision: 1 | 10 | 100 | 1000 | 10000 | 100000,
+) => {
   try {
     return coveringSquares(area, system, { precision });
   } catch (error) {
@@ -438,8 +475,12 @@ const coverageOf = (area: Area, system: CoordinateSystem, precision: GridPrecisi
   }
 };
 
-const resultOf = (section: Section, area: Area, precision: GridPrecision): SectionResult => ({
-  conversions: section.systems.map((system) => tryFromWGS84(area.centre, system, { precision })),
+const resultOf = (
+  section: Section,
+  area: Area,
+  precision: 1 | 10 | 100 | 1000 | 10000 | 100000,
+): SectionResult => ({
+  conversions: section.systems.map((system) => inSystem(area.centre, system, precision)),
   outsideAreaOfUse: section.systems.includes("UCS-2000") && !insideUcs2000AreaOfUse(area.centre),
   coverage: section.id === "WGS84" ? null : coverageOf(area, section.systems[0], precision),
 });
@@ -461,8 +502,8 @@ const PrecisionRange = ({
   value,
   onChange,
 }: {
-  value: GridPrecision;
-  onChange: (value: GridPrecision) => void;
+  value: 1 | 10 | 100 | 1000 | 10000 | 100000;
+  onChange: (value: 1 | 10 | 100 | 1000 | 10000 | 100000) => void;
 }) => (
   <label className="flex items-center gap-2">
     <span className="opacity-60">Точність</span>
@@ -548,8 +589,8 @@ const SectionBody = ({
 }: {
   section: Section;
   result: SectionResult | null;
-  precision: GridPrecision;
-  onPrecision: (precision: GridPrecision) => void;
+  precision: 1 | 10 | 100 | 1000 | 10000 | 100000;
+  onPrecision: (precision: 1 | 10 | 100 | 1000 | 10000 | 100000) => void;
   onPick: Pick;
 }) => (
   <>
@@ -956,7 +997,7 @@ const SECTION_LAYERS: Record<SectionId, { layer: keyof MapLayers; label: string 
 export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const [text, setText] = useState("");
   const [input, setInput] = useState<InputChoice>(AUTO);
-  const [precision, setPrecision] = useState<GridPrecision>(1);
+  const [precision, setPrecision] = useState<1 | 10 | 100 | 1000 | 10000 | 100000>(1);
   // False while the input is a point just picked on the map, so the map does not move under the
   // user's cursor; anything else they change brings the view back onto the result.
   const [fitView, setFitView] = useState(true);
@@ -1205,7 +1246,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           // as if it had been typed; under auto-detection, as plain WGS 84. A system that cannot
           // express the point — UCS-2000 outside Ukraine — falls back to WGS 84 as well.
           onPick={(coords) => {
-            const converted = tryFromWGS84(coords, input === AUTO ? "WGS84" : input);
+            const converted = inSystem(coords, input === AUTO ? "WGS84" : input);
             if ("error" in converted) {
               setText(formatWGS84(coords));
               setInput("WGS84");

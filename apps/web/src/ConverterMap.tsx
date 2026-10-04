@@ -8,7 +8,7 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { type ReactNode, useEffect, useRef } from "react";
-import { type Area, toDeclaredPrecision } from "@coordinate-parser/converter";
+import type { Area } from "@coordinate-parser/converter";
 import { type Box, gridZones, mgrsGrid, spacingFor, zoneSeams } from "./gridOverlay.ts";
 import { UCS2000_STRIPS, UCS2000_ZONE_AREAS } from "./ucs2000AreaOfUse.ts";
 import { formatUSNG } from "@coordinate-parser/formatter";
@@ -83,6 +83,14 @@ export type MapLayers = {
 
 // Taken from maplibre's own signature, so the project needs no separate GeoJSON type package.
 type FeatureCollection = Exclude<Parameters<GeoJSONSource["setData"]>[0], string>;
+
+// A clicked point at the precision the parser accepts, seven decimal places: anything finer only
+// says where the cursor was to a fraction of a pixel. `+ 0` turns a negative zero into a plain one.
+const toDeclaredPrecision = ({ lat, lng }: { lat: number; lng: number }): WGS84Coordinate => ({
+  system: "WGS84",
+  latitude: Math.round(lat * 1e7) / 1e7 + 0,
+  longitude: Math.round(lng * 1e7) / 1e7 + 0,
+});
 
 // MapLibre takes [longitude, latitude]; anything with the two numbers will do, a zone's middle too.
 const lngLat = ({
@@ -748,8 +756,7 @@ export const ConverterMap = ({
     instance.on("click", ({ lngLat }) => {
       if (!pick.current.picking) return;
       // wrap(): a map panned past the antimeridian reports longitudes beyond ±180.
-      const { lat, lng } = lngLat.wrap();
-      pick.current.onPick(toDeclaredPrecision({ latitude: lat, longitude: lng }));
+      pick.current.onPick(toDeclaredPrecision(lngLat.wrap()));
     });
     map.current = instance;
 

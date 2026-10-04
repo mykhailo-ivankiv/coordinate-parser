@@ -1,6 +1,6 @@
 import type { Coordinate, CoordinateSystem } from "@coordinate-parser/types";
 import type { Area } from "./area.ts";
-import { type ConversionOptions, fromWGS84 } from "./coordinateConverter.ts";
+import { fromWGS84 } from "./coordinateConverter.ts";
 import type { Box } from "./area.ts";
 import type { Projected } from "./transverseMercator.ts";
 import { ucs2000Grid, ucs2000ZoneOf } from "./ucs2000.ts";
@@ -22,16 +22,6 @@ const MAX_COVERING_SQUARES = 100;
 // shares exactly with a target square can land a hair inside it. Shrinking each target square by
 // more than that keeps squares that merely touch the input from counting as overlapping it.
 const EDGE_TOLERANCE = 0.02; // metres
-
-/** What coveringSquares finds: the squares themselves, or how many there would be. */
-export type Coverage =
-  /** Every target square the input reaches, the one containing the input's centre first. */
-  | { kind: "squares"; squares: Coordinate[] }
-  /**
-   * Too many to list: how many grid cells the input's extent spans, the most that would have been
-   * listed, and the centre's square.
-   */
-  | { kind: "tooMany"; count: number; limit: number; primary: Coordinate };
 
 type TargetGrid = {
   project: (coords: { latitude: number; longitude: number }) => Projected;
@@ -121,14 +111,17 @@ const overlaps = (ring: Projected[], box: Box) => {
  * @param area - The input, as areaOf gives it.
  * @param system - The grid to cover it with.
  * @param options - The MGRS or USNG precision; 1 m unless given.
- * @returns The squares, or only their count when there are more than 100.
+ * @returns Every square the input reaches, the one containing its centre first; or, past 100, only
+ * how many grid cells its extent spans, the limit, and the centre's square.
  * @throws RangeError where fromWGS84 would: where the system cannot express the input's centre.
  */
 export const coveringSquares = (
   area: Area,
   system: CoordinateSystem,
-  options: ConversionOptions = {},
-): Coverage => {
+  options: { precision?: 1 | 10 | 100 | 1000 | 10000 | 100000 } = {},
+):
+  | { kind: "squares"; squares: Coordinate[] }
+  | { kind: "tooMany"; count: number; limit: number; primary: Coordinate } => {
   const primary = fromWGS84(area.centre, system, options);
   const grid = targetGrid(area.centre, system, options.precision ?? 1);
   if (grid === null || area.outline === null) return { kind: "squares", squares: [primary] };

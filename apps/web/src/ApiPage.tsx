@@ -39,7 +39,7 @@ const MODULES: {
   {
     id: "converter",
     title: "Конвертер",
-    importLine: `import { toWGS84, fromWGS84 } from "@coordinate-parser/converter";`,
+    importLine: `import { fromWgs84ToMgrs, fromMgrsToWgs84 } from "@coordinate-parser/converter";`,
     groups: [
       { id: "functions", title: "Функції" },
       { id: "constants", title: "Константи" },
