@@ -18,7 +18,7 @@ libraries leave out.
   back to the same point.
 
 Site, in Ukrainian — parser, converter with a map, a guide to the systems and the API reference:
-https://mykhailo-ivankiv.github.io/coordinate-parser/
+https://mykhailo-ivankiv.github.io/coordinate-toolkit/
 
 ## Packages
 
@@ -55,7 +55,7 @@ Run from the repository root (pnpm, Node 24):
 
 | Command          | Does                                                            |
 | ---------------- | --------------------------------------------------------------- |
-| `pnpm dev`       | Starts the site at http://localhost:5173/coordinate-parser/     |
+| `pnpm dev`       | Starts the site at http://localhost:5173/coordinate-toolkit/    |
 | `pnpm build`     | Type-checks everything, then builds the site to `apps/web/dist` |
 | `pnpm test`      | Runs the tests of both packages and the app                     |
 | `pnpm test:slow` | Runs the dense reference checks against proj4, ArcGIS and mgrs  |

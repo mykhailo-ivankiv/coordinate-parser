@@ -11,7 +11,7 @@ import { useActiveSection } from "./useActiveSection.ts";
 // and prose come from TypeDoc reading the two packages at build time (see apiDocs/), and the
 // examples are run by apiDocs/examples.test.ts. The prose is the code's own JSDoc, so it is English.
 
-const SOURCE_BASE = "https://github.com/mykhailo-ivankiv/coordinate-parser/blob/master/";
+const SOURCE_BASE = "https://github.com/mykhailo-ivankiv/coordinate-toolkit/blob/master/";
 
 const MODULES: {
   id: ApiEntry["module"];

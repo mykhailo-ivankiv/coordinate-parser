@@ -6,6 +6,6 @@ import { apiDocs } from "./apiDocs/vitePlugin.ts";
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: "/coordinate-parser/",
+  base: "/coordinate-toolkit/",
   plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss(), apiDocs()],
 });

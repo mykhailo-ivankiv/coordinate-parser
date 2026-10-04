@@ -120,7 +120,7 @@ const examples: ExampleGroup[] = [
     system: "MGRS",
     fullName: "Military Grid Reference System",
     description: "квадрат сітки, а не пара координат",
-    // BASE_URL, not a bare "/": vite.config.ts sets base to "/coordinate-parser/", so an absolute
+    // BASE_URL, not a bare "/": vite.config.ts sets base to "/coordinate-toolkit/", so an absolute
     // path would 404 once the app is served from GitHub Pages.
     spec: {
       href: `${import.meta.env.BASE_URL}NGA_STND_0037_2.0.0_GRIDS.pdf`,
@@ -487,7 +487,7 @@ const ReferenceList = ({ title, items }: { title: string; items: Reference[] }) 
 );
 
 // Pages live in the URL hash rather than the path: the app is served from GitHub Pages, which has no
-// fallback to index.html, so "/coordinate-parser/convert" would 404 on reload while "#/convert" works.
+// fallback to index.html, so "/coordinate-toolkit/convert" would 404 on reload while "#/convert" works.
 const pages = [
   { hash: "", label: "Парсер" },
   { hash: "#/convert", label: "Конвертер" },
