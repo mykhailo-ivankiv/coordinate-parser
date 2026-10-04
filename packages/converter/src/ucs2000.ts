@@ -1,7 +1,7 @@
 import type { UCS2000Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import type { Coordinates } from "./coordinates.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
-import { squareCentre, squareCorners, toDeclaredPrecision } from "./area.ts";
+import { squareCentre, gridSquare, toDeclaredPrecision } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UCS-2000 (УСК-2000) Gauss-Kruger rectangular coordinates.
@@ -66,6 +66,8 @@ export const ucs2000ZoneOf = (coords: Coordinates) => {
  * fromWgs84ToUcs2000({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
  * // → { system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 }
  * ```
+ *
+ * @group UCS-2000
  */
 export const fromWgs84ToUcs2000 = (point: WGS84Coordinate): UCS2000Coordinate => {
   const coords = toDeclaredPrecision(point);
@@ -86,6 +88,8 @@ export const fromWgs84ToUcs2000 = (point: WGS84Coordinate): UCS2000Coordinate =>
  * fromUcs2000ToWgs84({ system: "UCS-2000", zone: 6, northing: 5591000, easting: 325000 })
  * // → { system: "WGS84", latitude: 50.4238014, longitude: 30.5356689 }
  * ```
+ *
+ * @group UCS-2000
  */
 export const fromUcs2000ToWgs84 = ({
   zone,
@@ -99,30 +103,29 @@ export const fromUcs2000ToWgs84 = ({
   );
 
 /**
- * The corners of the metre square a UCS-2000 position names, in WGS 84: half a metre either side of
+ * The metre square a UCS-2000 position names, in WGS 84, its centre and corners: half a metre either side of
  * X and Y, each corner taken through the datum shift on its own, as any point would be.
  *
  * @param position - The UCS-2000 position.
- * @returns The four corners, WGS 84 latitude and longitude.
+ * @returns The centre and the four corners, WGS 84 latitude and longitude.
  *
  * @example
  * ```ts
- * fromUcs2000ToWgs84Corners({ system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 }).southWest
+ * fromUcs2000ToWgs84Square({ system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 }).southWest
  * // → { system: "WGS84", latitude: 50.4500965, longitude: 30.5233959 }
  * ```
+ *
+ * @group UCS-2000
  */
-export const fromUcs2000ToWgs84Corners = ({
+export const fromUcs2000ToWgs84Square = ({
   zone,
   northing,
   easting,
 }: UCS2000Coordinate): {
+  centre: WGS84Coordinate;
   southWest: WGS84Coordinate;
   southEast: WGS84Coordinate;
   northEast: WGS84Coordinate;
   northWest: WGS84Coordinate;
 } =>
-  squareCorners(
-    ucs2000Grid(zone).unproject,
-    { easting: easting - 0.5, northing: northing - 0.5 },
-    1,
-  );
+  gridSquare(ucs2000Grid(zone).unproject, { easting: easting - 0.5, northing: northing - 0.5 }, 1);

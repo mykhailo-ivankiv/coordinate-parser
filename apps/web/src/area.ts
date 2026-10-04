@@ -1,12 +1,8 @@
 import {
-  fromMgrsToWgs84,
-  fromMgrsToWgs84Corners,
-  fromUcs2000ToWgs84,
-  fromUcs2000ToWgs84Corners,
-  fromUsngToWgs84,
-  fromUsngToWgs84Corners,
-  fromUtmToWgs84,
-  fromUtmToWgs84Corners,
+  fromMgrsToWgs84Square,
+  fromUcs2000ToWgs84Square,
+  fromUsngToWgs84Square,
+  fromUtmToWgs84Square,
   fromWgs84ToMgrs,
   fromWgs84ToUcs2000,
   fromWgs84ToUsng,
@@ -137,7 +133,7 @@ const pointInSquare = (
   for (const nearby of [band, LATITUDE_BANDS[index + 1], LATITUDE_BANDS[index - 1]]) {
     if (nearby === undefined) continue;
     try {
-      const corners = fromMgrsToWgs84Corners({
+      const metreSquare = fromMgrsToWgs84Square({
         system: "MGRS",
         zone,
         band: nearby,
@@ -146,8 +142,9 @@ const pointInSquare = (
         northing: northing + Math.min(north, precision - 1),
         precision: 1,
       });
-      if (east === precision) return north === precision ? corners.northEast : corners.southEast;
-      return north === precision ? corners.northWest : corners.southWest;
+      if (east === precision)
+        return north === precision ? metreSquare.northEast : metreSquare.southEast;
+      return north === precision ? metreSquare.northWest : metreSquare.southWest;
     } catch (error) {
       if (!(error instanceof RangeError)) throw error;
     }
@@ -176,11 +173,11 @@ export const areaOf = (coordinate: Coordinate): Area => {
       };
     case "MGRS":
     case "USNG": {
-      const corners =
+      const square =
         coordinate.system === "MGRS"
-          ? fromMgrsToWgs84Corners(coordinate)
-          : fromUsngToWgs84Corners(coordinate);
-      const { southWest, southEast, northEast, northWest } = corners;
+          ? fromMgrsToWgs84Square(coordinate)
+          : fromUsngToWgs84Square(coordinate);
+      const { southWest, southEast, northEast, northWest } = square;
       const size = coordinate.precision;
       const at = (east: number, north: number) =>
         pointInSquare(coordinate, Math.round(east), Math.round(north));
@@ -192,9 +189,7 @@ export const areaOf = (coordinate: Coordinate): Area => {
         [(t) => at(0, (1 - t) * size), northWest, southWest],
       ];
       return {
-        centre:
-          coordinate.system === "MGRS" ? fromMgrsToWgs84(coordinate) : fromUsngToWgs84(coordinate),
-        ...corners,
+        ...square,
         outline: [
           southWest,
           ...edges.flatMap(([along, from, to]) => followEdge(along, [0, 1], from, to)),
@@ -205,15 +200,13 @@ export const areaOf = (coordinate: Coordinate): Area => {
     case "UTM":
     case "UCS-2000": {
       // A metre square: its edges are as straight as a map can draw.
-      const corners =
+      const square =
         coordinate.system === "UTM"
-          ? fromUtmToWgs84Corners(coordinate)
-          : fromUcs2000ToWgs84Corners(coordinate);
-      const { southWest, southEast, northEast, northWest } = corners;
+          ? fromUtmToWgs84Square(coordinate)
+          : fromUcs2000ToWgs84Square(coordinate);
+      const { southWest, southEast, northEast, northWest } = square;
       return {
-        centre:
-          coordinate.system === "UTM" ? fromUtmToWgs84(coordinate) : fromUcs2000ToWgs84(coordinate),
-        ...corners,
+        ...square,
         outline: [southWest, southEast, northEast, northWest, southWest],
         size: 1,
       };

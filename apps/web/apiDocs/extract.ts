@@ -56,10 +56,23 @@ const propertiesOf = (reflection: DeclarationReflection): ApiProperty[] => {
   );
 };
 
-// The parsers are exported as arcsecond Parser objects, not functions, but they are what a caller
-// calls; any variable whose type holds a Parser gets a group of its own rather than passing for a
+// A coordinate system an export works with, as its JSDoc's `@group` names it.
+const SYSTEMS = ["WGS84", "MGRS", "USNG", "UTM", "UCS-2000"] as const;
+
+// An export with `@group` is listed under that coordinate system. Otherwise it goes by what it is:
+// the parsers are exported as arcsecond Parser objects, not functions, but they are what a caller
+// calls, so any variable whose type holds a Parser gets a group of its own rather than passing for a
 // constant.
-const groupOf = (reflection: DeclarationReflection): ApiEntry["group"] => {
+const groupOf = (
+  reflection: DeclarationReflection,
+  comment: Comment | undefined,
+): ApiEntry["group"] => {
+  const [named] = blockTags(comment, "@group");
+  if (named !== undefined) {
+    const system = SYSTEMS.find((candidate) => candidate === named);
+    if (!system) throw new Error(`${reflection.name}: @group ${named} is not a coordinate system`);
+    return system;
+  }
   if (reflection.kind === ReflectionKind.TypeAlias) return "types";
   if (reflection.kind === ReflectionKind.Function) return "functions";
   return /\bParser</.test(typeText(reflection.type)) ? "parsers" : "constants";
@@ -84,7 +97,7 @@ const entry = (
     name: reflection.name,
     kind,
     module,
-    group: groupOf(reflection),
+    group: groupOf(reflection, comment),
     summary: text(comment?.summary),
     signatures: signatures.map((signature) => ({
       parameters: (signature.parameters ?? []).map((parameter) => ({

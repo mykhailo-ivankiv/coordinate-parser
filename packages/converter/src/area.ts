@@ -32,7 +32,7 @@ export const toDeclaredPrecision = (coords: {
 // A square of the projected grid, back in WGS 84: `southWest` is its corner in grid metres, `size`
 // its side. The corners are the grid's, so the sides follow grid north rather than true north: away
 // from the central meridian the square sits slightly rotated against the lines of latitude and
-// longitude, which is why all four corners are given.
+// longitude, which is why all four corners are given beside the centre.
 
 export const squareCentre = (
   unproject: (location: Projected) => Coordinates,
@@ -43,11 +43,12 @@ export const squareCentre = (
     unproject({ easting: southWest.easting + size / 2, northing: southWest.northing + size / 2 }),
   );
 
-export const squareCorners = (
+export const gridSquare = (
   unproject: (location: Projected) => Coordinates,
   { easting, northing }: Projected,
   size: number,
 ): {
+  centre: WGS84Coordinate;
   southWest: WGS84Coordinate;
   southEast: WGS84Coordinate;
   northEast: WGS84Coordinate;
@@ -56,6 +57,7 @@ export const squareCorners = (
   const at = (east: number, north: number) =>
     toDeclaredPrecision(unproject({ easting: easting + east, northing: northing + north }));
   return {
+    centre: at(size / 2, size / 2),
     southWest: at(0, 0),
     southEast: at(size, 0),
     northEast: at(size, size),

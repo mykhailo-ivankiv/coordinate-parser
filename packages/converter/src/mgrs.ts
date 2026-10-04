@@ -1,6 +1,6 @@
 import type { MGRSCoordinate, USNGCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { ROW_LETTERS } from "./notation.ts";
-import { squareCentre, squareCorners, toDeclaredPrecision } from "./area.ts";
+import { squareCentre, gridSquare, toDeclaredPrecision } from "./area.ts";
 import { type Projected, project } from "./transverseMercator.ts";
 import {
   BAND_TOLERANCE,
@@ -50,6 +50,8 @@ const rowOffset = (zone: number) => (zone % 2 === 0 ? EVEN_ZONE_ROW_OFFSET : 0);
  * fromWgs84ToMgrs({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, 1000)
  * // → { system: "MGRS", zone: 36, band: "U", square: "UA", easting: 24000, northing: 91000, precision: 1000 }
  * ```
+ *
+ * @group MGRS
  */
 export const fromWgs84ToMgrs = (
   point: WGS84Coordinate,
@@ -86,6 +88,8 @@ export const fromWgs84ToMgrs = (
  * fromWgs84ToUsng({ system: "WGS84", latitude: 40.7128, longitude: -74.006 }, 10000)
  * // → { system: "USNG", zone: 18, band: "T", square: "WL", easting: 80000, northing: 0, precision: 10000 }
  * ```
+ *
+ * @group USNG
  */
 export const fromWgs84ToUsng = (
   point: WGS84Coordinate,
@@ -172,6 +176,8 @@ const mgrsSquare = ({
  * fromMgrsToWgs84(mgrsParser.run("36UUA2491").result[0])
  * // → { system: "WGS84", latitude: 50.4492283, longitude: 30.5279224 }
  * ```
+ *
+ * @group MGRS
  */
 export const fromMgrsToWgs84 = (reference: MGRSCoordinate): WGS84Coordinate =>
   mgrsSquare(reference).centre;
@@ -188,58 +194,66 @@ export const fromMgrsToWgs84 = (reference: MGRSCoordinate): WGS84Coordinate =>
  * fromUsngToWgs84(usngParser.run("18T WL 83959 07350").result[0])
  * // → { system: "WGS84", latitude: 40.7127955, longitude: -74.0059986 }
  * ```
+ *
+ * @group USNG
  */
 export const fromUsngToWgs84 = (reference: USNGCoordinate): WGS84Coordinate =>
   mgrsSquare(reference).centre;
 
 /**
- * The corners of the square an MGRS reference names, in WGS 84. The sides follow the UTM grid, so
+ * The square an MGRS reference names, in WGS 84: its centre and corners. The sides follow the UTM grid, so
  * away from the zone's central meridian the square sits slightly rotated against the lines of
  * latitude and longitude.
  *
  * @param reference - The MGRS reference.
- * @returns The four corners, WGS 84 latitude and longitude.
+ * @returns The centre and the four corners, WGS 84 latitude and longitude.
  * @throws RangeError where fromMgrsToWgs84 does.
  *
  * @example
  * ```ts
- * fromMgrsToWgs84Corners(mgrsParser.run("36UUA2491").result[0]).southWest
+ * fromMgrsToWgs84Square(mgrsParser.run("36UUA2491").result[0]).southWest
  * // → { system: "WGS84", latitude: 50.4445861, longitude: 30.5211213 }
  * ```
+ *
+ * @group MGRS
  */
-export const fromMgrsToWgs84Corners = (
+export const fromMgrsToWgs84Square = (
   reference: MGRSCoordinate,
 ): {
+  centre: WGS84Coordinate;
   southWest: WGS84Coordinate;
   southEast: WGS84Coordinate;
   northEast: WGS84Coordinate;
   northWest: WGS84Coordinate;
 } => {
   const { fromGrid, southWest, size } = mgrsSquare(reference);
-  return squareCorners(fromGrid, southWest, size);
+  return gridSquare(fromGrid, southWest, size);
 };
 
 /**
- * The corners of the square a USNG reference names, in WGS 84, as for MGRS.
+ * The square a USNG reference names, in WGS 84: its centre and corners, as for MGRS.
  *
  * @param reference - The USNG reference.
- * @returns The four corners, WGS 84 latitude and longitude.
+ * @returns The centre and the four corners, WGS 84 latitude and longitude.
  * @throws RangeError where fromMgrsToWgs84 does.
  *
  * @example
  * ```ts
- * fromUsngToWgs84Corners(usngParser.run("36U UA 24 91").result[0]).northEast
+ * fromUsngToWgs84Square(usngParser.run("36U UA 24 91").result[0]).northEast
  * // → { system: "WGS84", latitude: 50.4538701, longitude: 30.5347249 }
  * ```
+ *
+ * @group USNG
  */
-export const fromUsngToWgs84Corners = (
+export const fromUsngToWgs84Square = (
   reference: USNGCoordinate,
 ): {
+  centre: WGS84Coordinate;
   southWest: WGS84Coordinate;
   southEast: WGS84Coordinate;
   northEast: WGS84Coordinate;
   northWest: WGS84Coordinate;
 } => {
   const { fromGrid, southWest, size } = mgrsSquare(reference);
-  return squareCorners(fromGrid, southWest, size);
+  return gridSquare(fromGrid, southWest, size);
 };

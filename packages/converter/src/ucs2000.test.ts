@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { ucs2000Parser } from "@coordinate-parser/parser";
 import { project } from "./transverseMercator.ts";
-import { fromUcs2000ToWgs84, fromUcs2000ToWgs84Corners, fromWgs84ToUcs2000 } from "./ucs2000.ts";
+import { fromUcs2000ToWgs84, fromUcs2000ToWgs84Square, fromWgs84ToUcs2000 } from "./ucs2000.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), EPSG:4326 to EPSG:5562-5565. PROJ chooses
@@ -124,10 +124,10 @@ describe("UCS-2000 to WGS 84", () => {
   });
 });
 
-describe("the corners of a UCS-2000 metre square", () => {
+describe("the square a UCS-2000 position names", () => {
   it("shifts every corner through the datum, matching PROJ", () => {
     // EPSG:5564 → EPSG:4326 on the corners of 5593954 6324226, half a metre either side.
-    const { southWest, northEast } = fromUcs2000ToWgs84Corners({
+    const { southWest, northEast } = fromUcs2000ToWgs84Square({
       system: "UCS-2000",
       zone: 6,
       northing: 5593954,

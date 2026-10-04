@@ -4,8 +4,8 @@ import { usngParser, mgrsParser } from "@coordinate-parser/parser";
 import { formatMGRS, formatUSNG } from "@coordinate-parser/formatter";
 import {
   fromMgrsToWgs84,
-  fromMgrsToWgs84Corners,
-  fromUsngToWgs84Corners,
+  fromMgrsToWgs84Square,
+  fromUsngToWgs84Square,
   fromWgs84ToMgrs,
   fromWgs84ToUsng,
 } from "./mgrs.ts";
@@ -155,30 +155,31 @@ describe("MGRS to WGS 84", () => {
   });
 });
 
-describe("the corners of an MGRS square", () => {
+describe("the square an MGRS reference names", () => {
   // Computed with PROJ 9.3, EPSG:32636 to EPSG:4326, on the corners of 36UUA2491.
-  const kyivCorners = {
+  const kyivSquare = {
+    centre: { system: "WGS84", latitude: 50.4492283, longitude: 30.5279224 },
     southWest: { system: "WGS84", latitude: 50.4445861, longitude: 30.5211213 },
     southEast: { system: "WGS84", latitude: 50.4448851, longitude: 30.535192 },
     northEast: { system: "WGS84", latitude: 50.4538701, longitude: 30.5347249 },
     northWest: { system: "WGS84", latitude: 50.453571, longitude: 30.5206516 },
   };
 
-  it("matches PROJ at every corner", () => {
+  it("matches PROJ at every corner, with the centre fromMgrsToWgs84 gives", () => {
     const parsed = mgrsParser.run("36UUA2491");
     if (parsed.isError) throw new Error(parsed.error);
-    expect(fromMgrsToWgs84Corners(parsed.result[0])).toEqual(kyivCorners);
+    expect(fromMgrsToWgs84Square(parsed.result[0])).toEqual(kyivSquare);
   });
 
-  it("gives a USNG square the same corners", () => {
+  it("gives a USNG square the same centre and corners", () => {
     const parsed = usngParser.run("36U UA 24 91");
     if (parsed.isError) throw new Error(parsed.error);
-    expect(fromUsngToWgs84Corners(parsed.result[0])).toEqual(kyivCorners);
+    expect(fromUsngToWgs84Square(parsed.result[0])).toEqual(kyivSquare);
   });
 
   it("puts the point inside the square it converts to", () => {
     const point = { system: "WGS84" as const, latitude: 50.4501, longitude: 30.5234 };
-    const { southWest, southEast, northEast, northWest } = fromUsngToWgs84Corners(
+    const { southWest, southEast, northEast, northWest } = fromUsngToWgs84Square(
       fromWgs84ToUsng(point, 10000),
     );
     expect(point.latitude).toBeGreaterThan(Math.max(southWest.latitude, southEast.latitude));

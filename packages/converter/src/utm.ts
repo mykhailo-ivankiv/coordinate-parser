@@ -2,7 +2,7 @@ import type { Coordinates } from "./coordinates.ts";
 import type { UTMCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { LATITUDE_BANDS } from "./notation.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
-import { squareCentre, squareCorners, toDeclaredPrecision } from "./area.ts";
+import { squareCentre, gridSquare, toDeclaredPrecision } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UTM, per NGA.STND.0037_2.0.0_GRIDS §2 —
@@ -117,6 +117,8 @@ export const projectToUTM = (coords: Coordinates) => {
  * fromWgs84ToUtm({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
  * // → { system: "UTM", zone: 36, band: "U", hemisphere: "N", easting: 324182, northing: 5591608 }
  * ```
+ *
+ * @group UTM
  */
 export const fromWgs84ToUtm = (point: WGS84Coordinate): UTMCoordinate => {
   const { zone, hemisphere, band, easting, northing } = projectToUTM(toDeclaredPrecision(point));
@@ -197,32 +199,37 @@ const utmSquare = ({ zone, hemisphere, band, easting, northing }: UTMCoordinate)
  * fromUtmToWgs84({ system: "UTM", zone: 17, hemisphere: "N", easting: 630084, northing: 4833438 })
  * // → { system: "WGS84", latitude: 43.6425618, longitude: -79.3871429 }
  * ```
+ *
+ * @group UTM
  */
 export const fromUtmToWgs84 = (position: UTMCoordinate): WGS84Coordinate =>
   utmSquare(position).centre;
 
 /**
- * The corners of the metre square a UTM position names, in WGS 84: half a metre either side of its
+ * The metre square a UTM position names, in WGS 84, its centre and corners: half a metre either side of its
  * easting and northing.
  *
  * @param position - The UTM position.
- * @returns The four corners, WGS 84 latitude and longitude.
+ * @returns The centre and the four corners, WGS 84 latitude and longitude.
  * @throws RangeError where fromUtmToWgs84 does.
  *
  * @example
  * ```ts
- * fromUtmToWgs84Corners(utmParser.run("36U 324182 5591608").result[0]).southWest
+ * fromUtmToWgs84Square(utmParser.run("36U 324182 5591608").result[0]).southWest
  * // → { system: "WGS84", latitude: 50.4500988, longitude: 30.5233901 }
  * ```
+ *
+ * @group UTM
  */
-export const fromUtmToWgs84Corners = (
+export const fromUtmToWgs84Square = (
   position: UTMCoordinate,
 ): {
+  centre: WGS84Coordinate;
   southWest: WGS84Coordinate;
   southEast: WGS84Coordinate;
   northEast: WGS84Coordinate;
   northWest: WGS84Coordinate;
 } => {
   const { fromGrid, southWest } = utmSquare(position);
-  return squareCorners(fromGrid, southWest, 1);
+  return gridSquare(fromGrid, southWest, 1);
 };

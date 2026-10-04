@@ -4,6 +4,8 @@
 // Prose fields are TSDoc text: paragraphs separated by blank lines, `inline code` in backticks, and
 // {@link Name} references already reduced to `Name`.
 
+import type { CoordinateSystem } from "@coordinate-parser/types";
+
 export type ApiParameter = {
   name: string;
   type: string;
@@ -25,8 +27,11 @@ export type ApiEntry = {
   kind: "function" | "variable" | "type";
   /** Which package declares it. */
   module: "types" | "parser" | "converter" | "formatter";
-  /** What it is, for grouping: a parser object, a function, a constant or a type. */
-  group: "parsers" | "functions" | "constants" | "types";
+  /**
+   * Where the page lists it: by what it is — a parser object, a function, a constant or a type —
+   * unless its JSDoc names a coordinate system with `@group`, as the converter's functions do.
+   */
+  group: "parsers" | "functions" | "constants" | "types" | CoordinateSystem;
   summary: string;
   /** Function signatures, one per overload. */
   signatures: {

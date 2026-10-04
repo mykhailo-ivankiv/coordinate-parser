@@ -41,9 +41,10 @@ const MODULES: {
     title: "Конвертер",
     importLine: `import { fromWgs84ToMgrs, fromMgrsToWgs84 } from "@coordinate-parser/converter";`,
     groups: [
-      { id: "functions", title: "Функції" },
-      { id: "constants", title: "Константи" },
-      { id: "types", title: "Типи" },
+      { id: "MGRS", title: "MGRS" },
+      { id: "USNG", title: "USNG" },
+      { id: "UTM", title: "UTM" },
+      { id: "UCS-2000", title: "УСК-2000" },
     ],
   },
   {
