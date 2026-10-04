@@ -19,8 +19,7 @@ import { LATITUDE_BANDS, letterFrom, utmLocation, zoneNumber } from "./gridRefer
 // Beware "17S". Under this reading it is band S, 32-48 degrees NORTH. Under the EPSG and PROJ
 // convention — "WGS 84 / UTM zone 17S", EPSG:32717 — the same string means the SOUTHERN hemisphere,
 // and the two readings put the point about ninety degrees of latitude apart. Only N and S collide;
-// every other band letter is meaningless to the EPSG convention. UTMHemisphereParser implements
-// that other reading, and the order of the two in a `choice` decides which one wins.
+// every other band letter is meaningless to the EPSG convention. The EPSG reading is not offered.
 //
 // Nothing here cross-checks the band against the northing, though they can contradict each other:
 // "17N 630084 4833438" claims band N, 0-8 degrees north, but carries a northing some 4300 km up.
@@ -28,7 +27,7 @@ import { LATITUDE_BANDS, letterFrom, utmLocation, zoneNumber } from "./gridRefer
 
 const LAST_SOUTHERN_BAND = "M";
 
-const hemisphereOf = (band: string): "N" | "S" =>
+const hemisphereOf = (band: (typeof LATITUDE_BANDS)[number]): "N" | "S" =>
   LATITUDE_BANDS.indexOf(band) <= LATITUDE_BANDS.indexOf(LAST_SOUTHERN_BAND) ? "S" : "N";
 
 export const UTMparser = wholeInput(

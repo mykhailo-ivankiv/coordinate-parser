@@ -15,7 +15,6 @@ import { coordinateParser } from "@coordinate-parser/parser";
 import type {
   MGRSCoordinate,
   UCS2000Coordinate,
-  USNGCoordinate,
   UTMCoordinate,
   WGS84Coordinate,
 } from "@coordinate-parser/types";
@@ -252,7 +251,6 @@ const describeResult = (
   written:
     | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
     | [MGRSCoordinate]
-    | [USNGCoordinate]
     | [UTMCoordinate]
     | [UCS2000Coordinate],
 ): ReactNode => {

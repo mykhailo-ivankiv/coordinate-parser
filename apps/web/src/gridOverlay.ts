@@ -8,11 +8,11 @@ import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 //   * The MGRS grid is lines of constant easting and northing inside each zone: curves on a web map,
 //     and far too many to draw for the whole world, so they are worked out for the view at hand.
 
-/** A UTM grid zone and its box: `designator` is the zone number and band, "36U". */
 /** A latitude/longitude box, in degrees. */
 export type Box = { west: number; south: number; east: number; north: number };
 
-export type GridZone = Box & { designator: string };
+/** A UTM grid zone and its box: `designator` is the zone number and band, "36U". */
+type GridZone = Box & { designator: string };
 
 // The UTM latitude bands, south to north, I and O skipped, and the latitudes UTM covers; past them the
 // polar UPS grid takes over.
@@ -55,7 +55,7 @@ export const gridZones = (): GridZone[] =>
   });
 
 /** A grid line spacing, in metres: the 100 km squares and their decimal subdivisions. */
-export type GridSpacing = 100_000 | 10_000 | 1_000 | 100 | 10;
+type GridSpacing = 100_000 | 10_000 | 1_000 | 100 | 10;
 
 // Every spacing, from the 100 km squares down.
 const GRID_SPACINGS: readonly GridSpacing[] = [100_000, 10_000, 1_000, 100, 10];
@@ -73,14 +73,14 @@ export const spacingFor = (metresPerPixel: number, minPixels = 120): GridSpacing
   GRID_SPACINGS[0];
 
 /** One grid line, as a path of points along its curve. */
-export type GridLine = {
+type GridLine = {
   path: WGS84Coordinate[];
   /** A 100 km square edge, as opposed to a finer subdivision. */
   major: boolean;
 };
 
 /** A grid cell's MGRS reference, at the cell's precision, and where to place it: its centre. */
-export type GridLabel = { at: WGS84Coordinate; reference: MGRSCoordinate };
+type GridLabel = { at: WGS84Coordinate; reference: MGRSCoordinate };
 
 // Points along each grid line; enough for a 100 km line to follow its curve across a view.
 const SAMPLES = 32;

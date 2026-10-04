@@ -27,7 +27,7 @@ export const utmProjection = (zone: number, hemisphere: "N" | "S"): Projection =
   falseNorthing: hemisphere === "S" ? SOUTHERN_FALSE_NORTHING : 0,
 });
 
-export const bandOf = (latitude: number) =>
+const bandOf = (latitude: number) =>
   LATITUDE_BANDS[Math.min(Math.floor(latitude / BAND_HEIGHT) + 10, LATITUDE_BANDS.length - 1)];
 
 /**
@@ -46,12 +46,12 @@ export const bandOf = (latitude: number) =>
  * ```
  */
 export const bandLimits = (band: string): [number, number] => {
-  const south = (LATITUDE_BANDS.indexOf(band) - 10) * BAND_HEIGHT;
+  const south = (LATITUDE_BANDS.findIndex((letter) => letter === band) - 10) * BAND_HEIGHT;
   // Band X is the one exception to the eight-degree rule: it runs 72-84°N, twelve degrees.
   return [south, band === "X" ? UTM_NORTH_LIMIT : south + BAND_HEIGHT];
 };
 
-export const hemisphereOfLatitude = (latitude: number): "N" | "S" => (latitude < 0 ? "S" : "N");
+const hemisphereOfLatitude = (latitude: number): "N" | "S" => (latitude < 0 ? "S" : "N");
 
 /**
  * The UTM zone a point falls in: six degrees wide, counted east from the antimeridian, with the
@@ -134,31 +134,6 @@ export const fromWgs84ToUtm = (point: WGS84Coordinate): UTMCoordinate => {
 
 export const unprojectUTM = (location: Projected, zone: number, hemisphere: "N" | "S") =>
   unproject(location, utmProjection(zone, hemisphere));
-
-/**
- * The grid of one UTM zone, unrounded: `project` takes a point to metres east and north, `unproject`
- * takes them back. Points outside the zone still project, onto its extended grid.
- *
- * @param zone - The zone number, 1-60.
- * @param hemisphere - Which false northing applies.
- * @returns The zone's projection both ways.
- *
- * @example
- * ```ts
- * utmGrid(36, "N").project({ latitude: 50.4501, longitude: 30.5234 }).easting > 324181
- * // → true
- * ```
- */
-export const utmGrid = (zone: number, hemisphere: "N" | "S") => ({
-  project: (point: {
-    latitude: number;
-    longitude: number;
-  }): { easting: number; northing: number } => project(point, utmProjection(zone, hemisphere)),
-  unproject: (location: {
-    easting: number;
-    northing: number;
-  }): { latitude: number; longitude: number } => unprojectUTM(location, zone, hemisphere),
-});
 
 // A written reference is rounded to the metre, so a point on a band edge can land a hair across it.
 // About ten metres of slack absorbs that and still catches a band that is simply wrong.

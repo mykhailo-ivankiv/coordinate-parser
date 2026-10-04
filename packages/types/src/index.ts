@@ -12,9 +12,12 @@ export type WGS84Coordinate = {
   longitude: number;
 };
 
-/** An MGRS reference: a square of the UTM grid, located inside a lettered 100 km square. */
+/**
+ * An MGRS or USNG reference: a square of the UTM grid, located inside a lettered 100 km square. USNG
+ * is the MGRS grid written another way, with at least one digit per axis.
+ */
 export type MGRSCoordinate = {
-  system: "MGRS";
+  system: "MGRS" | "USNG";
   /** UTM zone, 1-60. */
   zone: number;
   /** Latitude band letter, C-X without I and O. */
@@ -25,34 +28,40 @@ export type MGRSCoordinate = {
   easting: number;
   /** Metres north of the south-west corner of the 100 km square. */
   northing: number;
-  /** Side of the referenced square in metres: 100000 down to 1. */
-  precision: number;
+  /** Side of the referenced square in metres: 100000 down to 1; for USNG, 10000 at the coarsest. */
+  precision: 1 | 10 | 100 | 1000 | 10000 | 100000;
 };
 
-/** A USNG reference: the MGRS grid, read on NAD 83; its coarsest square is 10 km. */
-export type USNGCoordinate = {
-  system: "USNG";
-  /** UTM zone, 1-60. */
-  zone: number;
-  /** Latitude band letter, C-X without I and O. */
-  band: string;
-  /** The 100 km square: column letter, then row letter. */
-  square: string;
-  /** Metres east of the south-west corner of the 100 km square. */
-  easting: number;
-  /** Metres north of the south-west corner of the 100 km square. */
-  northing: number;
-  /** Side of the referenced square in metres: 10000 down to 1. */
-  precision: number;
-};
+/** A USNG reference: the same data as MGRS, with `system: "USNG"`. */
+export type USNGCoordinate = MGRSCoordinate;
 
 /** A UTM position: zone, hemisphere, and metres east and north within the zone. */
 export type UTMCoordinate = {
   system: "UTM";
   /** Zone, 1-60, each 6° of longitude wide. */
   zone: number;
-  /** Latitude band letter, present only when the position is written with one. */
-  band?: string;
+  /** Latitude band letter, C-X without I and O; present only when the position is written with one. */
+  band?:
+    | "C"
+    | "D"
+    | "E"
+    | "F"
+    | "G"
+    | "H"
+    | "J"
+    | "K"
+    | "L"
+    | "M"
+    | "N"
+    | "P"
+    | "Q"
+    | "R"
+    | "S"
+    | "T"
+    | "U"
+    | "V"
+    | "W"
+    | "X";
   /** Which false northing applies; taken from the band when one is written. */
   hemisphere: "N" | "S";
   /** Metres east of the zone's false origin; 500000 sits on the central meridian. */
@@ -73,9 +82,4 @@ export type UCS2000Coordinate = {
 };
 
 /** A coordinate in any of the systems. */
-export type Coordinate =
-  | WGS84Coordinate
-  | MGRSCoordinate
-  | USNGCoordinate
-  | UTMCoordinate
-  | UCS2000Coordinate;
+export type Coordinate = WGS84Coordinate | MGRSCoordinate | UTMCoordinate | UCS2000Coordinate;

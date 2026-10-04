@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "./ConverterMap.tsx";
 import { type Area, areaOf, coveringSquares, inSystem } from "./area.ts";
 import { format, formatWGS84 } from "@coordinate-parser/formatter";
@@ -19,7 +19,6 @@ import type {
   CoordinateSystem,
   MGRSCoordinate,
   UCS2000Coordinate,
-  USNGCoordinate,
   UTMCoordinate,
   WGS84Coordinate,
 } from "@coordinate-parser/types";
@@ -68,7 +67,6 @@ type Outcome =
       written:
         | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
         | [MGRSCoordinate]
-        | [USNGCoordinate]
         | [UTMCoordinate]
         | [UCS2000Coordinate];
       message: string;
@@ -78,7 +76,6 @@ type Outcome =
       written:
         | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
         | [MGRSCoordinate]
-        | [USNGCoordinate]
         | [UTMCoordinate]
         | [UCS2000Coordinate];
       area: Area;
@@ -998,7 +995,9 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
     return () => window.removeEventListener("keydown", cancel);
   }, [picking]);
 
-  const outcome = convert(text, input);
+  // Converting and finding the covering squares takes up to a few tens of milliseconds, so it is
+  // redone only when the input or the precision changes, not on every opened section or layer.
+  const outcome = useMemo(() => convert(text, input), [text, input]);
   // What is wrong with the input, shown under the field and turning it red; null when nothing is.
   const inputError: ReactNode =
     outcome.kind === "parseError" ? (
@@ -1010,13 +1009,17 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
       </>
     ) : null;
 
-  const results = new Map(
-    sections.map((section) => [
-      section.id,
-      outcome.kind === "converted"
-        ? resultOf(section, outcome.written[0], outcome.area, precision)
-        : null,
-    ]),
+  const results = useMemo(
+    () =>
+      new Map(
+        sections.map((section) => [
+          section.id,
+          outcome.kind === "converted"
+            ? resultOf(section, outcome.written[0], outcome.area, precision)
+            : null,
+        ]),
+      ),
+    [outcome, precision],
   );
 
   // A converted value is fed back in under its own system rather than through auto-detection:

@@ -12,7 +12,6 @@ import type {
   Coordinate,
   CoordinateSystem,
   MGRSCoordinate,
-  USNGCoordinate,
   WGS84Coordinate,
 } from "@coordinate-parser/types";
 import { LATITUDE_BANDS } from "./gridOverlay.ts";
@@ -125,7 +124,7 @@ const followEdge = (
  * its latitude band, the point can be in the next band, so that is tried too.
  */
 const pointInSquare = (
-  { zone, band, square, easting, northing, precision }: MGRSCoordinate | USNGCoordinate,
+  { zone, band, square, easting, northing, precision }: MGRSCoordinate,
   east: number,
   north: number,
 ): WGS84Coordinate | null => {
@@ -321,10 +320,7 @@ export const coveringSquares = (
   }
 
   // Whether a point lies in the input square: it converts back to the same reference.
-  // A reference's precision is always one of these: its digits per axis say which.
-  const inputPrecision = (
-    input.system === "MGRS" || input.system === "USNG" ? input.precision : 1
-  ) as 1 | 10 | 100 | 1000 | 10000 | 100000;
+  const inputPrecision = input.system === "MGRS" || input.system === "USNG" ? input.precision : 1;
   const key = (coordinate: Coordinate | { error: string } | null) => JSON.stringify(coordinate);
   const inputKey = key(inSystem(area.centre, input.system, inputPrecision));
   const insideInput = (point: WGS84Coordinate) =>
@@ -337,7 +333,9 @@ export const coveringSquares = (
   const found = new Map<string, Coordinate>([[key(primary), primary]]);
   const seen = new Set([key(primary)]);
   const queue: Coordinate[] = [primary];
-  while (queue.length > 0 && found.size <= MAX_COVERING_SQUARES) {
+  // The estimate above keeps this to about a hundred squares; the walk runs to the end, so that
+  // a count just past the limit is the true one.
+  while (queue.length > 0) {
     const square = queue.shift();
     if (square === undefined) break;
     for (const centre of aroundCentres(areaOf(square))) {

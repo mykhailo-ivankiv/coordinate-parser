@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { UTM } from "./coordinateRegex.ts";
-import { UTMHemisphereParser } from "./UTMHemisphereParser.ts";
 import type { UTMCoordinate } from "@coordinate-parser/types";
 import { UTMparser } from "./UTMparser.ts";
 
@@ -135,37 +134,14 @@ describe("formatting tolerance", () => {
   );
 });
 
-// The two conventions collide on exactly two letters, and disagree completely there.
+// The EPSG convention reads "17S" as the southern hemisphere; this parser reads band S, north of
+// the equator. N and S are the two letters where the readings collide.
 describe("collision with the EPSG hemisphere convention", () => {
   it.each([
-    ["17S 630084 3900000", "N", "S"],
+    ["17S 630084 3900000", "S", "N"],
     ["17N 630084 4833438", "N", "N"],
-  ])("%j is band-hemisphere %s but EPSG-hemisphere %s", (input, byBand, byHemisphere) => {
-    expect(parse(input).hemisphere).toBe(byBand);
-    const other = UTMHemisphereParser.run(input);
-    expect(other.isError).toBe(false);
-    if (!other.isError) expect(other.result.hemisphere).toBe(byHemisphere);
-  });
-
-  it.each(["17T 630084 4833438", "17M 630084 4833438", "17C 630084 4833438"])(
-    "%j is a band reference only — the EPSG convention has no such letter",
-    (input) => {
-      expect(accepts(input)).toBe(true);
-      expect(UTMHemisphereParser.run(input).isError).toBe(true);
-    },
-  );
-
-  it("the hemisphere reading accepts a strict subset, so order decides in a choice", () => {
-    for (const input of ["17N 630084 4833438", "17S 630084 4833438"]) {
-      expect(accepts(input)).toBe(true);
-      expect(UTMHemisphereParser.run(input).isError).toBe(false);
-    }
-  });
-
-  it("carries no band, because the string does not name one", () => {
-    const result = UTMHemisphereParser.run("17S 630084 4833438");
-    expect(result.isError).toBe(false);
-    if (!result.isError) expect(result.result.band).toBeUndefined();
+  ])("reads %j as band %s, in hemisphere %s", (input, band, hemisphere) => {
+    expect(parse(input)).toMatchObject({ band, hemisphere });
   });
 });
 

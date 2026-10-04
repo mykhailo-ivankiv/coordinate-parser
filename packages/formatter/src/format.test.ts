@@ -12,7 +12,16 @@ import {
 } from "@coordinate-parser/parser";
 import type { WGS84Coordinate } from "@coordinate-parser/types";
 import { describe, expect, it } from "vitest";
-import { format, formatDD, formatDDM, formatDMS, formatMGRS, formatUSNG } from "./format.ts";
+import {
+  format,
+  formatDD,
+  formatDDM,
+  formatDMS,
+  formatMGRS,
+  formatUSNG,
+  formatUTM,
+  formatWGS84,
+} from "./format.ts";
 
 const kyiv: WGS84Coordinate = { system: "WGS84", latitude: 50.4501, longitude: 30.5234 };
 
@@ -98,5 +107,17 @@ describe("round trip with the parser", () => {
     expect(canonical("4Q FJ 12345 67890")).toBe("4QFJ1234567890");
     expect(canonical("55-91000 63-25000")).toBe("5591000 6325000");
     expect(canonical("50,4501 30,5234")).toBe("50.4501, 30.5234");
+  });
+});
+
+describe("what cannot be written", () => {
+  it("refuses a UTM position without a band rather than writing one that reads back elsewhere", () => {
+    expect(() =>
+      formatUTM({ system: "UTM", zone: 36, hemisphere: "S", easting: 324182, northing: 5591608 }),
+    ).toThrow(RangeError);
+  });
+
+  it("writes a value that rounds to zero without a minus sign", () => {
+    expect(formatWGS84({ system: "WGS84", latitude: -0.00000001, longitude: 30 })).toBe("0, 30");
   });
 });

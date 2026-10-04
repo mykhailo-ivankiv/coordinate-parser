@@ -2,7 +2,6 @@ import type {
   CoordinateSystem,
   MGRSCoordinate,
   UCS2000Coordinate,
-  USNGCoordinate,
   UTMCoordinate,
   WGS84Coordinate,
 } from "@coordinate-parser/types";
@@ -25,7 +24,6 @@ export const labelOf = (
   written:
     | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
     | [MGRSCoordinate]
-    | [USNGCoordinate]
     | [UTMCoordinate]
     | [UCS2000Coordinate],
 ) =>

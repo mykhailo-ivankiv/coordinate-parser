@@ -66,9 +66,11 @@ describe("northing", () => {
     expect(errorOf("55910000 6325000")).toBe("UCS-2000 northing must have 7 digits, but got 8");
   });
 
-  it("accepts an explicit sign", () => {
+  it("accepts a plus sign, but not a minus: X is north of the equator", () => {
     expect(parse("+5591000 6325000")).toEqual(kyivZone);
-    expect(parse("-5591000 6325000").northing).toBe(-5591000);
+    expect(errorOf("-5591000 6325000")).toBe(
+      "UCS-2000 northing is north of the equator and cannot be negative",
+    );
   });
 });
 
@@ -109,6 +111,7 @@ describe("UCS2000 regex baseline", () => {
     ["5591000 8325000", "zone 8 is east of Ukraine"],
     ["5591000 0325000", "zone 0 does not exist"],
     ["5591000 -6325000", "a negative easting is meaningless behind a zone prefix"],
+    ["-5591000 6325000", "a negative northing would be south of the equator"],
     ["5591000,,6325000", "a repeated separator is not a separator"],
   ])("regex wrongly accepts %j — %s", (input) => {
     expect(UCS2000.test(input)).toBe(true);
@@ -126,7 +129,6 @@ describe("UCS2000 regex baseline", () => {
     "5591000,6325000",
     "5591000, 6325000",
     "5591000  6325000",
-    "-5591000 6325000",
   ])("both accept %j", (input) => {
     expect(UCS2000.test(input)).toBe(true);
     expect(accepts(input)).toBe(true);

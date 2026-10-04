@@ -188,3 +188,18 @@ describe("the square an MGRS reference names", () => {
     expect(point.longitude).toBeLessThan(Math.min(southEast.longitude, northEast.longitude));
   });
 });
+
+describe("south of the equator, at the bottom of a band", () => {
+  // There the band's southern edge is lowest at the zone's edges, not on the central meridian: a
+  // square just above 64°S near a zone edge used to be read 2000 km too far north and refused.
+  it.each([
+    [-63.99995, -179.999],
+    [-63.99995, -174.001],
+    [-63.997, 38.999],
+  ])("reads back the reference of %s, %s", (latitude, longitude) => {
+    const point = { system: "WGS84" as const, latitude, longitude };
+    const back = fromMgrsToWgs84(fromWgs84ToMgrs(point));
+    expect(back.latitude).toBeCloseTo(latitude, 4);
+    expect(back.longitude).toBeCloseTo(longitude, 4);
+  });
+});

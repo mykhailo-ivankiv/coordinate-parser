@@ -18,7 +18,28 @@ import { commaOrWhitespace, letterFrom } from "./commonParsers.ts";
 export { letterFrom };
 
 /** UTM and MGRS latitude bands, 8° each from 80°S, south to north; I and O are skipped. */
-export const LATITUDE_BANDS = "CDEFGHJKLMNPQRSTUVWX";
+export const LATITUDE_BANDS = [
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "J",
+  "K",
+  "L",
+  "M",
+  "N",
+  "P",
+  "Q",
+  "R",
+  "S",
+  "T",
+  "U",
+  "V",
+  "W",
+  "X",
+] as const;
 /** MGRS 100 km column letters, I and O skipped; each zone uses a third of them. */
 export const COLUMN_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 /** MGRS 100 km row letters, I and O skipped, repeating every 2000 km of northing. */
@@ -26,16 +47,6 @@ export const ROW_LETTERS = "ABCDEFGHJKLMNPQRSTUV";
 
 /** Digits per axis in the finest MGRS or USNG reference: 5, a 1 m square. */
 export const MAX_DIGITS_PER_AXIS = 5;
-
-/** Where in a 100 km square an MGRS or USNG reference points, and how finely. */
-export type GridLocation = {
-  /** Metres east of the south-west corner of the 100 km square. */
-  easting: number;
-  /** Metres north of the south-west corner of the 100 km square. */
-  northing: number;
-  /** Size of the referenced square in metres: 100000 down to 1. */
-  precision: number;
-};
 
 // A letter always follows the zone number, so greedy digits cannot overrun into it.
 export const zoneNumber = (system: string, note = "") =>
@@ -53,10 +64,17 @@ export const zoneNumber = (system: string, note = "") =>
 // Each axis carries the same digit count, and dropping digits coarsens the reference rather
 // than moving it: "16" is the 10 km square at 10000E 60000N, not the point 1E 6N.
 //
-// `minDigitsPerAxis` is the one place the two systems disagree: MGRS lets a reference name a bare
-// 100 km square, USNG requires at least one digit per axis and so bottoms out at 10 km.
-export const numericLocation = (system: string, minDigitsPerAxis: number) => {
-  const locationOf = (easting: string, northing: string): Parser<GridLocation> => {
+// `precisions` is the one place the two systems disagree: MGRS lets a reference name a bare 100 km
+// square, USNG requires at least one digit per axis and so bottoms out at 10 km.
+export const numericLocation = <P extends 1 | 10 | 100 | 1000 | 10000 | 100000>(
+  system: string,
+  precisions: readonly P[],
+) => {
+  const minDigitsPerAxis = MAX_DIGITS_PER_AXIS - Math.log10(Math.max(...precisions));
+  const locationOf = (
+    easting: string,
+    northing: string,
+  ): Parser<{ easting: number; northing: number; precision: P }> => {
     if (easting.length !== northing.length) {
       return fail(
         `${system} easting and northing must carry the same number of digits, but got ${easting.length} and ${northing.length}`,
@@ -69,13 +87,15 @@ export const numericLocation = (system: string, minDigitsPerAxis: number) => {
       );
     }
 
-    if (easting.length < minDigitsPerAxis) {
+    const precision = precisions.find(
+      (candidate) => candidate === 10 ** (MAX_DIGITS_PER_AXIS - easting.length),
+    );
+    if (precision === undefined) {
       return fail(
         `${system} requires at least ${minDigitsPerAxis} digit per axis, but got ${easting.length}`,
       );
     }
 
-    const precision = 10 ** (MAX_DIGITS_PER_AXIS - easting.length);
     return succeedWith({
       easting: Number(easting || "0") * precision,
       northing: Number(northing || "0") * precision,
@@ -87,19 +107,25 @@ export const numericLocation = (system: string, minDigitsPerAxis: number) => {
   // instead of being silently discarded by `possibly` and blamed on the end of the input.
   return possibly(
     sequenceOf([digits, possibly(takeRight<string, string>(whitespace)(digits))]),
-  ).chain((captured?: [string, string | null] | null): Parser<GridLocation> => {
-    if (captured === undefined || captured === null) return locationOf("", "");
+  ).chain(
+    (
+      captured?: [string, string | null] | null,
+    ): Parser<{ easting: number; northing: number; precision: P }> => {
+      if (captured === undefined || captured === null) return locationOf("", "");
 
-    const [first, second] = captured;
-    if (second !== null) return locationOf(first, second);
+      const [first, second] = captured;
+      if (second !== null) return locationOf(first, second);
 
-    if (first.length % 2 !== 0) {
-      return fail(`${system} location must have an even number of digits, but got ${first.length}`);
-    }
+      if (first.length % 2 !== 0) {
+        return fail(
+          `${system} location must have an even number of digits, but got ${first.length}`,
+        );
+      }
 
-    const half = first.length / 2;
-    return locationOf(first.slice(0, half), first.slice(half));
-  });
+      const half = first.length / 2;
+      return locationOf(first.slice(0, half), first.slice(half));
+    },
+  );
 };
 
 // UTM names a point by metres east and north within a zone, rather than by an offset inside a

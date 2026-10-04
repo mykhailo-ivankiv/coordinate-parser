@@ -1,3 +1,4 @@
+import type { UTMCoordinate } from "@coordinate-parser/types";
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { formatUTM } from "@coordinate-parser/formatter";
@@ -9,7 +10,7 @@ type Reference = {
   name: string;
   coords: Coordinates;
   zone: number;
-  band: string;
+  band: UTMCoordinate["band"];
   easting: number;
   northing: number;
 };

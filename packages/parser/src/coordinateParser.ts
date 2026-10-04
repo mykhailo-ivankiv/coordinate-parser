@@ -173,7 +173,6 @@ export const ucs2000Parser: Parser<[UCS2000Coordinate]> = UCS2000parser.map((pos
 export const coordinateParser: Parser<
   | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
   | [MGRSCoordinate]
-  | [USNGCoordinate]
   | [UTMCoordinate]
   | [UCS2000Coordinate]
 > = choice([
@@ -184,7 +183,6 @@ export const coordinateParser: Parser<
   wgs84dmsParser,
   mgrsParser,
   ucs2000Parser,
-  // The latitude-band reading of UTM, matching MGRS above. UTMHemisphereParser, the EPSG reading of
-  // "17N"/"17S", is not offered: this parser already accepts every string that one does.
+  // The latitude-band reading of UTM, matching MGRS above, not the EPSG reading of "17N"/"17S".
   utmParser,
 ]);

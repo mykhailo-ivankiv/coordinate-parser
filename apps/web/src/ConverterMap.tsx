@@ -11,7 +11,6 @@ import { type ReactNode, useEffect, useRef } from "react";
 import type { Area } from "./area.ts";
 import { type Box, gridZones, mgrsGrid, spacingFor, zoneSeams } from "./gridOverlay.ts";
 import { UCS2000_STRIPS, UCS2000_ZONE_AREAS } from "./ucs2000AreaOfUse.ts";
-import { formatUSNG } from "@coordinate-parser/formatter";
 import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 
 // OpenFreeMap: free vector tiles from OpenStreetMap data, no API key and no registration.
@@ -32,11 +31,11 @@ const KYIV: [number, number] = [30.5234, 50.4501];
 const PAPER = "#faf8f4";
 export const ACCENT = "#d97757";
 
-export const INPUT_COLOUR = "#7fb38a";
+const INPUT_COLOUR = "#7fb38a";
 export const OUTPUT_COLOUR = ACCENT;
-export const ZONE_COLOUR = "#8aa6d6";
-export const UTM_COLOUR = "#72b5b3";
-export const MGRS_COLOUR = "#aa97d1";
+const ZONE_COLOUR = "#8aa6d6";
+const UTM_COLOUR = "#72b5b3";
+const MGRS_COLOUR = "#aa97d1";
 
 // Line strengths: the finer grid lines, the structure, and what should stand out.
 const FAINT = 0.55;
@@ -482,12 +481,12 @@ const MGRS_LABEL_PIXELS = 120; // 100 km squares, to name them
 
 // A grid cell named for the map: at 100 km the square with its grid zone, "36U UA"; finer, the square
 // and the digits at the grid's precision, "UA 24 91" — the zone is plain from the 100 km labels, and
-// would only crowd the small cells. A 100 km reference has no digits, so its empty groups are dropped.
-const cellLabel = (reference: MGRSCoordinate) => {
-  const [zoneAndBand, ...rest] = formatUSNG({ ...reference, system: "USNG" })
-    .split(" ")
-    .filter(Boolean);
-  return reference.precision === 100_000 ? `${zoneAndBand} ${rest.join(" ")}` : rest.join(" ");
+// would only crowd the small cells.
+const cellLabel = ({ zone, band, square, easting, northing, precision }: MGRSCoordinate) => {
+  if (precision === 100_000) return `${zone}${band} ${square}`;
+  const digits = 5 - Math.log10(precision);
+  const axis = (metres: number) => String(metres / precision).padStart(digits, "0");
+  return `${square} ${axis(easting)} ${axis(northing)}`;
 };
 
 /** The MGRS grid for the map's current view, at a spacing that suits its scale. */

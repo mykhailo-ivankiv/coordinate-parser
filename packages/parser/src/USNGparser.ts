@@ -43,10 +43,10 @@ export const USNGparser = wholeInput(
     zoneNumber("USNG"),
     letterFrom(LATITUDE_BANDS, "a latitude band letter"),
     optionalWhitespace,
-    letterFrom(COLUMN_LETTERS, "a 100 km square column letter"),
-    letterFrom(ROW_LETTERS, "a 100 km square row letter"),
+    letterFrom([...COLUMN_LETTERS], "a 100 km square column letter"),
+    letterFrom([...ROW_LETTERS], "a 100 km square row letter"),
     optionalWhitespace,
-    numericLocation("USNG", 1),
+    numericLocation("USNG", [10000, 1000, 100, 10, 1]),
   ]).map(([zone, band, , column, row, , location]): Omit<USNGCoordinate, "system"> => ({
     zone,
     band,

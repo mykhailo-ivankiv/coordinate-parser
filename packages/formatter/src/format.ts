@@ -15,9 +15,10 @@ const DEGREE_SIGN = "°";
 // Digits per axis in the finest MGRS or USNG reference: 5, a 1 m square.
 const MAX_DIGITS_PER_AXIS = 5;
 
-// Fixed-point, with trailing zeros dropped: 50.4501 rather than 50.4501000.
+// Fixed-point, with trailing zeros dropped: 50.4501 rather than 50.4501000. A value that rounds to
+// zero is written "0", not "-0".
 const decimal = (value: number, fractionDigits: number) =>
-  value.toFixed(fractionDigits).replace(/\.?0+$/, "");
+  (Number(value.toFixed(fractionDigits)) + 0).toFixed(fractionDigits).replace(/\.?0+$/, "");
 
 /**
  * WGS 84 as signed decimal degrees, latitude first.
@@ -158,11 +159,13 @@ export const formatUSNG = ({ zone, band, square, easting, northing, precision }:
   `${zone}${band} ${square} ${digitsOf(easting, precision)} ${digitsOf(northing, precision)}`;
 
 /**
- * A UTM position: zone with its latitude band, or its hemisphere where it has no band, then easting
- * and northing.
+ * A UTM position: zone with its latitude band, then easting and northing.
  *
  * @param coordinate - The position.
  * @returns The written position.
+ * @throws RangeError for a position without a band. The letter after the zone is read back as a
+ * band, so writing the hemisphere there — "36S" for south — would read as band S, north of the
+ * equator.
  *
  * @example
  * ```ts
@@ -170,8 +173,14 @@ export const formatUSNG = ({ zone, band, square, easting, northing, precision }:
  * // → "36U 324182 5591608"
  * ```
  */
-export const formatUTM = ({ zone, band, hemisphere, easting, northing }: UTMCoordinate) =>
-  `${zone}${band ?? hemisphere} ${easting} ${northing}`;
+export const formatUTM = ({ zone, band, easting, northing }: UTMCoordinate) => {
+  if (band === undefined) {
+    throw new RangeError(
+      `UTM zone ${zone} position has no latitude band, and the letter after the zone is read as one`,
+    );
+  }
+  return `${zone}${band} ${easting} ${northing}`;
+};
 
 /**
  * UCS-2000 rectangular coordinates: X, then Y with the zone digit in front.
@@ -194,6 +203,7 @@ export const formatUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
  *
  * @param written - The coordinate, and for WGS 84 its format.
  * @returns The written coordinate.
+ * @throws RangeError for a UTM position without a band, as formatUTM does.
  *
  * @example
  * ```ts
@@ -208,7 +218,7 @@ export const format = (
     | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
     // One tuple over all the grids rather than one per grid, so that a coordinate whose grid is
     // only known at run time can be passed in as it is.
-    | [MGRSCoordinate | USNGCoordinate | UTMCoordinate | UCS2000Coordinate],
+    | [MGRSCoordinate | UTMCoordinate | UCS2000Coordinate],
 ): string => {
   if (written.length === 2) {
     const [coordinate, notation] = written;

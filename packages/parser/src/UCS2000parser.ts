@@ -61,8 +61,10 @@ const northing = groupedDigits.chain((captured?: GroupedDigits): Parser<number> 
   if (captured === undefined) return fail("Expecting a UCS-2000 northing");
 
   const { negative, value } = captured;
+  // X counts metres north of the equator, and the zones cover Ukraine, far north of it.
+  if (negative) return fail("UCS-2000 northing is north of the equator and cannot be negative");
   return value.length === NORTHING_DIGITS
-    ? succeedWith(negative ? -Number(value) : Number(value))
+    ? succeedWith(Number(value))
     : fail(`UCS-2000 northing must have ${NORTHING_DIGITS} digits, but got ${value.length}`);
 });
 

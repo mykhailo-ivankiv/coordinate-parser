@@ -129,7 +129,7 @@ const withHemisphere = (angle: Parser<number>, letters: string, negative: string
   sequenceOf([
     angle,
     optionalWhitespace,
-    letterFrom(letters, `a hemisphere letter ${letters[0]} or ${letters[1]}`),
+    letterFrom([...letters], `a hemisphere letter ${letters[0]} or ${letters[1]}`),
   ]).map(([degrees, , hemisphere]) => (hemisphere === negative ? -degrees : degrees));
 
 /** A latitude followed by N or S; S is south, negative. */

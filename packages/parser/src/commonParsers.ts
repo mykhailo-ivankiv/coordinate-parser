@@ -15,18 +15,6 @@ import {
   whitespace,
 } from "arcsecond";
 
-export const coordinateSystems = [
-  "WGS84",
-  "WGS84R",
-  "MGRS",
-  "UCS-2000",
-  "USNG",
-  "UTM",
-  "DD",
-  "DDM",
-  "DMS",
-];
-
 /** WGS 84 latitude and longitude in decimal degrees; south and west are negative. */
 export type Coordinates = { latitude: number; longitude: number };
 
@@ -65,13 +53,18 @@ const decimalDegrees = (decimalMark: string, allowSign = true) =>
   });
 
 // Case folding plus a readable error, shared by every notation that spells part of a coordinate
-// with a letter — hemisphere letters here, grid zone and square letters in gridReference.ts.
-export const letterFrom = (allowed: string, expected: string) =>
-  anyOfString(`${allowed}${allowed.toLowerCase()}`)
+// with a letter — hemisphere letters here, grid zone and square letters in gridReference.ts. The
+// result is the letter from `allowed` itself, so it keeps the type of the set it was read from.
+export const letterFrom = <L extends string>(allowed: readonly L[], expected: string) =>
+  anyOfString(`${allowed.join("")}${allowed.join("").toLowerCase()}`)
     .errorMap(
-      ({ index }) => `ParseError (position ${index}): Expecting ${expected}, one of ${allowed}`,
+      ({ index }) =>
+        `ParseError (position ${index}): Expecting ${expected}, one of ${allowed.join("")}`,
     )
-    .map((letter) => letter.toUpperCase());
+    .chain((letter?: string): Parser<L> => {
+      const found = allowed.find((candidate) => candidate === letter?.toUpperCase());
+      return found === undefined ? fail(`Expecting ${expected}`) : succeedWith(found);
+    });
 
 const withinRange =
   (name: string, limit: number) =>

@@ -33,11 +33,11 @@ export const MGRSparser = wholeInput(
     ),
     letterFrom(LATITUDE_BANDS, "a latitude band letter"),
     optionalWhitespace,
-    letterFrom(COLUMN_LETTERS, "a 100 km square column letter"),
-    letterFrom(ROW_LETTERS, "a 100 km square row letter"),
+    letterFrom([...COLUMN_LETTERS], "a 100 km square column letter"),
+    letterFrom([...ROW_LETTERS], "a 100 km square row letter"),
     optionalWhitespace,
     // MGRS permits a bare 100 km square, so no digits at all is a valid reference.
-    numericLocation("MGRS", 0),
+    numericLocation("MGRS", [100000, 10000, 1000, 100, 10, 1]),
   ]).map(([zone, band, , column, row, , location]): Omit<MGRSCoordinate, "system"> => ({
     zone,
     band,

@@ -30,6 +30,8 @@ const COLUMN_SETS = ["ABCDEFGH", "JKLMNPQR", "STUVWXYZ"];
 const EVEN_ZONE_ROW_OFFSET = 5;
 const SQUARE = 100000;
 const ROW_CYCLE = SQUARE * ROW_LETTERS.length;
+// Degrees from a zone's central meridian to its edge.
+const ZONE_HALF_WIDTH = 3;
 // Roughly, for latitude; only used to size the slack in the band check.
 const METRES_PER_DEGREE = 111000;
 
@@ -108,14 +110,7 @@ export const fromWgs84ToUsng = (
  * The grid square an MGRS or USNG reference names: its zone's unprojection, its south-west corner in
  * UTM metres — truncation, not rounding, put it there — its side, and its centre in WGS 84.
  */
-const mgrsSquare = ({
-  zone,
-  band,
-  square,
-  easting,
-  northing,
-  precision,
-}: MGRSCoordinate | USNGCoordinate) => {
+const mgrsSquare = ({ zone, band, square, easting, northing, precision }: MGRSCoordinate) => {
   const [columnLetter, rowLetter] = square;
 
   const column = columnSet(zone).indexOf(columnLetter) + 1;
@@ -131,16 +126,17 @@ const mgrsSquare = ({
   const [bandSouth, bandNorth] = bandLimits(band);
   const hemisphere = bandSouth < 0 ? "S" : "N";
 
-  // The band's southern edge is lowest on the central meridian, so a northing taken there is a
-  // floor that every square in the band sits above. Step the row up by whole 2000 km cycles until
-  // it clears that floor.
+  // The lowest northing of the band's southern edge is a floor that every square in the band sits
+  // above. North of the equator the parallels bow towards the pole, so the edge is lowest on the
+  // central meridian; south of it they bow the other way, and it is lowest at the zone's edges.
+  // Step the row up by whole 2000 km cycles until it clears that floor.
+  const edgeNorthing = (offset: number) =>
+    project(
+      { latitude: bandSouth, longitude: centralMeridianOf(zone) + offset },
+      utmProjection(zone, hemisphere),
+    ).northing;
   const bandFloor =
-    Math.floor(
-      project(
-        { latitude: bandSouth, longitude: centralMeridianOf(zone) },
-        utmProjection(zone, hemisphere),
-      ).northing / SQUARE,
-    ) * SQUARE;
+    Math.floor(Math.min(edgeNorthing(0), edgeNorthing(ZONE_HALF_WIDTH)) / SQUARE) * SQUARE;
   let squareNorthing = row * SQUARE;
   while (squareNorthing < bandFloor) squareNorthing += ROW_CYCLE;
 
