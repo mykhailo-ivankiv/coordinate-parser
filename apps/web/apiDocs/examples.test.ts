@@ -10,12 +10,12 @@ import { extractApiDocs } from "./extract.ts";
 //
 // An example is a sequence of expressions, each followed by a comment saying what it gives:
 //
-//   fromWGS84(point, "MGRS", { precision: 1000 }).value
-//   // → "36UUA2491"
-//   fromWGS84({ latitude: 89, longitude: 0 }, "UTM")
+//   fromWgs84ToMgrs(point, 1000).square
+//   // → "UA"
+//   fromWgs84ToUtm({ system: "WGS84", latitude: 89, longitude: 0 })
 //   // throws RangeError
 //
-// Both sides are evaluated as JavaScript with every export of both packages in scope, and compared by
+// Both sides are evaluated as JavaScript with every export of the packages in scope, and compared by
 // value, so an example has to be plain JavaScript, not TypeScript.
 
 const docs = await extractApiDocs();

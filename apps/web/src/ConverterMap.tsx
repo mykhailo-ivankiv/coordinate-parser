@@ -8,7 +8,7 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { type ReactNode, useEffect, useRef } from "react";
-import type { Area } from "@coordinate-parser/converter";
+import type { Area } from "./area.ts";
 import { type Box, gridZones, mgrsGrid, spacingFor, zoneSeams } from "./gridOverlay.ts";
 import { UCS2000_STRIPS, UCS2000_ZONE_AREAS } from "./ucs2000AreaOfUse.ts";
 import { formatUSNG } from "@coordinate-parser/formatter";

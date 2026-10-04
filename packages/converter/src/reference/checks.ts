@@ -3,9 +3,9 @@ import { format } from "@coordinate-parser/formatter";
 import * as mgrs from "mgrs";
 import type { Coordinates } from "../coordinates.ts";
 import { mgrsParser, usngParser, utmParser } from "@coordinate-parser/parser";
-import { fromWGS84, toWGS84 } from "../coordinateConverter.ts";
+import { fromMgrsToWgs84, fromUsngToWgs84, fromWgs84ToMgrs, fromWgs84ToUsng } from "../mgrs.ts";
 import { ucs2000Grid, ucs2000ZoneOf } from "../ucs2000.ts";
-import { projectToUTM, unprojectUTM } from "../utm.ts";
+import { fromUtmToWgs84, fromWgs84ToUtm, projectToUTM, unprojectUTM } from "../utm.ts";
 import { coordinateFormatter, proj4UCS2000, proj4UTM } from "./libraries.ts";
 import { KM_PER_DEGREE } from "./points.ts";
 
@@ -57,21 +57,43 @@ const fromArcgis = (point: Point | null | undefined): Coordinates | null =>
 
 const OUR_PARSERS = { MGRS: mgrsParser, USNG: usngParser, UTM: utmParser };
 
+// Our value for `system`, written as text.
+const ours = (point: Coordinates, system: keyof typeof OUR_PARSERS) => {
+  const wgs84 = { system: "WGS84" as const, ...point };
+  switch (system) {
+    case "MGRS":
+      return format([fromWgs84ToMgrs(wgs84)]);
+    case "USNG":
+      return format([fromWgs84ToUsng(wgs84)]);
+    case "UTM":
+      return format([fromWgs84ToUtm(wgs84)]);
+  }
+};
+
 /** Our value for `system`, read back by our own parser, and the point we take it to mean. */
 const ourReading = (point: Coordinates, system: keyof typeof OUR_PARSERS) => {
-  const value = format([fromWGS84({ system: "WGS84", ...point }, system)]);
+  const value = ours(point, system);
   const parsed = OUR_PARSERS[system].run(value);
-  return { value, coords: parsed.isError ? null : toWGS84(parsed.result[0]) };
+  if (parsed.isError) return { value, coords: null };
+  const [coordinate] = parsed.result;
+  switch (coordinate.system) {
+    case "MGRS":
+      return { value, coords: fromMgrsToWgs84(coordinate) };
+    case "USNG":
+      return { value, coords: fromUsngToWgs84(coordinate) };
+    case "UTM":
+      return { value, coords: fromUtmToWgs84(coordinate) };
+  }
 };
 
 const sameString =
   (system: "MGRS" | "USNG", theirs: (point: Coordinates) => string): Check["check"] =>
   (point) => {
-    const ours = format([fromWGS84({ system: "WGS84", ...point }, system)]);
+    const value = ours(point, system);
     const written = theirs(point);
-    return normalised(ours) === normalised(written) || onTruncationEdge(point)
+    return normalised(value) === normalised(written) || onTruncationEdge(point)
       ? null
-      : { point, ours, theirs: written };
+      : { point, ours: value, theirs: written };
   };
 
 const readsBack =

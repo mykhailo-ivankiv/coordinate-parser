@@ -1,7 +1,7 @@
 import type { MGRSCoordinate, USNGCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { ROW_LETTERS } from "./notation.ts";
-import { type Area, gridSquare, toDeclaredPrecision } from "./area.ts";
-import { project } from "./transverseMercator.ts";
+import { squareCentre, squareCorners, toDeclaredPrecision } from "./area.ts";
+import { type Projected, project } from "./transverseMercator.ts";
 import {
   BAND_TOLERANCE,
   bandLimits,
@@ -101,17 +101,17 @@ export const fromWgs84ToUsng = (
 };
 
 /**
- * The square an MGRS or USNG reference names, in WGS 84. The reference gives the square's
- * south-west corner — truncation, not rounding, put it there — and its precision gives the side.
+ * The grid square an MGRS or USNG reference names: its zone's unprojection, its south-west corner in
+ * UTM metres — truncation, not rounding, put it there — its side, and its centre in WGS 84.
  */
-export const mgrsArea = ({
+const mgrsSquare = ({
   zone,
   band,
   square,
   easting,
   northing,
   precision,
-}: MGRSCoordinate | USNGCoordinate): Area => {
+}: MGRSCoordinate | USNGCoordinate) => {
   const [columnLetter, rowLetter] = square;
 
   const column = columnSet(zone).indexOf(columnLetter) + 1;
@@ -140,16 +140,14 @@ export const mgrsArea = ({
   let squareNorthing = row * SQUARE;
   while (squareNorthing < bandFloor) squareNorthing += ROW_CYCLE;
 
-  const area = gridSquare(
-    (location) => unprojectUTM(location, zone, hemisphere),
-    { easting: column * SQUARE + easting, northing: squareNorthing + northing },
-    precision,
-  );
+  const fromGrid = (location: Projected) => unprojectUTM(location, zone, hemisphere);
+  const southWest = { easting: column * SQUARE + easting, northing: squareNorthing + northing };
+  const centre = squareCentre(fromGrid, southWest, precision);
 
   // The row letter only recurs every 2000 km, so a band spanning less than that leaves some row
   // letters with no square inside it. Such a reference is malformed rather than merely imprecise.
   // A coarse square may hang over the band edge, so the check allows for the square's own size.
-  const { latitude } = area.centre;
+  const { latitude } = centre;
   const slack = precision / METRES_PER_DEGREE + BAND_TOLERANCE;
   if (latitude < bandSouth - slack || latitude > bandNorth + slack) {
     throw new RangeError(
@@ -157,7 +155,7 @@ export const mgrsArea = ({
     );
   }
 
-  return area;
+  return { fromGrid, southWest, size: precision, centre };
 };
 
 /**
@@ -176,7 +174,7 @@ export const mgrsArea = ({
  * ```
  */
 export const fromMgrsToWgs84 = (reference: MGRSCoordinate): WGS84Coordinate =>
-  mgrsArea(reference).centre;
+  mgrsSquare(reference).centre;
 
 /**
  * A USNG reference as a WGS 84 point: the centre of the square it names, as for MGRS.
@@ -192,4 +190,56 @@ export const fromMgrsToWgs84 = (reference: MGRSCoordinate): WGS84Coordinate =>
  * ```
  */
 export const fromUsngToWgs84 = (reference: USNGCoordinate): WGS84Coordinate =>
-  mgrsArea(reference).centre;
+  mgrsSquare(reference).centre;
+
+/**
+ * The corners of the square an MGRS reference names, in WGS 84. The sides follow the UTM grid, so
+ * away from the zone's central meridian the square sits slightly rotated against the lines of
+ * latitude and longitude.
+ *
+ * @param reference - The MGRS reference.
+ * @returns The four corners, WGS 84 latitude and longitude.
+ * @throws RangeError where fromMgrsToWgs84 does.
+ *
+ * @example
+ * ```ts
+ * fromMgrsToWgs84Corners(mgrsParser.run("36UUA2491").result[0]).southWest
+ * // → { system: "WGS84", latitude: 50.4445861, longitude: 30.5211213 }
+ * ```
+ */
+export const fromMgrsToWgs84Corners = (
+  reference: MGRSCoordinate,
+): {
+  southWest: WGS84Coordinate;
+  southEast: WGS84Coordinate;
+  northEast: WGS84Coordinate;
+  northWest: WGS84Coordinate;
+} => {
+  const { fromGrid, southWest, size } = mgrsSquare(reference);
+  return squareCorners(fromGrid, southWest, size);
+};
+
+/**
+ * The corners of the square a USNG reference names, in WGS 84, as for MGRS.
+ *
+ * @param reference - The USNG reference.
+ * @returns The four corners, WGS 84 latitude and longitude.
+ * @throws RangeError where fromMgrsToWgs84 does.
+ *
+ * @example
+ * ```ts
+ * fromUsngToWgs84Corners(usngParser.run("36U UA 24 91").result[0]).northEast
+ * // → { system: "WGS84", latitude: 50.4538701, longitude: 30.5347249 }
+ * ```
+ */
+export const fromUsngToWgs84Corners = (
+  reference: USNGCoordinate,
+): {
+  southWest: WGS84Coordinate;
+  southEast: WGS84Coordinate;
+  northEast: WGS84Coordinate;
+  northWest: WGS84Coordinate;
+} => {
+  const { fromGrid, southWest, size } = mgrsSquare(reference);
+  return squareCorners(fromGrid, southWest, size);
+};

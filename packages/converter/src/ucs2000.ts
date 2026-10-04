@@ -1,7 +1,7 @@
 import type { UCS2000Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import type { Coordinates } from "./coordinates.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
-import { type Area, gridSquare, toDeclaredPrecision } from "./area.ts";
+import { squareCentre, squareCorners, toDeclaredPrecision } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UCS-2000 (УСК-2000) Gauss-Kruger rectangular coordinates.
@@ -75,13 +75,6 @@ export const fromWgs84ToUcs2000 = (point: WGS84Coordinate): UCS2000Coordinate =>
 };
 
 /**
- * The square a UCS-2000 reference names, in WGS 84: everything within half a metre of X and Y.
- * Each corner goes through the datum shift on its own, as any point would.
- */
-export const ucs2000Area = ({ zone, northing, easting }: UCS2000Coordinate): Area =>
-  gridSquare(ucs2000Grid(zone).unproject, { easting: easting - 0.5, northing: northing - 0.5 }, 1);
-
-/**
  * UCS-2000 rectangular coordinates as a WGS 84 point: the centre of the metre square they name,
  * taken back through the projection and the datum shift.
  *
@@ -94,5 +87,42 @@ export const ucs2000Area = ({ zone, northing, easting }: UCS2000Coordinate): Are
  * // → { system: "WGS84", latitude: 50.4238014, longitude: 30.5356689 }
  * ```
  */
-export const fromUcs2000ToWgs84 = (position: UCS2000Coordinate): WGS84Coordinate =>
-  ucs2000Area(position).centre;
+export const fromUcs2000ToWgs84 = ({
+  zone,
+  northing,
+  easting,
+}: UCS2000Coordinate): WGS84Coordinate =>
+  squareCentre(
+    ucs2000Grid(zone).unproject,
+    { easting: easting - 0.5, northing: northing - 0.5 },
+    1,
+  );
+
+/**
+ * The corners of the metre square a UCS-2000 position names, in WGS 84: half a metre either side of
+ * X and Y, each corner taken through the datum shift on its own, as any point would be.
+ *
+ * @param position - The UCS-2000 position.
+ * @returns The four corners, WGS 84 latitude and longitude.
+ *
+ * @example
+ * ```ts
+ * fromUcs2000ToWgs84Corners({ system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 }).southWest
+ * // → { system: "WGS84", latitude: 50.4500965, longitude: 30.5233959 }
+ * ```
+ */
+export const fromUcs2000ToWgs84Corners = ({
+  zone,
+  northing,
+  easting,
+}: UCS2000Coordinate): {
+  southWest: WGS84Coordinate;
+  southEast: WGS84Coordinate;
+  northEast: WGS84Coordinate;
+  northWest: WGS84Coordinate;
+} =>
+  squareCorners(
+    ucs2000Grid(zone).unproject,
+    { easting: easting - 0.5, northing: northing - 0.5 },
+    1,
+  );

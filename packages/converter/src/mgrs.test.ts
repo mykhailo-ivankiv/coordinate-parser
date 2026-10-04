@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { usngParser, mgrsParser } from "@coordinate-parser/parser";
 import { formatMGRS, formatUSNG } from "@coordinate-parser/formatter";
-import { fromMgrsToWgs84, fromWgs84ToMgrs, fromWgs84ToUsng } from "./mgrs.ts";
+import {
+  fromMgrsToWgs84,
+  fromMgrsToWgs84Corners,
+  fromUsngToWgs84Corners,
+  fromWgs84ToMgrs,
+  fromWgs84ToUsng,
+} from "./mgrs.ts";
 
 // Reference strings computed with the `mgrs` Python package 1.5, which wraps NGA's GEOTRANS.
 
@@ -146,5 +152,38 @@ describe("MGRS to WGS 84", () => {
     expect(() => fromMgrsToWgs84(parse("36UAA2418291607"))).toThrow(
       "MGRS column letter A is not used in zone 36, whose columns are STUVWXYZ",
     );
+  });
+});
+
+describe("the corners of an MGRS square", () => {
+  // Computed with PROJ 9.3, EPSG:32636 to EPSG:4326, on the corners of 36UUA2491.
+  const kyivCorners = {
+    southWest: { system: "WGS84", latitude: 50.4445861, longitude: 30.5211213 },
+    southEast: { system: "WGS84", latitude: 50.4448851, longitude: 30.535192 },
+    northEast: { system: "WGS84", latitude: 50.4538701, longitude: 30.5347249 },
+    northWest: { system: "WGS84", latitude: 50.453571, longitude: 30.5206516 },
+  };
+
+  it("matches PROJ at every corner", () => {
+    const parsed = mgrsParser.run("36UUA2491");
+    if (parsed.isError) throw new Error(parsed.error);
+    expect(fromMgrsToWgs84Corners(parsed.result[0])).toEqual(kyivCorners);
+  });
+
+  it("gives a USNG square the same corners", () => {
+    const parsed = usngParser.run("36U UA 24 91");
+    if (parsed.isError) throw new Error(parsed.error);
+    expect(fromUsngToWgs84Corners(parsed.result[0])).toEqual(kyivCorners);
+  });
+
+  it("puts the point inside the square it converts to", () => {
+    const point = { system: "WGS84" as const, latitude: 50.4501, longitude: 30.5234 };
+    const { southWest, southEast, northEast, northWest } = fromUsngToWgs84Corners(
+      fromWgs84ToUsng(point, 10000),
+    );
+    expect(point.latitude).toBeGreaterThan(Math.max(southWest.latitude, southEast.latitude));
+    expect(point.latitude).toBeLessThan(Math.min(northWest.latitude, northEast.latitude));
+    expect(point.longitude).toBeGreaterThan(Math.max(southWest.longitude, northWest.longitude));
+    expect(point.longitude).toBeLessThan(Math.min(southEast.longitude, northEast.longitude));
   });
 });

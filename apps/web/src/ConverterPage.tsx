@@ -1,14 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "./ConverterMap.tsx";
-import {
-  type Area,
-  areaOf,
-  coveringSquares,
-  fromWgs84ToMgrs,
-  fromWgs84ToUcs2000,
-  fromWgs84ToUsng,
-  fromWgs84ToUtm,
-} from "@coordinate-parser/converter";
+import { type Area, areaOf, coveringSquares, inSystem } from "./area.ts";
 import { format, formatWGS84 } from "@coordinate-parser/formatter";
 import { insideUcs2000AreaOfUse } from "./ucs2000AreaOfUse.ts";
 import {
@@ -434,40 +426,13 @@ type SectionResult = {
   coverage: Coverage | null;
 };
 
-// A WGS 84 point in `system`, or the reason the system cannot express it: UTM, MGRS and USNG stop
-// short of the poles, UCS-2000 at its zones, and USNG has no 100 km squares.
-const inSystem = (
-  point: WGS84Coordinate,
-  system: CoordinateSystem,
-  precision: 1 | 10 | 100 | 1000 | 10000 | 100000 = 1,
-): Coordinate | { system: CoordinateSystem; error: string } => {
-  try {
-    switch (system) {
-      case "WGS84":
-        return point;
-      case "MGRS":
-        return fromWgs84ToMgrs(point, precision);
-      case "USNG":
-        // A precision of 100000 gets past the type here and is refused with a RangeError instead.
-        return fromWgs84ToUsng(point, precision as 1 | 10 | 100 | 1000 | 10000);
-      case "UTM":
-        return fromWgs84ToUtm(point);
-      case "UCS-2000":
-        return fromWgs84ToUcs2000(point);
-    }
-  } catch (error) {
-    if (error instanceof RangeError) return { system, error: error.message };
-    throw error;
-  }
-};
-
 const coverageOf = (
-  area: Area,
+  input: Coordinate,
   system: CoordinateSystem,
   precision: 1 | 10 | 100 | 1000 | 10000 | 100000,
 ) => {
   try {
-    return coveringSquares(area, system, { precision });
+    return coveringSquares(input, system, precision);
   } catch (error) {
     // The system cannot express the input at all; the section already shows why.
     if (error instanceof RangeError) return null;
@@ -477,12 +442,13 @@ const coverageOf = (
 
 const resultOf = (
   section: Section,
+  input: Coordinate,
   area: Area,
   precision: 1 | 10 | 100 | 1000 | 10000 | 100000,
 ): SectionResult => ({
   conversions: section.systems.map((system) => inSystem(area.centre, system, precision)),
   outsideAreaOfUse: section.systems.includes("UCS-2000") && !insideUcs2000AreaOfUse(area.centre),
-  coverage: section.id === "WGS84" ? null : coverageOf(area, section.systems[0], precision),
+  coverage: section.id === "WGS84" ? null : coverageOf(input, section.systems[0], precision),
 });
 
 const squaresForMap = (coverage: Coverage | null): OutputSquare[] => {
@@ -1047,7 +1013,9 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   const results = new Map(
     sections.map((section) => [
       section.id,
-      outcome.kind === "converted" ? resultOf(section, outcome.area, precision) : null,
+      outcome.kind === "converted"
+        ? resultOf(section, outcome.written[0], outcome.area, precision)
+        : null,
     ]),
   );
 

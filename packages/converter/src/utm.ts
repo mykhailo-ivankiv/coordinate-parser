@@ -2,7 +2,7 @@ import type { Coordinates } from "./coordinates.ts";
 import type { UTMCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { LATITUDE_BANDS } from "./notation.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
-import { type Area, gridSquare, toDeclaredPrecision } from "./area.ts";
+import { squareCentre, squareCorners, toDeclaredPrecision } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UTM, per NGA.STND.0037_2.0.0_GRIDS §2 —
@@ -163,20 +163,18 @@ export const utmGrid = (zone: number, hemisphere: "N" | "S") => ({
 export const BAND_TOLERANCE = 0.0001;
 
 /**
- * The square a UTM reference names, in WGS 84: written to the whole metre, it stands for everything
- * within half a metre of its easting and northing. When the reference names a latitude band, the
- * result is checked against it.
+ * The metre square a UTM reference names: written to the whole metre, it stands for everything
+ * within half a metre of its easting and northing. When the reference names a latitude band, its
+ * centre is checked against it.
  */
-export const utmArea = ({ zone, hemisphere, band, easting, northing }: UTMCoordinate): Area => {
-  const area = gridSquare(
-    (location) => unprojectUTM(location, zone, hemisphere),
-    { easting: easting - 0.5, northing: northing - 0.5 },
-    1,
-  );
+const utmSquare = ({ zone, hemisphere, band, easting, northing }: UTMCoordinate) => {
+  const fromGrid = (location: Projected) => unprojectUTM(location, zone, hemisphere);
+  const southWest = { easting: easting - 0.5, northing: northing - 0.5 };
+  const centre = squareCentre(fromGrid, southWest, 1);
 
   if (band !== undefined) {
     const [south, north] = bandLimits(band);
-    const { latitude } = area.centre;
+    const { latitude } = centre;
     if (latitude < south - BAND_TOLERANCE || latitude > north + BAND_TOLERANCE) {
       throw new RangeError(
         `UTM band ${band} spans ${south}° to ${north}°, but northing ${northing} lies at ${latitude.toFixed(4)}°`,
@@ -184,7 +182,7 @@ export const utmArea = ({ zone, hemisphere, band, easting, northing }: UTMCoordi
     }
   }
 
-  return area;
+  return { fromGrid, southWest, centre };
 };
 
 /**
@@ -201,4 +199,30 @@ export const utmArea = ({ zone, hemisphere, band, easting, northing }: UTMCoordi
  * ```
  */
 export const fromUtmToWgs84 = (position: UTMCoordinate): WGS84Coordinate =>
-  utmArea(position).centre;
+  utmSquare(position).centre;
+
+/**
+ * The corners of the metre square a UTM position names, in WGS 84: half a metre either side of its
+ * easting and northing.
+ *
+ * @param position - The UTM position.
+ * @returns The four corners, WGS 84 latitude and longitude.
+ * @throws RangeError where fromUtmToWgs84 does.
+ *
+ * @example
+ * ```ts
+ * fromUtmToWgs84Corners(utmParser.run("36U 324182 5591608").result[0]).southWest
+ * // → { system: "WGS84", latitude: 50.4500988, longitude: 30.5233901 }
+ * ```
+ */
+export const fromUtmToWgs84Corners = (
+  position: UTMCoordinate,
+): {
+  southWest: WGS84Coordinate;
+  southEast: WGS84Coordinate;
+  northEast: WGS84Coordinate;
+  northWest: WGS84Coordinate;
+} => {
+  const { fromGrid, southWest } = utmSquare(position);
+  return squareCorners(fromGrid, southWest, 1);
+};

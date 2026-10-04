@@ -16,7 +16,7 @@ export type GridZone = Box & { designator: string };
 
 // The UTM latitude bands, south to north, I and O skipped, and the latitudes UTM covers; past them the
 // polar UPS grid takes over.
-const LATITUDE_BANDS = "CDEFGHJKLMNPQRSTUVWX";
+export const LATITUDE_BANDS = "CDEFGHJKLMNPQRSTUVWX";
 const UTM_SOUTH_LIMIT = -80;
 const UTM_NORTH_LIMIT = 84;
 
