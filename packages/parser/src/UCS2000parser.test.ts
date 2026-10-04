@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UCS2000 } from "./coordinateRegex.ts";
-import type { UCS2000Coordinate } from "@coordinate-parser/types";
+import type { UCS2000Coordinate } from "@coordinate-toolkit/types";
 import { UCS2000parser } from "./UCS2000parser.ts";
 
 // The grammar reads the data; the public parser adds the system tag and the format.

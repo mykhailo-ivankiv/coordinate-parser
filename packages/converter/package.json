@@ -1,5 +1,5 @@
 {
-  "name": "@coordinate-parser/converter",
+  "name": "@coordinate-toolkit/converter",
   "version": "0.0.0",
   "private": true,
   "description": "Converts parsed coordinates to and from WGS 84, with the area each written value designates.",
@@ -12,12 +12,12 @@
     "test:slow": "vitest run --config vitest.slow.config.ts"
   },
   "dependencies": {
-    "@coordinate-parser/types": "workspace:*"
+    "@coordinate-toolkit/types": "workspace:*"
   },
   "devDependencies": {
     "@arcgis/core": "^5.1.26",
-    "@coordinate-parser/formatter": "workspace:*",
-    "@coordinate-parser/parser": "workspace:*",
+    "@coordinate-toolkit/formatter": "workspace:*",
+    "@coordinate-toolkit/parser": "workspace:*",
     "mgrs": "^2.2.0",
     "proj4": "^2.22.0"
   }

@@ -11,7 +11,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import type { Area } from "./area.ts";
 import { type Box, gridZones, mgrsGrid, spacingFor, zoneSeams } from "./gridOverlay.ts";
 import { UCS2000_STRIPS, UCS2000_ZONE_AREAS } from "./ucs2000AreaOfUse.ts";
-import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
+import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-toolkit/types";
 
 // OpenFreeMap: free vector tiles from OpenStreetMap data, no API key and no registration.
 // https://openfreemap.org

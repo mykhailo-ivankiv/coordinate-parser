@@ -1,4 +1,4 @@
-import type { MGRSCoordinate, USNGCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
+import type { MGRSCoordinate, USNGCoordinate, WGS84Coordinate } from "@coordinate-toolkit/types";
 import { ROW_LETTERS } from "./notation.ts";
 import { squareCentre, gridSquare, toDeclaredPrecision } from "./area.ts";
 import { type Projected, project } from "./transverseMercator.ts";

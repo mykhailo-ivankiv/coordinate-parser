@@ -1,8 +1,8 @@
 import Point from "@arcgis/core/geometry/Point.js";
-import { format } from "@coordinate-parser/formatter";
+import { format } from "@coordinate-toolkit/formatter";
 import * as mgrs from "mgrs";
 import type { Coordinates } from "../coordinates.ts";
-import { mgrsParser, usngParser, utmParser } from "@coordinate-parser/parser";
+import { mgrsParser, usngParser, utmParser } from "@coordinate-toolkit/parser";
 import { fromMgrsToWgs84, fromUsngToWgs84, fromWgs84ToMgrs, fromWgs84ToUsng } from "../mgrs.ts";
 import { ucs2000Grid, ucs2000ZoneOf } from "../ucs2000.ts";
 import { fromUtmToWgs84, fromWgs84ToUtm, projectToUTM, unprojectUTM } from "../utm.ts";

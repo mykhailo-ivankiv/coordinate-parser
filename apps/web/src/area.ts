@@ -7,13 +7,13 @@ import {
   fromWgs84ToUcs2000,
   fromWgs84ToUsng,
   fromWgs84ToUtm,
-} from "@coordinate-parser/converter";
+} from "@coordinate-toolkit/converter";
 import type {
   Coordinate,
   CoordinateSystem,
   MGRSCoordinate,
   WGS84Coordinate,
-} from "@coordinate-parser/types";
+} from "@coordinate-toolkit/types";
 import { LATITUDE_BANDS } from "./gridOverlay.ts";
 
 // What a written coordinate designates, for the converter page and its map. A latitude/longitude

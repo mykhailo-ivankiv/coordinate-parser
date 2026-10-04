@@ -1,5 +1,5 @@
 {
-  "name": "@coordinate-parser/web",
+  "name": "@coordinate-toolkit/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,10 +10,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@coordinate-parser/converter": "workspace:*",
-    "@coordinate-parser/formatter": "workspace:*",
-    "@coordinate-parser/parser": "workspace:*",
-    "@coordinate-parser/types": "workspace:*",
+    "@coordinate-toolkit/converter": "workspace:*",
+    "@coordinate-toolkit/formatter": "workspace:*",
+    "@coordinate-toolkit/parser": "workspace:*",
+    "@coordinate-toolkit/types": "workspace:*",
     "@fontsource/ia-writer-mono": "^5.3.0",
     "@fontsource/ia-writer-quattro": "^5.3.0",
     "arcsecond": "^5.0.0",

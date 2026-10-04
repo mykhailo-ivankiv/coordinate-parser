@@ -1,4 +1,4 @@
-import type { UCS2000Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
+import type { UCS2000Coordinate, WGS84Coordinate } from "@coordinate-toolkit/types";
 import type { Coordinates } from "./coordinates.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
 import { squareCentre, gridSquare, toDeclaredPrecision } from "./area.ts";

@@ -1,4 +1,4 @@
-import type { UTMCoordinate } from "@coordinate-parser/types";
+import type { UTMCoordinate } from "@coordinate-toolkit/types";
 import { optionalWhitespace, sequenceOf } from "arcsecond";
 import { wholeInput } from "./commonParsers.ts";
 import { LATITUDE_BANDS, letterFrom, utmLocation, zoneNumber } from "./gridReference.ts";

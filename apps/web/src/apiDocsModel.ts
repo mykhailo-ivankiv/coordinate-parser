@@ -4,7 +4,7 @@
 // Prose fields are TSDoc text: paragraphs separated by blank lines, `inline code` in backticks, and
 // {@link Name} references already reduced to `Name`.
 
-import type { CoordinateSystem } from "@coordinate-parser/types";
+import type { CoordinateSystem } from "@coordinate-toolkit/types";
 
 export type ApiParameter = {
   name: string;

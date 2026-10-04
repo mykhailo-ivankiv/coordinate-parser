@@ -1,19 +1,19 @@
 {
-  "name": "coordinate-parser",
+  "name": "coordinate-toolkit",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @coordinate-parser/web dev",
-    "build": "tsc -b && pnpm --filter @coordinate-parser/web build",
-    "preview": "pnpm --filter @coordinate-parser/web preview",
+    "dev": "pnpm --filter @coordinate-toolkit/web dev",
+    "build": "tsc -b && pnpm --filter @coordinate-toolkit/web build",
+    "preview": "pnpm --filter @coordinate-toolkit/web preview",
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:slow": "pnpm --filter @coordinate-parser/converter test:slow"
+    "test:slow": "pnpm --filter @coordinate-toolkit/converter test:slow"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

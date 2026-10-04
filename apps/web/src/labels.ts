@@ -4,7 +4,7 @@ import type {
   UCS2000Coordinate,
   UTMCoordinate,
   WGS84Coordinate,
-} from "@coordinate-parser/types";
+} from "@coordinate-toolkit/types";
 
 // How a system and a format are named on the page, shared by the parser and the converter.
 

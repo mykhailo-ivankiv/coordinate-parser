@@ -1,4 +1,4 @@
-import type { USNGCoordinate } from "@coordinate-parser/types";
+import type { USNGCoordinate } from "@coordinate-toolkit/types";
 import { optionalWhitespace, sequenceOf } from "arcsecond";
 import { wholeInput } from "./commonParsers.ts";
 import {

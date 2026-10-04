@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
-import { usngParser, mgrsParser } from "@coordinate-parser/parser";
-import { formatMgrs, formatUsng } from "@coordinate-parser/formatter";
+import { usngParser, mgrsParser } from "@coordinate-toolkit/parser";
+import { formatMgrs, formatUsng } from "@coordinate-toolkit/formatter";
 import {
   fromMgrsToWgs84,
   fromMgrsToWgs84Square,

@@ -1,5 +1,5 @@
 {
-  "name": "@coordinate-parser/formatter",
+  "name": "@coordinate-toolkit/formatter",
   "version": "0.0.0",
   "private": true,
   "description": "Writes coordinates out as text, the inverse of the parser.",
@@ -11,9 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@coordinate-parser/types": "workspace:*"
+    "@coordinate-toolkit/types": "workspace:*"
   },
   "devDependencies": {
-    "@coordinate-parser/parser": "workspace:*"
+    "@coordinate-toolkit/parser": "workspace:*"
   }
 }

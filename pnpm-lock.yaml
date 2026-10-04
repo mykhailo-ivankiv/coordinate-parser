@@ -26,16 +26,16 @@ importers:
 
   apps/web:
     dependencies:
-      '@coordinate-parser/converter':
+      '@coordinate-toolkit/converter':
         specifier: workspace:*
         version: link:../../packages/converter
-      '@coordinate-parser/formatter':
+      '@coordinate-toolkit/formatter':
         specifier: workspace:*
         version: link:../../packages/formatter
-      '@coordinate-parser/parser':
+      '@coordinate-toolkit/parser':
         specifier: workspace:*
         version: link:../../packages/parser
-      '@coordinate-parser/types':
+      '@coordinate-toolkit/types':
         specifier: workspace:*
         version: link:../../packages/types
       '@fontsource/ia-writer-mono':
@@ -99,17 +99,17 @@ importers:
 
   packages/converter:
     dependencies:
-      '@coordinate-parser/types':
+      '@coordinate-toolkit/types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
       '@arcgis/core':
         specifier: ^5.1.26
         version: 5.1.26
-      '@coordinate-parser/formatter':
+      '@coordinate-toolkit/formatter':
         specifier: workspace:*
         version: link:../formatter
-      '@coordinate-parser/parser':
+      '@coordinate-toolkit/parser':
         specifier: workspace:*
         version: link:../parser
       mgrs:
@@ -121,17 +121,17 @@ importers:
 
   packages/formatter:
     dependencies:
-      '@coordinate-parser/types':
+      '@coordinate-toolkit/types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@coordinate-parser/parser':
+      '@coordinate-toolkit/parser':
         specifier: workspace:*
         version: link:../parser
 
   packages/parser:
     dependencies:
-      '@coordinate-parser/types':
+      '@coordinate-toolkit/types':
         specifier: workspace:*
         version: link:../types
       arcsecond:

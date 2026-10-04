@@ -1,5 +1,5 @@
 {
-  "name": "@coordinate-parser/types",
+  "name": "@coordinate-toolkit/types",
   "version": "0.0.0",
   "private": true,
   "description": "The coordinate and format types shared by the parser, the converter and the formatter.",

@@ -1,4 +1,4 @@
-import type { WGS84Coordinate } from "@coordinate-parser/types";
+import type { WGS84Coordinate } from "@coordinate-toolkit/types";
 import type { Box } from "./gridOverlay.ts";
 
 // Where UCS-2000 means something, for the map's layers and the warning beside a converted value.

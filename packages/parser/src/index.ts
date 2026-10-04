@@ -1,5 +1,5 @@
 // The parser package's public surface: whatever is exported here is documented on the API page.
-// The types the parsers return live in @coordinate-parser/types.
+// The types the parsers return live in @coordinate-toolkit/types.
 export {
   coordinateParser,
   mgrsParser,

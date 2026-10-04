@@ -9,8 +9,8 @@ import {
   wgs84dmsParser,
   wgs84Parser,
   wgs84rParser,
-} from "@coordinate-parser/parser";
-import type { WGS84Coordinate } from "@coordinate-parser/types";
+} from "@coordinate-toolkit/parser";
+import type { WGS84Coordinate } from "@coordinate-toolkit/types";
 import { describe, expect, it } from "vitest";
 import {
   format,

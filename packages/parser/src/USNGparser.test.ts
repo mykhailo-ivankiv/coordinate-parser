@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { USNG } from "./coordinateRegex.ts";
 import { MGRSparser } from "./MGRSparser.ts";
-import type { USNGCoordinate } from "@coordinate-parser/types";
+import type { USNGCoordinate } from "@coordinate-toolkit/types";
 import { USNGparser } from "./USNGparser.ts";
 
 // The grammar reads the data; the public parser adds the system tag and the format.

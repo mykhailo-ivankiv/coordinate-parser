@@ -1,4 +1,4 @@
-# coordinate-parser
+# coordinate-toolkit
 
 Takes a coordinate as people actually write it — pasted from a map, a report or a chat — works out
 which notation it is in, and converts it to any other.
@@ -22,22 +22,22 @@ https://mykhailo-ivankiv.github.io/coordinate-parser/
 
 ## Packages
 
-| Package                        | Path                  | What it does                                                     |
-| ------------------------------ | --------------------- | ---------------------------------------------------------------- |
-| `@coordinate-parser/types`     | `packages/types/`     | The coordinate types the other packages share                    |
-| `@coordinate-parser/parser`    | `packages/parser/`    | Reads a string into a coordinate, and the format for WGS 84      |
-| `@coordinate-parser/converter` | `packages/converter/` | Converts coordinates to and from WGS 84, and the area each names |
-| `@coordinate-parser/formatter` | `packages/formatter/` | Writes a coordinate as text, the inverse of the parser           |
-| `@coordinate-parser/web`       | `apps/web/`           | The site: parser, converter with a map, guide, API reference     |
+| Package                         | Path                  | What it does                                                     |
+| ------------------------------- | --------------------- | ---------------------------------------------------------------- |
+| `@coordinate-toolkit/types`     | `packages/types/`     | The coordinate types the other packages share                    |
+| `@coordinate-toolkit/parser`    | `packages/parser/`    | Reads a string into a coordinate, and the format for WGS 84      |
+| `@coordinate-toolkit/converter` | `packages/converter/` | Converts coordinates to and from WGS 84, and the area each names |
+| `@coordinate-toolkit/formatter` | `packages/formatter/` | Writes a coordinate as text, the inverse of the parser           |
+| `@coordinate-toolkit/web`       | `apps/web/`           | The site: parser, converter with a map, guide, API reference     |
 
 The parser, the converter and the formatter depend on the types, not on each other. The packages export their
 TypeScript source directly (`"exports": "./src/index.ts"`); there is no build step and none is
 published to npm.
 
 ```ts
-import { coordinateParser } from "@coordinate-parser/parser";
-import { fromMgrsToWgs84, fromWgs84ToUcs2000 } from "@coordinate-parser/converter";
-import { formatUcs2000 } from "@coordinate-parser/formatter";
+import { coordinateParser } from "@coordinate-toolkit/parser";
+import { fromMgrsToWgs84, fromWgs84ToUcs2000 } from "@coordinate-toolkit/converter";
+import { formatUcs2000 } from "@coordinate-toolkit/formatter";
 
 const parsed = coordinateParser.run("36UUA2418291607");
 // parsed.result is [coordinate] for a grid, [coordinate, format] for WGS 84

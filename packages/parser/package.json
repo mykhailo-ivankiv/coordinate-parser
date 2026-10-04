@@ -1,5 +1,5 @@
 {
-  "name": "@coordinate-parser/parser",
+  "name": "@coordinate-toolkit/parser",
   "version": "0.0.0",
   "private": true,
   "description": "Reads coordinates in WGS 84, MGRS, USNG, UTM and UCS-2000, reporting the data and the format it was written in.",
@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@coordinate-parser/types": "workspace:*",
+    "@coordinate-toolkit/types": "workspace:*",
     "arcsecond": "^5.0.0"
   }
 }

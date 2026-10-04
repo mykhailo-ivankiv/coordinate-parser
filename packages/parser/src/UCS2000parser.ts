@@ -1,4 +1,4 @@
-import type { UCS2000Coordinate } from "@coordinate-parser/types";
+import type { UCS2000Coordinate } from "@coordinate-toolkit/types";
 import {
   anyOfString,
   char,

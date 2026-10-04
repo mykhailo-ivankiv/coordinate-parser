@@ -1,5 +1,5 @@
-import { fromUtmToWgs84, fromWgs84ToMgrs, fromWgs84ToUtm } from "@coordinate-parser/converter";
-import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
+import { fromUtmToWgs84, fromWgs84ToMgrs, fromWgs84ToUtm } from "@coordinate-toolkit/converter";
+import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-toolkit/types";
 
 // The geometry of the UTM and MGRS grids, for drawing over a map.
 //

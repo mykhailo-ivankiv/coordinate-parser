@@ -1,4 +1,4 @@
-import type { MGRSCoordinate } from "@coordinate-parser/types";
+import type { MGRSCoordinate } from "@coordinate-toolkit/types";
 import { optionalWhitespace, sequenceOf } from "arcsecond";
 import { wholeInput } from "./commonParsers.ts";
 import {

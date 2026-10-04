@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import * as converter from "@coordinate-parser/converter";
-import * as formatter from "@coordinate-parser/formatter";
-import * as parser from "@coordinate-parser/parser";
+import * as converter from "@coordinate-toolkit/converter";
+import * as formatter from "@coordinate-toolkit/formatter";
+import * as parser from "@coordinate-toolkit/parser";
 import { extractApiDocs } from "./extract.ts";
 
 // Keeps the generated API page honest. Signatures cannot drift, since they come from the compiler,

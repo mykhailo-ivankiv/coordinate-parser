@@ -1,4 +1,4 @@
-import { fromWgs84ToUcs2000 } from "@coordinate-parser/converter";
+import { fromWgs84ToUcs2000 } from "@coordinate-toolkit/converter";
 import { describe, expect, it } from "vitest";
 import { insideUcs2000AreaOfUse } from "./ucs2000AreaOfUse.ts";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UTM } from "./coordinateRegex.ts";
-import type { UTMCoordinate } from "@coordinate-parser/types";
+import type { UTMCoordinate } from "@coordinate-toolkit/types";
 import { UTMparser } from "./UTMparser.ts";
 
 // The grammar reads the data; the public parser adds the system tag and the format.

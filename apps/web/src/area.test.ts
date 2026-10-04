@@ -1,7 +1,7 @@
-import { format } from "@coordinate-parser/formatter";
-import { coordinateParser, usngParser } from "@coordinate-parser/parser";
-import { fromWgs84ToUtm } from "@coordinate-parser/converter";
-import type { Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
+import { format } from "@coordinate-toolkit/formatter";
+import { coordinateParser, usngParser } from "@coordinate-toolkit/parser";
+import { fromWgs84ToUtm } from "@coordinate-toolkit/converter";
+import type { Coordinate, WGS84Coordinate } from "@coordinate-toolkit/types";
 import { describe, expect, it } from "vitest";
 import { areaOf, coveringSquares, inSystem } from "./area.ts";
 

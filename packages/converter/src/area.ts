@@ -1,4 +1,4 @@
-import type { WGS84Coordinate } from "@coordinate-parser/types";
+import type { WGS84Coordinate } from "@coordinate-toolkit/types";
 import type { Coordinates } from "./coordinates.ts";
 import { MAX_FRACTION_DIGITS } from "./notation.ts";
 import type { Projected } from "./transverseMercator.ts";

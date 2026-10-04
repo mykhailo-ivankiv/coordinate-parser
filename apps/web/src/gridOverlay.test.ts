@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gridZones, mgrsGrid, spacingFor, zoneSeams } from "./gridOverlay.ts";
-import { fromWgs84ToUtm } from "@coordinate-parser/converter";
+import { fromWgs84ToUtm } from "@coordinate-toolkit/converter";
 
 describe("UTM grid zones", () => {
   const zones = gridZones();

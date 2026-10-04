@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MGRS } from "./coordinateRegex.ts";
-import type { MGRSCoordinate } from "@coordinate-parser/types";
+import type { MGRSCoordinate } from "@coordinate-toolkit/types";
 import { MGRSparser } from "./MGRSparser.ts";
 
 // The grammar reads the data; the public parser adds the system tag and the format.

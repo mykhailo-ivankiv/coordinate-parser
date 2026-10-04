@@ -1,5 +1,5 @@
 import type { Coordinates } from "./coordinates.ts";
-import type { UTMCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
+import type { UTMCoordinate, WGS84Coordinate } from "@coordinate-toolkit/types";
 import { LATITUDE_BANDS } from "./notation.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
 import { squareCentre, gridSquare, toDeclaredPrecision } from "./area.ts";

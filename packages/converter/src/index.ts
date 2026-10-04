@@ -1,5 +1,5 @@
 // The converter package's public surface: whatever is exported here is documented on the API page.
-// The coordinate types it takes and returns live in @coordinate-parser/types.
+// The coordinate types it takes and returns live in @coordinate-toolkit/types.
 export {
   fromMgrsToWgs84,
   fromMgrsToWgs84Square,

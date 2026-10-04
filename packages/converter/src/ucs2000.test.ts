@@ -1,7 +1,7 @@
-import { formatUcs2000 } from "@coordinate-parser/formatter";
+import { formatUcs2000 } from "@coordinate-toolkit/formatter";
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
-import { ucs2000Parser } from "@coordinate-parser/parser";
+import { ucs2000Parser } from "@coordinate-toolkit/parser";
 import { project } from "./transverseMercator.ts";
 import { fromUcs2000ToWgs84, fromUcs2000ToWgs84Square, fromWgs84ToUcs2000 } from "./ucs2000.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";

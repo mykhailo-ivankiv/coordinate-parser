@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "./ConverterMap.tsx";
 import { type Area, areaOf, coveringSquares, inSystem } from "./area.ts";
-import { format, formatWgs84 } from "@coordinate-parser/formatter";
+import { format, formatWgs84 } from "@coordinate-toolkit/formatter";
 import { insideUcs2000AreaOfUse } from "./ucs2000AreaOfUse.ts";
 import {
   coordinateParser,
@@ -13,7 +13,7 @@ import {
   wgs84ddParser,
   wgs84dmsParser,
   wgs84Parser,
-} from "@coordinate-parser/parser";
+} from "@coordinate-toolkit/parser";
 import type {
   Coordinate,
   CoordinateSystem,
@@ -21,7 +21,7 @@ import type {
   UCS2000Coordinate,
   UTMCoordinate,
   WGS84Coordinate,
-} from "@coordinate-parser/types";
+} from "@coordinate-toolkit/types";
 import { choice } from "arcsecond";
 import { labelOf, systemLabel } from "./labels.ts";
 

@@ -4,7 +4,7 @@ import type {
   USNGCoordinate,
   UTMCoordinate,
   WGS84Coordinate,
-} from "@coordinate-parser/types";
+} from "@coordinate-toolkit/types";
 import { choice, type Parser, recursiveParser } from "arcsecond";
 import type { Coordinates } from "./commonParsers.ts";
 import { DDMparser } from "./DDMparser.ts";

@@ -24,19 +24,19 @@ const MODULES: {
   {
     id: "types",
     title: "Типи",
-    importLine: `import type { Coordinate, CoordinateSystem } from "@coordinate-parser/types";`,
+    importLine: `import type { Coordinate, CoordinateSystem } from "@coordinate-toolkit/types";`,
     groups: [{ id: "types" }],
   },
   {
     id: "parser",
     title: "Парсер",
-    importLine: `import { coordinateParser, mgrsParser } from "@coordinate-parser/parser";`,
+    importLine: `import { coordinateParser, mgrsParser } from "@coordinate-toolkit/parser";`,
     groups: [{ id: "parsers" }],
   },
   {
     id: "converter",
     title: "Конвертер",
-    importLine: `import { fromWgs84ToMgrs, fromMgrsToWgs84 } from "@coordinate-parser/converter";`,
+    importLine: `import { fromWgs84ToMgrs, fromMgrsToWgs84 } from "@coordinate-toolkit/converter";`,
     groups: [
       { id: "MGRS", title: "MGRS" },
       { id: "USNG", title: "USNG" },
@@ -47,7 +47,7 @@ const MODULES: {
   {
     id: "formatter",
     title: "Форматер",
-    importLine: `import { format, formatWgs84dms } from "@coordinate-parser/formatter";`,
+    importLine: `import { format, formatWgs84dms } from "@coordinate-toolkit/formatter";`,
     groups: [{ id: "functions" }],
   },
 ];

@@ -4,7 +4,7 @@ import type {
   USNGCoordinate,
   UTMCoordinate,
   WGS84Coordinate,
-} from "@coordinate-parser/types";
+} from "@coordinate-toolkit/types";
 
 // Coordinates written out, the inverse of the parser: every string here is one the matching parser
 // reads back to the same coordinate.

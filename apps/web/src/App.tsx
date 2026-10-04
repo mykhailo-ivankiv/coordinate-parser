@@ -11,13 +11,13 @@ const ConverterPage = lazy(() =>
 );
 // Also on demand: the generated reference is data only this page needs.
 const ApiPage = lazy(() => import("./ApiPage.tsx").then(({ ApiPage }) => ({ default: ApiPage })));
-import { coordinateParser } from "@coordinate-parser/parser";
+import { coordinateParser } from "@coordinate-toolkit/parser";
 import type {
   MGRSCoordinate,
   UCS2000Coordinate,
   UTMCoordinate,
   WGS84Coordinate,
-} from "@coordinate-parser/types";
+} from "@coordinate-toolkit/types";
 import { labelOf } from "./labels.ts";
 
 // Grouped by the `system` coordinateParser actually reports, not by which parser module
