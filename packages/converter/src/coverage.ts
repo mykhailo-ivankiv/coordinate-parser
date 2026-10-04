@@ -1,10 +1,10 @@
 import type { Coordinate, CoordinateSystem } from "@coordinate-parser/types";
 import type { Area } from "./area.ts";
 import { type ConversionOptions, fromWGS84 } from "./coordinateConverter.ts";
-import type { Box } from "./gridOverlay.ts";
+import type { Box } from "./area.ts";
 import type { Projected } from "./transverseMercator.ts";
-import { ucs2000Grid, ucs2000ZoneOf } from "./UCS2000converter.ts";
-import { projectToUTM, utmGrid } from "./UTMconverter.ts";
+import { ucs2000Grid, ucs2000ZoneOf } from "./ucs2000.ts";
+import { projectToUTM, utmGrid } from "./utm.ts";
 
 // A grid reference names a square, so converting one into another grid is not a point-to-point
 // operation. The input square can be larger than the target's squares — a 1 km MGRS square holds a

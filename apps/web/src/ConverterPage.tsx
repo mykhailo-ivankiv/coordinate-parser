@@ -6,10 +6,10 @@ import {
   type Coverage,
   coveringSquares,
   type GridPrecision,
-  insideUcs2000AreaOfUse,
   tryFromWGS84,
 } from "@coordinate-parser/converter";
 import { format, formatWGS84 } from "@coordinate-parser/formatter";
+import { insideUcs2000AreaOfUse } from "./ucs2000AreaOfUse.ts";
 import {
   coordinateParser,
   mgrsParser,

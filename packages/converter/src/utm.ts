@@ -1,8 +1,8 @@
 import type { Coordinates } from "./coordinates.ts";
-import type { UTMCoordinate } from "@coordinate-parser/types";
+import type { UTMCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { LATITUDE_BANDS } from "./notation.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
-import { type Area, gridSquare } from "./area.ts";
+import { type Area, gridSquare, toDeclaredPrecision } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UTM, per NGA.STND.0037_2.0.0_GRIDS §2 —
@@ -30,7 +30,21 @@ export const utmProjection = (zone: number, hemisphere: "N" | "S"): Projection =
 export const bandOf = (latitude: number) =>
   LATITUDE_BANDS[Math.min(Math.floor(latitude / BAND_HEIGHT) + 10, LATITUDE_BANDS.length - 1)];
 
-/** Southern and northern edge of a latitude band, degrees. */
+/**
+ * The southern and northern edge of a UTM and MGRS latitude band: 8° each from 80°S, except band X,
+ * which runs 72°N to 84°N.
+ *
+ * @param band - The band letter, C-X without I and O.
+ * @returns `[south, north]`, in degrees of latitude.
+ *
+ * @example
+ * ```ts
+ * bandLimits("U")
+ * // → [48, 56]
+ * bandLimits("X")
+ * // → [72, 84]
+ * ```
+ */
 export const bandLimits = (band: string): [number, number] => {
   const south = (LATITUDE_BANDS.indexOf(band) - 10) * BAND_HEIGHT;
   // Band X is the one exception to the eight-degree rule: it runs 72-84°N, twelve degrees.
@@ -39,9 +53,22 @@ export const bandLimits = (band: string): [number, number] => {
 
 export const hemisphereOfLatitude = (latitude: number): "N" | "S" => (latitude < 0 ? "S" : "N");
 
-// Zones are six degrees wide counted east from the antimeridian, with the exceptions NGA.STND.0037
-// carves out around Norway and Svalbard so that no country is split needlessly.
-export const zoneOf = ({ latitude, longitude }: Coordinates) => {
+/**
+ * The UTM zone a point falls in: six degrees wide, counted east from the antimeridian, with the
+ * exceptions NGA.STND.0037 carves out around Norway and Svalbard so that no country is split.
+ *
+ * @param point - The point, latitude and longitude in WGS 84.
+ * @returns The zone number, 1-60.
+ *
+ * @example
+ * ```ts
+ * zoneOf({ latitude: 50.4501, longitude: 30.5234 })
+ * // → 36
+ * zoneOf({ latitude: 60, longitude: 5 })
+ * // → 32
+ * ```
+ */
+export const zoneOf = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
   const zone = (Math.floor((longitude + 180) / 6) % 60) + 1;
   const band = bandOf(latitude);
 
@@ -64,7 +91,7 @@ const assertWithinUTM = ({ latitude }: Coordinates) => {
 
 /**
  * The exact, unrounded UTM position of a point, in its own zone. MGRS builds on this rather than on
- * `toUTM`, because MGRS truncates and must not see a value that has already been rounded up.
+ * `fromWgs84ToUtm`, because MGRS truncates and must not see a value that has already been rounded up.
  */
 export const projectToUTM = (coords: Coordinates) => {
   assertWithinUTM(coords);
@@ -78,9 +105,21 @@ export const projectToUTM = (coords: Coordinates) => {
   };
 };
 
-/** WGS 84 to UTM, rounded to the whole metre that UTM references are written in. */
-export const toUTM = (coords: Coordinates): UTMCoordinate => {
-  const { zone, hemisphere, band, easting, northing } = projectToUTM(coords);
+/**
+ * A WGS 84 point as a UTM position, rounded to the whole metre UTM is written in.
+ *
+ * @param point - The point, WGS 84 latitude and longitude.
+ * @returns The UTM position, with its latitude band.
+ * @throws RangeError outside 80°S-84°N, where UTM gives way to the polar UPS grid.
+ *
+ * @example
+ * ```ts
+ * fromWgs84ToUtm({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
+ * // → { system: "UTM", zone: 36, band: "U", hemisphere: "N", easting: 324182, northing: 5591608 }
+ * ```
+ */
+export const fromWgs84ToUtm = (point: WGS84Coordinate): UTMCoordinate => {
+  const { zone, hemisphere, band, easting, northing } = projectToUTM(toDeclaredPrecision(point));
   return {
     system: "UTM",
     zone,
@@ -95,12 +134,28 @@ export const unprojectUTM = (location: Projected, zone: number, hemisphere: "N" 
   unproject(location, utmProjection(zone, hemisphere));
 
 /**
- * The grid of one UTM zone, unrounded. Points outside the zone still project, onto its extended
- * grid, which is what comparing squares across a zone edge needs.
+ * The grid of one UTM zone, unrounded: `project` takes a point to metres east and north, `unproject`
+ * takes them back. Points outside the zone still project, onto its extended grid.
+ *
+ * @param zone - The zone number, 1-60.
+ * @param hemisphere - Which false northing applies.
+ * @returns The zone's projection both ways.
+ *
+ * @example
+ * ```ts
+ * utmGrid(36, "N").project({ latitude: 50.4501, longitude: 30.5234 }).easting > 324181
+ * // → true
+ * ```
  */
 export const utmGrid = (zone: number, hemisphere: "N" | "S") => ({
-  project: (coords: Coordinates): Projected => project(coords, utmProjection(zone, hemisphere)),
-  unproject: (location: Projected): Coordinates => unprojectUTM(location, zone, hemisphere),
+  project: (point: {
+    latitude: number;
+    longitude: number;
+  }): { easting: number; northing: number } => project(point, utmProjection(zone, hemisphere)),
+  unproject: (location: {
+    easting: number;
+    northing: number;
+  }): { latitude: number; longitude: number } => unprojectUTM(location, zone, hemisphere),
 });
 
 // A written reference is rounded to the metre, so a point on a band edge can land a hair across it.
@@ -132,5 +187,18 @@ export const utmArea = ({ zone, hemisphere, band, easting, northing }: UTMCoordi
   return area;
 };
 
-/** UTM to WGS 84, the centre of the referenced square. */
-export const fromUTM = (reference: UTMCoordinate): Coordinates => utmArea(reference).centre;
+/**
+ * A UTM position as a WGS 84 point: the centre of the metre square the position names.
+ *
+ * @param position - The UTM position.
+ * @returns The point, WGS 84 latitude and longitude.
+ * @throws RangeError for a latitude band the northing contradicts.
+ *
+ * @example
+ * ```ts
+ * fromUtmToWgs84({ system: "UTM", zone: 17, hemisphere: "N", easting: 630084, northing: 4833438 })
+ * // → { system: "WGS84", latitude: 43.6425618, longitude: -79.3871429 }
+ * ```
+ */
+export const fromUtmToWgs84 = (position: UTMCoordinate): WGS84Coordinate =>
+  utmArea(position).centre;

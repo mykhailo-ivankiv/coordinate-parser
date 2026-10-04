@@ -29,6 +29,9 @@ export const toDeclaredPrecision = (coords: {
   longitude: Math.round(coords.longitude * scale) / scale + 0,
 });
 
+/** A latitude/longitude box, in degrees. */
+export type Box = { west: number; south: number; east: number; north: number };
+
 /** The four corners of a grid square, in WGS 84. */
 export type Corners = {
   southWest: WGS84Coordinate;

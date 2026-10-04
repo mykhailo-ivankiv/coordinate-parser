@@ -1,7 +1,6 @@
-import type { Coordinates } from "./coordinates.ts";
-import type { MGRSCoordinate, USNGCoordinate } from "@coordinate-parser/types";
+import type { MGRSCoordinate, USNGCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { ROW_LETTERS } from "./notation.ts";
-import { type Area, gridSquare } from "./area.ts";
+import { type Area, gridSquare, toDeclaredPrecision } from "./area.ts";
 import { project } from "./transverseMercator.ts";
 import {
   BAND_TOLERANCE,
@@ -10,7 +9,7 @@ import {
   projectToUTM,
   unprojectUTM,
   utmProjection,
-} from "./UTMconverter.ts";
+} from "./utm.ts";
 
 // WGS 84 latitude/longitude to and from MGRS, per NGA.STND.0037_2.0.0_GRIDS §3 —
 // https://nsgreg.nga.mil/doc/view?i=4057. USNG uses the identical grid (FGDC-STD-011-2001), so the
@@ -41,11 +40,25 @@ const rowOffset = (zone: number) => (zone % 2 === 0 ? EVEN_ZONE_ROW_OFFSET : 0);
 export type GridPrecision = 1 | 10 | 100 | 1000 | 10000 | 100000;
 
 /**
- * WGS 84 to MGRS. A grid reference names the square a point falls in, so the position within the
- * square is truncated, never rounded: rounding up could name the neighbouring square.
+ * A WGS 84 point as the MGRS reference of the square it falls in. The position within the square is
+ * truncated, never rounded: rounding up could name the neighbouring square.
+ *
+ * @param point - The point, WGS 84 latitude and longitude.
+ * @param precision - Side of the square to name, in metres; 1 unless given.
+ * @returns The MGRS reference.
+ * @throws RangeError outside 80°S-84°N, where MGRS gives way to the polar UPS grid.
+ *
+ * @example
+ * ```ts
+ * fromWgs84ToMgrs({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, 1000)
+ * // → { system: "MGRS", zone: 36, band: "U", square: "UA", easting: 24000, northing: 91000, precision: 1000 }
+ * ```
  */
-export const toMGRS = (coords: Coordinates, precision: GridPrecision = 1): MGRSCoordinate => {
-  const { zone, band, easting, northing } = projectToUTM(coords);
+export const fromWgs84ToMgrs = (
+  point: WGS84Coordinate,
+  precision: GridPrecision = 1,
+): MGRSCoordinate => {
+  const { zone, band, easting, northing } = projectToUTM(toDeclaredPrecision(point));
 
   const column = Math.floor(easting / SQUARE);
   const row = Math.floor(northing / SQUARE) % ROW_LETTERS.length;
@@ -62,11 +75,33 @@ export const toMGRS = (coords: Coordinates, precision: GridPrecision = 1): MGRSC
   };
 };
 
-/** WGS 84 to USNG: the MGRS grid, with at least one digit per axis. */
-export const toUSNG = (
-  coords: Coordinates,
+/**
+ * A WGS 84 point as the USNG reference of the square it falls in: the MGRS grid, with at least one
+ * digit per axis, so 10 km is its coarsest square.
+ *
+ * @param point - The point, WGS 84 latitude and longitude.
+ * @param precision - Side of the square to name, in metres; 1 unless given.
+ * @returns The USNG reference.
+ * @throws RangeError outside 80°S-84°N, and for a precision of 100000, which USNG cannot express.
+ *
+ * @example
+ * ```ts
+ * fromWgs84ToUsng({ system: "WGS84", latitude: 40.7128, longitude: -74.006 }, 10000)
+ * // → { system: "USNG", zone: 18, band: "T", square: "WL", easting: 80000, northing: 0, precision: 10000 }
+ * ```
+ */
+export const fromWgs84ToUsng = (
+  point: WGS84Coordinate,
   precision: Exclude<GridPrecision, 100000> = 1,
-): USNGCoordinate => ({ ...toMGRS(coords, precision), system: "USNG" });
+): USNGCoordinate => {
+  // The type rules it out; this is for callers the type does not reach.
+  if ((precision as GridPrecision) === 100000) {
+    throw new RangeError(
+      "USNG requires at least one digit per axis, so its coarsest square is 10 km",
+    );
+  }
+  return { ...fromWgs84ToMgrs(point, precision), system: "USNG" };
+};
 
 /**
  * The square an MGRS or USNG reference names, in WGS 84. The reference gives the square's
@@ -129,8 +164,35 @@ export const mgrsArea = ({
 };
 
 /**
- * MGRS or USNG to WGS 84. A reference names a square rather than a point, so this returns the
- * square's centre: the best single estimate, at most half a square from anywhere inside it.
+ * An MGRS reference as a WGS 84 point. A reference names a square rather than a point, so this is
+ * the square's centre: the best single estimate, at most half a square from anywhere inside it.
+ *
+ * @param reference - The MGRS reference.
+ * @returns The centre of the square, WGS 84 latitude and longitude.
+ * @throws RangeError for a reference no place matches: a column letter not used in its zone, or a
+ * square with no part in its latitude band.
+ *
+ * @example
+ * ```ts
+ * fromMgrsToWgs84(mgrsParser.run("36UUA2491").result[0])
+ * // → { system: "WGS84", latitude: 50.4492283, longitude: 30.5279224 }
+ * ```
  */
-export const fromMGRS = (reference: Parameters<typeof mgrsArea>[0]): Coordinates =>
+export const fromMgrsToWgs84 = (reference: MGRSCoordinate): WGS84Coordinate =>
+  mgrsArea(reference).centre;
+
+/**
+ * A USNG reference as a WGS 84 point: the centre of the square it names, as for MGRS.
+ *
+ * @param reference - The USNG reference.
+ * @returns The centre of the square, WGS 84 latitude and longitude.
+ * @throws RangeError where fromMgrsToWgs84 does.
+ *
+ * @example
+ * ```ts
+ * fromUsngToWgs84(usngParser.run("18T WL 83959 07350").result[0])
+ * // → { system: "WGS84", latitude: 40.7127955, longitude: -74.0059986 }
+ * ```
+ */
+export const fromUsngToWgs84 = (reference: USNGCoordinate): WGS84Coordinate =>
   mgrsArea(reference).centre;

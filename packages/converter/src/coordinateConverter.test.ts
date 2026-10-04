@@ -14,7 +14,7 @@ import type { Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import { describe, expect, it } from "vitest";
 import { areaOf, fromWGS84, toAllSystems, toWGS84 } from "./coordinateConverter.ts";
 import { project } from "./transverseMercator.ts";
-import { utmProjection } from "./UTMconverter.ts";
+import { utmProjection } from "./utm.ts";
 
 const parse = (input: string): Coordinate => {
   const result = coordinateParser.run(input);

@@ -1,16 +1,5 @@
+import { fromUtmToWgs84, fromWgs84ToMgrs, fromWgs84ToUtm } from "@coordinate-parser/converter";
 import type { MGRSCoordinate, WGS84Coordinate } from "@coordinate-parser/types";
-import type { Coordinates } from "./coordinates.ts";
-import { LATITUDE_BANDS } from "./notation.ts";
-import { toMGRS } from "./MGRSconverter.ts";
-import { project } from "./transverseMercator.ts";
-import {
-  bandLimits,
-  UTM_NORTH_LIMIT,
-  UTM_SOUTH_LIMIT,
-  unprojectUTM,
-  utmProjection,
-  zoneOf,
-} from "./UTMconverter.ts";
 
 // The geometry of the UTM and MGRS grids, for drawing over a map.
 //
@@ -19,11 +8,23 @@ import {
 //   * The MGRS grid is lines of constant easting and northing inside each zone: curves on a web map,
 //     and far too many to draw for the whole world, so they are worked out for the view at hand.
 
+/** A UTM grid zone and its box: `designator` is the zone number and band, "36U". */
 /** A latitude/longitude box, in degrees. */
 export type Box = { west: number; south: number; east: number; north: number };
 
-/** A UTM grid zone and its box: `designator` is the zone number and band, "36U". */
 export type GridZone = Box & { designator: string };
+
+// The UTM latitude bands, south to north, I and O skipped, and the latitudes UTM covers; past them the
+// polar UPS grid takes over.
+const LATITUDE_BANDS = "CDEFGHJKLMNPQRSTUVWX";
+const UTM_SOUTH_LIMIT = -80;
+const UTM_NORTH_LIMIT = 84;
+
+// Bands are 8° from 80°S, except X, which runs 72°N to 84°N.
+const bandLimits = (band: string): [number, number] => {
+  const south = UTM_SOUTH_LIMIT + LATITUDE_BANDS.indexOf(band) * 8;
+  return [south, band === "X" ? UTM_NORTH_LIMIT : south + 8];
+};
 
 const ZONE_WIDTH = 6;
 
@@ -99,7 +100,7 @@ const paddedRange = (values: number[]) => {
 // millimetre even for a 100 km line across a wide view.
 const EDGE_STEPS = 20;
 
-const inUTM = ({ latitude }: Coordinates) =>
+const inUTM = ({ latitude }: WGS84Coordinate) =>
   latitude >= UTM_SOUTH_LIMIT && latitude <= UTM_NORTH_LIMIT;
 
 /**
@@ -127,31 +128,21 @@ export const mgrsGrid = (
     if (west >= east) continue;
 
     for (const hemisphere of ["N", "S"] as const) {
+      // The southern side stops a hair short of the equator: a point on it is written as northern.
       const south = Math.max(view.south, hemisphere === "N" ? 0 : UTM_SOUTH_LIMIT);
-      const north = Math.min(view.north, hemisphere === "N" ? UTM_NORTH_LIMIT : 0);
+      const north = Math.min(view.north, hemisphere === "N" ? UTM_NORTH_LIMIT : -1e-6);
       if (south >= north) continue;
 
-      const projection = utmProjection(zone, hemisphere);
-      const lattice = Array.from({ length: LATTICE + 1 }, (_, i) =>
-        Array.from({ length: LATTICE + 1 }, (_, j) =>
-          project(
-            {
-              latitude: south + ((north - south) * i) / LATTICE,
-              longitude: west + ((east - west) * j) / LATTICE,
-            },
-            projection,
-          ),
-        ),
-      ).flat();
-      const [eMin, eMax] = paddedRange(lattice.map(({ easting }) => easting));
-      const [nMin, nMax] = paddedRange(lattice.map(({ northing }) => northing));
-
-      const belongs = (point: Coordinates) =>
-        inUTM(point) && (hemisphere === "N") === point.latitude >= 0 && zoneOf(point) === zone;
-      const point = (easting: number, northing: number): WGS84Coordinate => ({
-        system: "WGS84",
-        ...unprojectUTM({ easting, northing }, zone, hemisphere),
-      });
+      // fromWgs84ToUtm writes a point on the grid of the zone it falls in, exceptions included.
+      const belongs = (point: WGS84Coordinate) =>
+        inUTM(point) &&
+        (hemisphere === "N") === point.latitude >= 0 &&
+        fromWgs84ToUtm(point).zone === zone;
+      // On this zone's grid, wherever the point lands: the line runs on past the zone's edge until
+      // `belongs` cuts it. fromUtmToWgs84 gives the centre of the metre square around the position,
+      // which is the position itself.
+      const point = (easting: number, northing: number): WGS84Coordinate =>
+        fromUtmToWgs84({ system: "UTM", zone, hemisphere, easting, northing });
 
       // Where along a line, between a sample inside the zone and one outside, the zone edge falls.
       const edgeBetween = (
@@ -166,6 +157,30 @@ export const mgrsGrid = (
         }
         return sample(inside);
       };
+
+      // Where this zone's part of the view lies on the zone's grid: a lattice over the view, kept to
+      // the points in this zone, plus the point where each row crosses the zone's edge.
+      const lattice = Array.from({ length: LATTICE + 1 }, (_, i) => {
+        const latitude = south + ((north - south) * i) / LATTICE;
+        const at = (t: number): WGS84Coordinate => ({
+          system: "WGS84",
+          latitude,
+          longitude: west + (east - west) * t,
+        });
+        return Array.from({ length: LATTICE + 1 }, (_, j) => j / LATTICE).flatMap((t, j, row) => {
+          const inside = belongs(at(t));
+          const crossed = j > 0 && inside !== belongs(at(row[j - 1]));
+          const edge = crossed
+            ? [inside ? edgeBetween(at, t, row[j - 1]) : edgeBetween(at, row[j - 1], t)]
+            : [];
+          return [...edge, ...(inside ? [at(t)] : [])];
+        });
+      })
+        .flat()
+        .map((inZone) => fromWgs84ToUtm(inZone));
+      if (lattice.length === 0) continue;
+      const [eMin, eMax] = paddedRange(lattice.map(({ easting }) => easting));
+      const [nMin, nMax] = paddedRange(lattice.map(({ northing }) => northing));
 
       // A line as the runs of its samples that lie in this zone, each run carried exactly to the zone
       // edge where it meets one, so that the grids of neighbouring zones meet on the seam rather than
@@ -206,7 +221,7 @@ export const mgrsGrid = (
         for (let northing = firstCell(nMin); northing <= nMax; northing += spacing) {
           const centre = point(easting + spacing / 2, northing + spacing / 2);
           if (!belongs(centre)) continue;
-          labels.push({ at: centre, reference: toMGRS(centre, spacing) });
+          labels.push({ at: centre, reference: fromWgs84ToMgrs(centre, spacing) });
         }
       }
     }

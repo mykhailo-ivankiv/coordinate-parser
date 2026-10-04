@@ -1,8 +1,7 @@
 import type { UCS2000Coordinate, WGS84Coordinate } from "@coordinate-parser/types";
 import type { Coordinates } from "./coordinates.ts";
-import type { Box } from "./gridOverlay.ts";
 import { KRASSOWSKY_1940, localToWGS84, UCS2000_TO_WGS84, wgs84ToLocal } from "./ellipsoid.ts";
-import { type Area, gridSquare } from "./area.ts";
+import { type Area, gridSquare, toDeclaredPrecision } from "./area.ts";
 import { type Projected, type Projection, project, unproject } from "./transverseMercator.ts";
 
 // WGS 84 latitude/longitude to and from UCS-2000 (УСК-2000) Gauss-Kruger rectangular coordinates.
@@ -53,8 +52,23 @@ export const ucs2000ZoneOf = (coords: Coordinates) => {
   return zone;
 };
 
-/** WGS 84 to UCS-2000, rounded to the whole metre the rectangular coordinates are written in. */
-export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
+/**
+ * A WGS 84 point as UCS-2000 rectangular coordinates: shifted onto the Ukraine 2000 datum, projected
+ * onto its Gauss-Kruger zone, and rounded to the whole metre.
+ *
+ * @param point - The point, WGS 84 latitude and longitude.
+ * @returns The UCS-2000 position.
+ * @throws RangeError outside zones 4-7, 18°E to 42°E. Between Ukraine and the zone edges it still
+ * converts, though the datum shift was fitted to Ukraine only.
+ *
+ * @example
+ * ```ts
+ * fromWgs84ToUcs2000({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
+ * // → { system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 }
+ * ```
+ */
+export const fromWgs84ToUcs2000 = (point: WGS84Coordinate): UCS2000Coordinate => {
+  const coords = toDeclaredPrecision(point);
   const zone = ucs2000ZoneOf(coords);
   const { easting, northing } = ucs2000Grid(zone).project(coords);
   return { system: "UCS-2000", zone, northing: Math.round(northing), easting: Math.round(easting) };
@@ -67,69 +81,18 @@ export const toUCS2000 = (coords: Coordinates): UCS2000Coordinate => {
 export const ucs2000Area = ({ zone, northing, easting }: UCS2000Coordinate): Area =>
   gridSquare(ucs2000Grid(zone).unproject, { easting: easting - 0.5, northing: northing - 0.5 }, 1);
 
-/** UCS-2000 to WGS 84, the centre of the referenced square. */
-export const fromUCS2000 = (reference: UCS2000Coordinate): Coordinates =>
-  ucs2000Area(reference).centre;
-
 /**
- * Where each UCS-2000 zone is defined: EPSG's area of use for the zone CRSs, EPSG:5562-5565. These
- * are bounding boxes of the part of Ukraine each zone covers, not the border itself. The converter
- * computes across each zone's whole six-degree strip, but the datum shift means nothing outside
- * Ukraine.
- */
-const UCS2000_ZONE_AREAS: (Box & { zone: number })[] = [
-  { zone: 4, west: 22.15, south: 47.95, east: 24, north: 51.66 },
-  { zone: 5, west: 24, south: 45.1, east: 30, north: 51.96 },
-  { zone: 6, west: 30, south: 43.18, east: 36, north: 52.38 },
-  { zone: 7, west: 36, south: 43.43, east: 40.18, north: 50.44 },
-];
-
-/** A UCS-2000 zone with its two boxes, as ucs2000Zones lists them. */
-export type Ucs2000Zone = {
-  /** Zone number, 4-7. */
-  zone: number;
-  /** Where the zone is defined: EPSG's area of use, a box around the part of Ukraine it covers. */
-  areaOfUse: Box;
-  /** The zone's whole six-degree strip, as far towards the poles as a web map reaches. */
-  strip: Box;
-};
-
-/**
- * The four UCS-2000 zones. The converter computes across each zone's whole strip and refuses
- * outside the strips; between the area of use and the strip edge it computes and flags the value,
- * since the datum shift was fitted to Ukraine only.
+ * UCS-2000 rectangular coordinates as a WGS 84 point: the centre of the metre square they name,
+ * taken back through the projection and the datum shift.
  *
- * @returns Zones 4-7, west to east.
+ * @param position - The UCS-2000 position.
+ * @returns The point, WGS 84 latitude and longitude.
  *
  * @example
  * ```ts
- * ucs2000Zones()[2]
- * // → { zone: 6, areaOfUse: { west: 30, south: 43.18, east: 36, north: 52.38 }, strip: { west: 30, south: -85, east: 36, north: 85 } }
+ * fromUcs2000ToWgs84({ system: "UCS-2000", zone: 6, northing: 5591000, easting: 325000 })
+ * // → { system: "WGS84", latitude: 50.4238014, longitude: 30.5356689 }
  * ```
  */
-export const ucs2000Zones = (): Ucs2000Zone[] =>
-  UCS2000_ZONE_AREAS.map(({ zone, ...areaOfUse }) => ({
-    zone,
-    areaOfUse,
-    strip: { west: (zone - 1) * ZONE_WIDTH, south: -85, east: zone * ZONE_WIDTH, north: 85 },
-  }));
-
-/**
- * Whether a WGS 84 point lies in UCS-2000's area of use: inside the EPSG box of the zone it falls in.
- * Outside it the conversion still runs — the projection is sound across the whole strip — but the
- * EPSG:5840 datum shift was fitted to Ukraine, so its accuracy there is not guaranteed.
- *
- * @param coords - The point, WGS 84 latitude and longitude.
- * @returns True inside the area of use.
- */
-export const insideUcs2000AreaOfUse = (coords: WGS84Coordinate) => {
-  const zone = Math.floor(coords.longitude / ZONE_WIDTH) + 1;
-  const area = UCS2000_ZONE_AREAS.find((candidate) => candidate.zone === zone);
-  return (
-    area !== undefined &&
-    coords.latitude >= area.south &&
-    coords.latitude <= area.north &&
-    coords.longitude >= area.west &&
-    coords.longitude <= area.east
-  );
-};
+export const fromUcs2000ToWgs84 = (position: UCS2000Coordinate): WGS84Coordinate =>
+  ucs2000Area(position).centre;

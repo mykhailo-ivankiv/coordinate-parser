@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gridZones, mgrsGrid, spacingFor, zoneSeams } from "./gridOverlay.ts";
-import { project } from "./transverseMercator.ts";
-import { utmProjection } from "./UTMconverter.ts";
+import { fromWgs84ToUtm } from "@coordinate-parser/converter";
 
 describe("UTM grid zones", () => {
   const zones = gridZones();
@@ -42,7 +41,8 @@ describe("MGRS grid", () => {
     expect(grid.lines.length).toBeGreaterThan(0);
 
     for (const { path } of grid.lines) {
-      const projected = path.map((point) => project(point, utmProjection(36, "N")));
+      // Every point of a line lies in its zone, so fromWgs84ToUtm writes it on that zone's grid.
+      const projected = path.map((point) => fromWgs84ToUtm(point));
       const onEasting = projected.every(
         ({ easting }) => Math.abs(easting / 100_000 - Math.round(easting / 100_000)) < 1e-6,
       );

@@ -4,8 +4,8 @@ import * as mgrs from "mgrs";
 import type { Coordinates } from "../coordinates.ts";
 import { mgrsParser, usngParser, utmParser } from "@coordinate-parser/parser";
 import { fromWGS84, toWGS84 } from "../coordinateConverter.ts";
-import { ucs2000Grid, ucs2000ZoneOf } from "../UCS2000converter.ts";
-import { projectToUTM, unprojectUTM } from "../UTMconverter.ts";
+import { ucs2000Grid, ucs2000ZoneOf } from "../ucs2000.ts";
+import { projectToUTM, unprojectUTM } from "../utm.ts";
 import { coordinateFormatter, proj4UCS2000, proj4UTM } from "./libraries.ts";
 import { KM_PER_DEGREE } from "./points.ts";
 

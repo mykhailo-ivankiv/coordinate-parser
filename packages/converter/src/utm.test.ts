@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { formatUTM } from "@coordinate-parser/formatter";
-import { fromUTM, projectToUTM, toUTM } from "./UTMconverter.ts";
+import { fromUtmToWgs84, projectToUTM, fromWgs84ToUtm } from "./utm.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), WGS 84 to EPSG:326xx / EPSG:327xx.
 
@@ -77,7 +77,7 @@ describe("WGS 84 to UTM", () => {
   );
 
   it("rounds to the whole metre and reads the band as the hemisphere", () => {
-    expect(toUTM({ latitude: 50.4501, longitude: 30.5234 })).toEqual({
+    expect(fromWgs84ToUtm({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })).toEqual({
       system: "UTM",
       zone: 36,
       band: "U",
@@ -85,20 +85,28 @@ describe("WGS 84 to UTM", () => {
       easting: 324182,
       northing: 5591608,
     });
-    expect(toUTM({ latitude: -33.8688, longitude: 151.2093 }).hemisphere).toBe("S");
+    expect(
+      fromWgs84ToUtm({ system: "WGS84", latitude: -33.8688, longitude: 151.2093 }).hemisphere,
+    ).toBe("S");
   });
 
   it("formats the way UTMparser reads", () => {
-    expect(formatUTM(toUTM({ latitude: 50.4501, longitude: 30.5234 }))).toBe("36U 324182 5591608");
+    expect(
+      formatUTM(fromWgs84ToUtm({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })),
+    ).toBe("36U 324182 5591608");
   });
 
   it("puts the antimeridian in zone 1, not a zone 61", () => {
-    expect(toUTM({ latitude: 0, longitude: 180 }).zone).toBe(1);
+    expect(fromWgs84ToUtm({ system: "WGS84", latitude: 0, longitude: 180 }).zone).toBe(1);
   });
 
   it("rejects the polar caps, which belong to UPS", () => {
-    expect(() => toUTM({ latitude: 84.5, longitude: 0 })).toThrow(RangeError);
-    expect(() => toUTM({ latitude: -80.5, longitude: 0 })).toThrow(RangeError);
+    expect(() => fromWgs84ToUtm({ system: "WGS84", latitude: 84.5, longitude: 0 })).toThrow(
+      RangeError,
+    );
+    expect(() => fromWgs84ToUtm({ system: "WGS84", latitude: -80.5, longitude: 0 })).toThrow(
+      RangeError,
+    );
   });
 });
 
@@ -107,7 +115,7 @@ describe("UTM to WGS 84", () => {
     "inverts $name back to the input",
     ({ coords, zone, band, easting, northing }) => {
       const hemisphere = coords.latitude < 0 ? "S" : "N";
-      const result = fromUTM({ system: "UTM", zone, band, hemisphere, easting, northing });
+      const result = fromUtmToWgs84({ system: "UTM", zone, band, hemisphere, easting, northing });
       expect(result.latitude).toBeCloseTo(coords.latitude, 7);
       expect(result.longitude).toBeCloseTo(coords.longitude, 7);
     },
@@ -115,7 +123,13 @@ describe("UTM to WGS 84", () => {
 
   it("matches PROJ for a reference without a band", () => {
     expect(
-      fromUTM({ system: "UTM", zone: 17, hemisphere: "N", easting: 630084, northing: 4833438 }),
+      fromUtmToWgs84({
+        system: "UTM",
+        zone: 17,
+        hemisphere: "N",
+        easting: 630084,
+        northing: 4833438,
+      }),
     ).toEqual({
       system: "WGS84",
       latitude: 43.6425618,
@@ -126,7 +140,7 @@ describe("UTM to WGS 84", () => {
   it("rejects a band the northing contradicts", () => {
     // Band M is 8°S to the equator; this northing sits near 46.6°S.
     expect(() =>
-      fromUTM({
+      fromUtmToWgs84({
         system: "UTM",
         zone: 17,
         band: "M",
@@ -139,9 +153,13 @@ describe("UTM to WGS 84", () => {
 
   it("tolerates a reference rounded across a band edge", () => {
     // 48°N exactly is the T/U boundary; the rounded northing lands a hair north of it.
-    const { easting, northing } = toUTM({ latitude: 47.9999999, longitude: -81 });
+    const { easting, northing } = fromWgs84ToUtm({
+      system: "WGS84",
+      latitude: 47.9999999,
+      longitude: -81,
+    });
     expect(() =>
-      fromUTM({ system: "UTM", zone: 17, band: "T", hemisphere: "N", easting, northing }),
+      fromUtmToWgs84({ system: "UTM", zone: 17, band: "T", hemisphere: "N", easting, northing }),
     ).not.toThrow();
   });
 });
@@ -150,7 +168,7 @@ describe("the antimeridian", () => {
   it("brings a point just west of it in zone 1 back as a longitude, not past -180°", () => {
     // 1C 436707 1217049 lies a hair across the antimeridian from zone 1's side; its longitude is
     // 179.9999968°, which unwrapped arithmetic would give as -180.0000032°.
-    const { longitude } = fromUTM({
+    const { longitude } = fromUtmToWgs84({
       system: "UTM",
       zone: 1,
       band: "C",

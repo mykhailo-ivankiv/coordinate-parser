@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { ucs2000Parser } from "@coordinate-parser/parser";
 import { project } from "./transverseMercator.ts";
-import { fromWGS84 } from "./coordinateConverter.ts";
-import { fromUCS2000, insideUcs2000AreaOfUse, toUCS2000 } from "./UCS2000converter.ts";
+import { fromUcs2000ToWgs84, fromWgs84ToUcs2000 } from "./ucs2000.ts";
 import { WGS84_ELLIPSOID } from "./ellipsoid.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), EPSG:4326 to EPSG:5562-5565. PROJ chooses
@@ -57,7 +56,7 @@ const references: { name: string; coords: Coordinates; zone: number; x: number; 
 
 describe("WGS 84 to UCS-2000", () => {
   it.each(references)("matches PROJ for $name to the metre", ({ coords, zone, x, y }) => {
-    expect(toUCS2000(coords)).toEqual({
+    expect(fromWgs84ToUcs2000({ system: "WGS84", ...coords })).toEqual({
       system: "UCS-2000",
       zone,
       northing: Math.round(x),
@@ -78,12 +77,18 @@ describe("WGS 84 to UCS-2000", () => {
         falseNorthing: 0,
       },
     );
-    const { northing } = toUCS2000({ latitude: 50.4501, longitude: 30.5234 });
+    const { northing } = fromWgs84ToUcs2000({
+      system: "WGS84",
+      latitude: 50.4501,
+      longitude: 30.5234,
+    });
     expect(Math.abs(naive.northing - northing)).toBeGreaterThan(100);
   });
 
   it("formats the way the UCS-2000 parser reads", () => {
-    const written = formatUCS2000(toUCS2000({ latitude: 50.4501, longitude: 30.5234 }));
+    const written = formatUCS2000(
+      fromWgs84ToUcs2000({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }),
+    );
     expect(written).toBe("5593954 6324226");
     expect(ucs2000Parser.run(written)).toMatchObject({
       isError: false,
@@ -92,7 +97,9 @@ describe("WGS 84 to UCS-2000", () => {
   });
 
   it("rejects points outside zones 4-7", () => {
-    expect(() => toUCS2000({ latitude: 52.52, longitude: 13.405 })).toThrow(
+    expect(() =>
+      fromWgs84ToUcs2000({ system: "WGS84", latitude: 52.52, longitude: 13.405 }),
+    ).toThrow(
       "UCS-2000 is defined in zones 4-7, longitudes 18°E to 42°E, but 13.405° falls in zone 3",
     );
   });
@@ -100,7 +107,7 @@ describe("WGS 84 to UCS-2000", () => {
 
 describe("UCS-2000 to WGS 84", () => {
   it.each(references)("inverts $name back to within a centimetre", ({ coords, zone, x, y }) => {
-    const result = fromUCS2000({ system: "UCS-2000", zone, northing: x, easting: y });
+    const result = fromUcs2000ToWgs84({ system: "UCS-2000", zone, northing: x, easting: y });
     expect(result.latitude).toBeCloseTo(coords.latitude, 6);
     expect(result.longitude).toBeCloseTo(coords.longitude, 6);
   });
@@ -108,43 +115,11 @@ describe("UCS-2000 to WGS 84", () => {
   it("matches PROJ for the example in the app", () => {
     // EPSG:5564 → EPSG:4326 on "5591000 6325000": 50.4238014, 30.5356689.
     expect(
-      fromUCS2000({ system: "UCS-2000", zone: 6, northing: 5591000, easting: 325000 }),
+      fromUcs2000ToWgs84({ system: "UCS-2000", zone: 6, northing: 5591000, easting: 325000 }),
     ).toEqual({
       system: "WGS84",
       latitude: 50.4238014,
       longitude: 30.5356689,
     });
-  });
-});
-
-describe("area of use", () => {
-  it("counts Kyiv, Lviv and Kharkiv as inside it", () => {
-    for (const { coords } of references.filter(({ name }) => name !== "Luhansk")) {
-      expect(insideUcs2000AreaOfUse({ system: "WGS84", ...coords })).toBe(true);
-    }
-  });
-
-  it("leaves Minsk, Bucharest and Istanbul outside it, though all three are in zones 4-7", () => {
-    expect(insideUcs2000AreaOfUse({ system: "WGS84", latitude: 53.9006, longitude: 27.559 })).toBe(
-      false,
-    );
-    expect(insideUcs2000AreaOfUse({ system: "WGS84", latitude: 44.4268, longitude: 26.1025 })).toBe(
-      false,
-    );
-    expect(insideUcs2000AreaOfUse({ system: "WGS84", latitude: 41.0082, longitude: 28.9784 })).toBe(
-      false,
-    );
-  });
-
-  it("takes in Chișinău, because EPSG's areas are boxes around Ukraine, not its border", () => {
-    expect(insideUcs2000AreaOfUse({ system: "WGS84", latitude: 47.0105, longitude: 28.8638 })).toBe(
-      true,
-    );
-  });
-
-  it("still converts a point outside it", () => {
-    const bucharest = { system: "WGS84", latitude: 44.4268, longitude: 26.1025 } as const;
-    expect(fromWGS84(bucharest, "UCS-2000")).toMatchObject({ system: "UCS-2000", zone: 5 });
-    expect(insideUcs2000AreaOfUse(bucharest)).toBe(false);
   });
 });

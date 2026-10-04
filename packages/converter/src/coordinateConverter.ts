@@ -1,8 +1,8 @@
 import type { Coordinate, CoordinateSystem, WGS84Coordinate } from "@coordinate-parser/types";
 import { type Area, pointArea, toDeclaredPrecision } from "./area.ts";
-import { type GridPrecision, mgrsArea, toMGRS, toUSNG } from "./MGRSconverter.ts";
-import { toUCS2000, ucs2000Area } from "./UCS2000converter.ts";
-import { toUTM, utmArea } from "./UTMconverter.ts";
+import { type GridPrecision, mgrsArea, fromWgs84ToMgrs, fromWgs84ToUsng } from "./mgrs.ts";
+import { fromWgs84ToUcs2000, ucs2000Area } from "./ucs2000.ts";
+import { fromWgs84ToUtm, utmArea } from "./utm.ts";
 
 // WGS 84 latitude/longitude is the pivot: every system converts to it and from it, and it is the
 // form coordinates are stored in. Converting between any two other systems is the two halves
@@ -13,7 +13,7 @@ import { toUTM, utmArea } from "./UTMconverter.ts";
 // stored centre can be from the truth. See area.ts.
 
 export type { Area, Corners } from "./area.ts";
-export type { GridPrecision } from "./MGRSconverter.ts";
+export type { GridPrecision } from "./mgrs.ts";
 
 /** Every system, in the order toAllSystems reports them. */
 const SYSTEMS: CoordinateSystem[] = ["WGS84", "MGRS", "USNG", "UTM", "UCS-2000"];
@@ -82,20 +82,15 @@ const encode = (
 ): Coordinate => {
   switch (system) {
     case "WGS84":
-      return point;
+      return toDeclaredPrecision(point);
     case "MGRS":
-      return toMGRS(point, precision);
+      return fromWgs84ToMgrs(point, precision);
     case "USNG":
-      if (precision === 100000) {
-        throw new RangeError(
-          "USNG requires at least one digit per axis, so its coarsest square is 10 km",
-        );
-      }
-      return toUSNG(point, precision);
+      return fromWgs84ToUsng(point, precision as Exclude<GridPrecision, 100000>);
     case "UTM":
-      return toUTM(point);
+      return fromWgs84ToUtm(point);
     case "UCS-2000":
-      return toUCS2000(point);
+      return fromWgs84ToUcs2000(point);
   }
 };
 
@@ -127,10 +122,7 @@ export const fromWGS84 = <S extends CoordinateSystem>(
   options: ConversionOptions = {},
 ): Extract<Coordinate, { system: S }> =>
   // encode returns the member of `system`; TypeScript cannot follow a switch into a generic.
-  encode(toDeclaredPrecision(point), system, options.precision ?? 1) as Extract<
-    Coordinate,
-    { system: S }
-  >;
+  encode(point, system, options.precision ?? 1) as Extract<Coordinate, { system: S }>;
 
 /**
  * Like fromWGS84, but reports a system that cannot express the point instead of throwing.
