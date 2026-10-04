@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { usngParser, mgrsParser } from "@coordinate-parser/parser";
-import { formatMGRS, formatUSNG } from "@coordinate-parser/formatter";
+import { formatMgrs, formatUsng } from "@coordinate-parser/formatter";
 import {
   fromMgrsToWgs84,
   fromMgrsToWgs84Square,
@@ -71,11 +71,11 @@ const parse = (input: string) => {
 
 describe("WGS 84 to MGRS", () => {
   it.each(references)("matches GEOTRANS for $name at 1 m", ({ coords, metre }) => {
-    expect(formatMGRS(fromWgs84ToMgrs({ system: "WGS84", ...coords }))).toBe(metre);
+    expect(formatMgrs(fromWgs84ToMgrs({ system: "WGS84", ...coords }))).toBe(metre);
   });
 
   it.each(references)("matches GEOTRANS for $name at 1 km", ({ coords, kilometre }) => {
-    expect(formatMGRS(fromWgs84ToMgrs({ system: "WGS84", ...coords }, 1000))).toBe(kilometre);
+    expect(formatMgrs(fromWgs84ToMgrs({ system: "WGS84", ...coords }, 1000))).toBe(kilometre);
   });
 
   it("truncates rather than rounds, so the square always contains the point", () => {
@@ -87,7 +87,7 @@ describe("WGS 84 to MGRS", () => {
 
   it("can name a bare 100 km square", () => {
     expect(
-      formatMGRS(
+      formatMgrs(
         fromWgs84ToMgrs({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, 100000),
       ),
     ).toBe("36UUA");
@@ -97,12 +97,12 @@ describe("WGS 84 to MGRS", () => {
 describe("WGS 84 to USNG", () => {
   it("writes the grid with spaces, as FGDC-STD-011-2001 prescribes", () => {
     expect(
-      formatUSNG(fromWgs84ToUsng({ system: "WGS84", latitude: 40.7128, longitude: -74.006 })),
+      formatUsng(fromWgs84ToUsng({ system: "WGS84", latitude: 40.7128, longitude: -74.006 })),
     ).toBe("18T WL 83959 07350");
   });
 
   it("parses back with usngParser", () => {
-    const written = formatUSNG(
+    const written = formatUsng(
       fromWgs84ToUsng({ system: "WGS84", latitude: 40.7128, longitude: -74.006 }, 10000),
     );
     expect(written).toBe("18T WL 8 0");

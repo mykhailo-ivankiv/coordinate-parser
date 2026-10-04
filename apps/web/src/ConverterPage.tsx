@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "./ConverterMap.tsx";
 import { type Area, areaOf, coveringSquares, inSystem } from "./area.ts";
-import { format, formatWGS84 } from "@coordinate-parser/formatter";
+import { format, formatWgs84 } from "@coordinate-parser/formatter";
 import { insideUcs2000AreaOfUse } from "./ucs2000AreaOfUse.ts";
 import {
   coordinateParser,
@@ -211,7 +211,7 @@ const CoordinateLabel = ({
   anchor: "start" | "middle" | "end";
   onPick: Pick;
 }) => {
-  const value = formatWGS84(coords);
+  const value = formatWgs84(coords);
   const [latitude, longitude] = value.split(", ");
   const pick = () => onPick({ system: "WGS84", value });
   return (
@@ -277,7 +277,7 @@ const AreaDiagram = ({ area, onPick }: { area: Area; onPick: Pick }) => {
         viewBox={`0 0 ${DIAGRAM_WIDTH} ${DIAGRAM_HEIGHT}`}
         className="w-full max-w-sm"
         role="img"
-        aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${formatWGS84(centre)}`}
+        aria-label={`Квадрат ${sizeLabel(size)} × ${sizeLabel(size)}, центр ${formatWgs84(centre)}`}
       >
         <path
           d={`${outline
@@ -1219,7 +1219,7 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
           onPick={(coords) => {
             const converted = inSystem(coords, input === AUTO ? "WGS84" : input);
             if ("error" in converted) {
-              setText(formatWGS84(coords));
+              setText(formatWgs84(coords));
               setInput("WGS84");
             } else {
               setText(write(converted));

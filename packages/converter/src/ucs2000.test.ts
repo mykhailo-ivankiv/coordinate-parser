@@ -1,4 +1,4 @@
-import { formatUCS2000 } from "@coordinate-parser/formatter";
+import { formatUcs2000 } from "@coordinate-parser/formatter";
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
 import { ucs2000Parser } from "@coordinate-parser/parser";
@@ -86,7 +86,7 @@ describe("WGS 84 to UCS-2000", () => {
   });
 
   it("formats the way the UCS-2000 parser reads", () => {
-    const written = formatUCS2000(
+    const written = formatUcs2000(
       fromWgs84ToUcs2000({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }),
     );
     expect(written).toBe("5593954 6324226");

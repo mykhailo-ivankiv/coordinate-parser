@@ -5,7 +5,7 @@ import type {
   UTMCoordinate,
   WGS84Coordinate,
 } from "@coordinate-parser/types";
-import { choice, type Parser } from "arcsecond";
+import { choice, type Parser, recursiveParser } from "arcsecond";
 import type { Coordinates } from "./commonParsers.ts";
 import { DDMparser } from "./DDMparser.ts";
 import { DDparser } from "./DDparser.ts";
@@ -25,6 +25,49 @@ import { WGS84Rparser } from "./WGS84Rparser.ts";
 const inWGS84 =
   <F extends "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS">(format: F) =>
   (coords: Coordinates): [WGS84Coordinate, F] => [{ system: "WGS84", ...coords }, format];
+
+/**
+ * Reads a coordinate in any supported notation, and for WGS 84 also reports which format it was in. Parsers are tried in a
+ * fixed order — WGS 84 decimal latitude first, then longitude first, DD, DDM, DMS, MGRS, UCS-2000,
+ * UTM — and the first that accepts the whole input wins. Two consequences: USNG is never reported,
+ * because MGRS reads the same strings first, and a pair whose first value is not a valid latitude
+ * is read longitude first.
+ *
+ * `run` never throws: it returns `{ isError: false, result }` or `{ isError: true, error }`, where
+ * `error` names the position and what was expected there.
+ *
+ * @example
+ * ```ts
+ * coordinateParser.run("50.4501, 30.5234").result
+ * // → [{ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, "WGS84"]
+ * coordinateParser.run("36UUA2418291607").result
+ * // → [{ system: "MGRS", zone: 36, band: "U", square: "UA", easting: 24182, northing: 91607, precision: 1 }]
+ * coordinateParser.run("91, 30").result[1]
+ * // → "WGS84R"
+ * coordinateParser.run("50.4501; 30.5234").error
+ * // → "ParseError (position 7): Expecting ',' or whitespace between the two values"
+ * ```
+ */
+export const coordinateParser: Parser<
+  | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
+  | [MGRSCoordinate]
+  | [UTMCoordinate]
+  | [UCS2000Coordinate]
+> = recursiveParser(() =>
+  // Declared first, as the parser most callers want, so it is built on first use: the parsers it
+  // chooses between are declared below.
+  choice([
+    wgs84Parser,
+    wgs84rParser,
+    wgs84ddParser,
+    wgs84ddmParser,
+    wgs84dmsParser,
+    mgrsParser,
+    ucs2000Parser,
+    // The latitude-band reading of UTM, matching MGRS above, not the EPSG reading of "17N"/"17S".
+    utmParser,
+  ]),
+);
 
 /**
  * Signed decimal degrees, latitude first. The two values are separated by a comma or whitespace;
@@ -146,43 +189,4 @@ export const utmParser: Parser<[UTMCoordinate]> = UTMparser.map((position) => [
  */
 export const ucs2000Parser: Parser<[UCS2000Coordinate]> = UCS2000parser.map((position) => [
   { system: "UCS-2000", ...position },
-]);
-
-/**
- * Reads a coordinate in any supported notation, and for WGS 84 also reports which format it was in. Parsers are tried in a
- * fixed order — WGS 84 decimal latitude first, then longitude first, DD, DDM, DMS, MGRS, UCS-2000,
- * UTM — and the first that accepts the whole input wins. Two consequences: USNG is never reported,
- * because MGRS reads the same strings first, and a pair whose first value is not a valid latitude
- * is read longitude first.
- *
- * `run` never throws: it returns `{ isError: false, result }` or `{ isError: true, error }`, where
- * `error` names the position and what was expected there.
- *
- * @example
- * ```ts
- * coordinateParser.run("50.4501, 30.5234").result
- * // → [{ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, "WGS84"]
- * coordinateParser.run("36UUA2418291607").result
- * // → [{ system: "MGRS", zone: 36, band: "U", square: "UA", easting: 24182, northing: 91607, precision: 1 }]
- * coordinateParser.run("91, 30").result[1]
- * // → "WGS84R"
- * coordinateParser.run("50.4501; 30.5234").error
- * // → "ParseError (position 7): Expecting ',' or whitespace between the two values"
- * ```
- */
-export const coordinateParser: Parser<
-  | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
-  | [MGRSCoordinate]
-  | [UTMCoordinate]
-  | [UCS2000Coordinate]
-> = choice([
-  wgs84Parser,
-  wgs84rParser,
-  wgs84ddParser,
-  wgs84ddmParser,
-  wgs84dmsParser,
-  mgrsParser,
-  ucs2000Parser,
-  // The latitude-band reading of UTM, matching MGRS above, not the EPSG reading of "17N"/"17S".
-  utmParser,
 ]);

@@ -14,13 +14,13 @@ import type { WGS84Coordinate } from "@coordinate-parser/types";
 import { describe, expect, it } from "vitest";
 import {
   format,
-  formatDD,
-  formatDDM,
-  formatDMS,
-  formatMGRS,
-  formatUSNG,
-  formatUTM,
-  formatWGS84,
+  formatWgs84dd,
+  formatWgs84ddm,
+  formatWgs84dms,
+  formatMgrs,
+  formatUsng,
+  formatUtm,
+  formatWgs84,
 } from "./format.ts";
 
 const kyiv: WGS84Coordinate = { system: "WGS84", latitude: 50.4501, longitude: 30.5234 };
@@ -38,7 +38,7 @@ describe("WGS 84", () => {
 
   it("gives the southern and western hemispheres their letters", () => {
     const southWest: WGS84Coordinate = { system: "WGS84", latitude: -33.8688, longitude: -70.6693 };
-    expect(formatDD(southWest)).toBe("33.8688°S, 70.6693°W");
+    expect(formatWgs84dd(southWest)).toBe("33.8688°S, 70.6693°W");
   });
 
   it("carries rounded seconds and minutes into the next unit", () => {
@@ -48,23 +48,25 @@ describe("WGS 84", () => {
       latitude: 50 + 27 / 60 + 59.99999 / 3600,
       longitude: 30,
     };
-    expect(formatDMS(nearMinute)).toBe(`50° 28' 0"N, 30° 0' 0"E`);
-    expect(formatDDM({ ...nearMinute, latitude: 50 + 59.999999 / 60 })).toBe("51° 0'N, 30° 0'E");
+    expect(formatWgs84dms(nearMinute)).toBe(`50° 28' 0"N, 30° 0' 0"E`);
+    expect(formatWgs84ddm({ ...nearMinute, latitude: 50 + 59.999999 / 60 })).toBe(
+      "51° 0'N, 30° 0'E",
+    );
   });
 });
 
 describe("grids", () => {
   it("drops digits for a coarse MGRS square rather than padding them", () => {
     const square = { system: "MGRS", zone: 36, band: "U", square: "UA" } as const;
-    expect(formatMGRS({ ...square, easting: 24000, northing: 91000, precision: 1000 })).toBe(
+    expect(formatMgrs({ ...square, easting: 24000, northing: 91000, precision: 1000 })).toBe(
       "36UUA2491",
     );
-    expect(formatMGRS({ ...square, easting: 0, northing: 0, precision: 100000 })).toBe("36UUA");
+    expect(formatMgrs({ ...square, easting: 0, northing: 0, precision: 100000 })).toBe("36UUA");
   });
 
   it("pads USNG digits with leading zeros", () => {
     expect(
-      formatUSNG({
+      formatUsng({
         system: "USNG",
         zone: 10,
         band: "S",
@@ -113,11 +115,11 @@ describe("round trip with the parser", () => {
 describe("what cannot be written", () => {
   it("refuses a UTM position without a band rather than writing one that reads back elsewhere", () => {
     expect(() =>
-      formatUTM({ system: "UTM", zone: 36, hemisphere: "S", easting: 324182, northing: 5591608 }),
+      formatUtm({ system: "UTM", zone: 36, hemisphere: "S", easting: 324182, northing: 5591608 }),
     ).toThrow(RangeError);
   });
 
   it("writes a value that rounds to zero without a minus sign", () => {
-    expect(formatWGS84({ system: "WGS84", latitude: -0.00000001, longitude: 30 })).toBe("0, 30");
+    expect(formatWgs84({ system: "WGS84", latitude: -0.00000001, longitude: 30 })).toBe("0, 30");
   });
 });

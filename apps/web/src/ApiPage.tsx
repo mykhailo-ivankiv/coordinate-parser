@@ -18,23 +18,20 @@ const MODULES: {
   title: string;
   /** What a caller writes to use the package; the names are the ones its examples lean on. */
   importLine: string;
-  groups: { id: ApiEntry["group"]; title: string }[];
+  /** A module with a single group lists its entries straight under the module, without a title. */
+  groups: { id: ApiEntry["group"]; title?: string }[];
 }[] = [
   {
     id: "types",
     title: "Типи",
     importLine: `import type { Coordinate, CoordinateSystem } from "@coordinate-parser/types";`,
-    groups: [{ id: "types", title: "Типи" }],
+    groups: [{ id: "types" }],
   },
   {
     id: "parser",
     title: "Парсер",
     importLine: `import { coordinateParser, mgrsParser } from "@coordinate-parser/parser";`,
-    groups: [
-      { id: "parsers", title: "Парсери" },
-      { id: "constants", title: "Константи" },
-      { id: "types", title: "Типи" },
-    ],
+    groups: [{ id: "parsers" }],
   },
   {
     id: "converter",
@@ -50,8 +47,8 @@ const MODULES: {
   {
     id: "formatter",
     title: "Форматер",
-    importLine: `import { format, formatDMS } from "@coordinate-parser/formatter";`,
-    groups: [{ id: "functions", title: "Функції" }],
+    importLine: `import { format, formatWgs84dms } from "@coordinate-parser/formatter";`,
+    groups: [{ id: "functions" }],
   },
 ];
 
@@ -336,7 +333,7 @@ const Contents = ({ active, className = "" }: { active?: string; className?: str
           </EntryLink>
           {module.groups.map((group) => (
             <div key={group.id} className="mt-2">
-              <p className="mb-1 text-xs opacity-60">{group.title}</p>
+              {group.title && <p className="mb-1 text-xs opacity-60">{group.title}</p>}
               <ul className="flex flex-col border-l border-line font-mono text-xs">
                 {group.names.map((name) => (
                   <li key={name}>
@@ -386,7 +383,7 @@ export const ApiPage = ({ header }: { header: ReactNode }) => (
               .filter((group) => entriesOf(module.id, group.id).length > 0)
               .map((group) => (
                 <Fragment key={group.id}>
-                  <h3>{group.title}</h3>
+                  {group.title && <h3>{group.title}</h3>}
                   {entriesOf(module.id, group.id).map((entry) => (
                     <Entry key={entry.name} entry={entry} />
                   ))}

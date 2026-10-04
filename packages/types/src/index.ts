@@ -5,6 +5,9 @@
 /** The coordinate systems: one datum and, for the grids, one projection or grid each. */
 export type CoordinateSystem = "WGS84" | "MGRS" | "USNG" | "UTM" | "UCS-2000";
 
+/** A coordinate in any of the systems. */
+export type Coordinate = WGS84Coordinate | MGRSCoordinate | UTMCoordinate | UCS2000Coordinate;
+
 /** WGS 84 latitude and longitude in decimal degrees; south and west are negative. */
 export type WGS84Coordinate = {
   system: "WGS84";
@@ -80,6 +83,3 @@ export type UCS2000Coordinate = {
   /** Y with the zone prefix removed; 500000 is the central meridian of the zone. */
   easting: number;
 };
-
-/** A coordinate in any of the systems. */
-export type Coordinate = WGS84Coordinate | MGRSCoordinate | UTMCoordinate | UCS2000Coordinate;

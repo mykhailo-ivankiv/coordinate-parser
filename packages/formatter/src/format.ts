@@ -15,6 +15,57 @@ const DEGREE_SIGN = "°";
 // Digits per axis in the finest MGRS or USNG reference: 5, a 1 m square.
 const MAX_DIGITS_PER_AXIS = 5;
 
+/**
+ * A coordinate written out, given as the parsers return it: `[coordinate, format]` for WGS 84,
+ * `[coordinate]` for a grid. The inverse of coordinateParser.
+ *
+ * @param written - The coordinate, and for WGS 84 its format.
+ * @returns The written coordinate.
+ * @throws RangeError for a UTM position without a band, as formatUtm does.
+ *
+ * @example
+ * ```ts
+ * format([{ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, "DDM"])
+ * // → "50° 27.006'N, 30° 31.404'E"
+ * format(coordinateParser.run("36U UA 24182 91607").result)
+ * // → "36UUA2418291607"
+ * ```
+ */
+export const format = (
+  written:
+    | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
+    // One tuple over all the grids rather than one per grid, so that a coordinate whose grid is
+    // only known at run time can be passed in as it is.
+    | [MGRSCoordinate | UTMCoordinate | UCS2000Coordinate],
+): string => {
+  if (written.length === 2) {
+    const [coordinate, notation] = written;
+    switch (notation) {
+      case "WGS84":
+        return formatWgs84(coordinate);
+      case "WGS84R":
+        return formatWgs84r(coordinate);
+      case "DD":
+        return formatWgs84dd(coordinate);
+      case "DDM":
+        return formatWgs84ddm(coordinate);
+      case "DMS":
+        return formatWgs84dms(coordinate);
+    }
+  }
+  const [coordinate] = written;
+  switch (coordinate.system) {
+    case "MGRS":
+      return formatMgrs(coordinate);
+    case "USNG":
+      return formatUsng(coordinate);
+    case "UTM":
+      return formatUtm(coordinate);
+    case "UCS-2000":
+      return formatUcs2000(coordinate);
+  }
+};
+
 // Fixed-point, with trailing zeros dropped: 50.4501 rather than 50.4501000. A value that rounds to
 // zero is written "0", not "-0".
 const decimal = (value: number, fractionDigits: number) =>
@@ -28,11 +79,11 @@ const decimal = (value: number, fractionDigits: number) =>
  *
  * @example
  * ```ts
- * formatWGS84({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
+ * formatWgs84({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
  * // → "50.4501, 30.5234"
  * ```
  */
-export const formatWGS84 = ({ latitude, longitude }: WGS84Coordinate) =>
+export const formatWgs84 = ({ latitude, longitude }: WGS84Coordinate) =>
   `${decimal(latitude, MAX_FRACTION_DIGITS)}, ${decimal(longitude, MAX_FRACTION_DIGITS)}`;
 
 /**
@@ -43,11 +94,11 @@ export const formatWGS84 = ({ latitude, longitude }: WGS84Coordinate) =>
  *
  * @example
  * ```ts
- * formatWGS84R({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
+ * formatWgs84r({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
  * // → "30.5234, 50.4501"
  * ```
  */
-export const formatWGS84R = ({ latitude, longitude }: WGS84Coordinate) =>
+export const formatWgs84r = ({ latitude, longitude }: WGS84Coordinate) =>
   `${decimal(longitude, MAX_FRACTION_DIGITS)}, ${decimal(latitude, MAX_FRACTION_DIGITS)}`;
 
 // Minutes and seconds are rounded as one integer count of their smallest unit and only then split,
@@ -88,11 +139,11 @@ const withHemispheres = (
  *
  * @example
  * ```ts
- * formatDD({ system: "WGS84", latitude: -33.8688, longitude: 151.2093 })
+ * formatWgs84dd({ system: "WGS84", latitude: -33.8688, longitude: 151.2093 })
  * // → "33.8688°S, 151.2093°E"
  * ```
  */
-export const formatDD = (coordinate: WGS84Coordinate) => withHemispheres(toDD, coordinate);
+export const formatWgs84dd = (coordinate: WGS84Coordinate) => withHemispheres(toDD, coordinate);
 
 /**
  * WGS 84 in degrees and decimal minutes with hemisphere letters.
@@ -102,11 +153,11 @@ export const formatDD = (coordinate: WGS84Coordinate) => withHemispheres(toDD, c
  *
  * @example
  * ```ts
- * formatDDM({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
+ * formatWgs84ddm({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
  * // → "50° 27.006'N, 30° 31.404'E"
  * ```
  */
-export const formatDDM = (coordinate: WGS84Coordinate) => withHemispheres(toDDM, coordinate);
+export const formatWgs84ddm = (coordinate: WGS84Coordinate) => withHemispheres(toDDM, coordinate);
 
 /**
  * WGS 84 in degrees, minutes and seconds with hemisphere letters.
@@ -116,11 +167,11 @@ export const formatDDM = (coordinate: WGS84Coordinate) => withHemispheres(toDDM,
  *
  * @example
  * ```ts
- * formatDMS({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
+ * formatWgs84dms({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })
  * // → `50° 27' 0.36"N, 30° 31' 24.24"E`
  * ```
  */
-export const formatDMS = (coordinate: WGS84Coordinate) => withHemispheres(toDMS, coordinate);
+export const formatWgs84dms = (coordinate: WGS84Coordinate) => withHemispheres(toDMS, coordinate);
 
 // One axis of a grid reference: as many digits as the precision leaves, none for a 100 km square.
 const digitsOf = (metres: number, precision: number) => {
@@ -136,11 +187,11 @@ const digitsOf = (metres: number, precision: number) => {
  *
  * @example
  * ```ts
- * formatMGRS({ system: "MGRS", zone: 4, band: "Q", square: "FJ", easting: 12000, northing: 67000, precision: 1000 })
+ * formatMgrs({ system: "MGRS", zone: 4, band: "Q", square: "FJ", easting: 12000, northing: 67000, precision: 1000 })
  * // → "4QFJ1267"
  * ```
  */
-export const formatMGRS = ({ zone, band, square, easting, northing, precision }: MGRSCoordinate) =>
+export const formatMgrs = ({ zone, band, square, easting, northing, precision }: MGRSCoordinate) =>
   `${zone}${band}${square}${digitsOf(easting, precision)}${digitsOf(northing, precision)}`;
 
 /**
@@ -151,11 +202,11 @@ export const formatMGRS = ({ zone, band, square, easting, northing, precision }:
  *
  * @example
  * ```ts
- * formatUSNG({ system: "USNG", zone: 10, band: "S", square: "GJ", easting: 6832, northing: 44683, precision: 1 })
+ * formatUsng({ system: "USNG", zone: 10, band: "S", square: "GJ", easting: 6832, northing: 44683, precision: 1 })
  * // → "10S GJ 06832 44683"
  * ```
  */
-export const formatUSNG = ({ zone, band, square, easting, northing, precision }: USNGCoordinate) =>
+export const formatUsng = ({ zone, band, square, easting, northing, precision }: USNGCoordinate) =>
   `${zone}${band} ${square} ${digitsOf(easting, precision)} ${digitsOf(northing, precision)}`;
 
 /**
@@ -169,11 +220,11 @@ export const formatUSNG = ({ zone, band, square, easting, northing, precision }:
  *
  * @example
  * ```ts
- * formatUTM({ system: "UTM", zone: 36, band: "U", hemisphere: "N", easting: 324182, northing: 5591608 })
+ * formatUtm({ system: "UTM", zone: 36, band: "U", hemisphere: "N", easting: 324182, northing: 5591608 })
  * // → "36U 324182 5591608"
  * ```
  */
-export const formatUTM = ({ zone, band, easting, northing }: UTMCoordinate) => {
+export const formatUtm = ({ zone, band, easting, northing }: UTMCoordinate) => {
   if (band === undefined) {
     throw new RangeError(
       `UTM zone ${zone} position has no latitude band, and the letter after the zone is read as one`,
@@ -190,60 +241,9 @@ export const formatUTM = ({ zone, band, easting, northing }: UTMCoordinate) => {
  *
  * @example
  * ```ts
- * formatUCS2000({ system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 })
+ * formatUcs2000({ system: "UCS-2000", zone: 6, northing: 5593954, easting: 324226 })
  * // → "5593954 6324226"
  * ```
  */
-export const formatUCS2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
+export const formatUcs2000 = ({ zone, northing, easting }: UCS2000Coordinate) =>
   `${northing} ${zone}${String(easting).padStart(6, "0")}`;
-
-/**
- * A coordinate written out, given as the parsers return it: `[coordinate, format]` for WGS 84,
- * `[coordinate]` for a grid. The inverse of coordinateParser.
- *
- * @param written - The coordinate, and for WGS 84 its format.
- * @returns The written coordinate.
- * @throws RangeError for a UTM position without a band, as formatUTM does.
- *
- * @example
- * ```ts
- * format([{ system: "WGS84", latitude: 50.4501, longitude: 30.5234 }, "DDM"])
- * // → "50° 27.006'N, 30° 31.404'E"
- * format(coordinateParser.run("36U UA 24182 91607").result)
- * // → "36UUA2418291607"
- * ```
- */
-export const format = (
-  written:
-    | [WGS84Coordinate, "WGS84" | "WGS84R" | "DD" | "DDM" | "DMS"]
-    // One tuple over all the grids rather than one per grid, so that a coordinate whose grid is
-    // only known at run time can be passed in as it is.
-    | [MGRSCoordinate | UTMCoordinate | UCS2000Coordinate],
-): string => {
-  if (written.length === 2) {
-    const [coordinate, notation] = written;
-    switch (notation) {
-      case "WGS84":
-        return formatWGS84(coordinate);
-      case "WGS84R":
-        return formatWGS84R(coordinate);
-      case "DD":
-        return formatDD(coordinate);
-      case "DDM":
-        return formatDDM(coordinate);
-      case "DMS":
-        return formatDMS(coordinate);
-    }
-  }
-  const [coordinate] = written;
-  switch (coordinate.system) {
-    case "MGRS":
-      return formatMGRS(coordinate);
-    case "USNG":
-      return formatUSNG(coordinate);
-    case "UTM":
-      return formatUTM(coordinate);
-    case "UCS-2000":
-      return formatUCS2000(coordinate);
-  }
-};

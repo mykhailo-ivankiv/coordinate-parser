@@ -1,7 +1,7 @@
 import type { UTMCoordinate } from "@coordinate-parser/types";
 import { describe, expect, it } from "vitest";
 import type { Coordinates } from "./coordinates.ts";
-import { formatUTM } from "@coordinate-parser/formatter";
+import { formatUtm } from "@coordinate-parser/formatter";
 import { fromUtmToWgs84, projectToUTM, fromWgs84ToUtm } from "./utm.ts";
 
 // Reference values computed with PROJ 9.3 (pyproj 3.6), WGS 84 to EPSG:326xx / EPSG:327xx.
@@ -93,7 +93,7 @@ describe("WGS 84 to UTM", () => {
 
   it("formats the way UTMparser reads", () => {
     expect(
-      formatUTM(fromWgs84ToUtm({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })),
+      formatUtm(fromWgs84ToUtm({ system: "WGS84", latitude: 50.4501, longitude: 30.5234 })),
     ).toBe("36U 324182 5591608");
   });
 
