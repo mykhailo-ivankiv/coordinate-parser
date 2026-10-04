@@ -3,6 +3,7 @@ import { ConverterMap, type OutputSquare, OUTPUT_COLOUR, type MapLayers } from "
 import { type Area, areaOf, coveringSquares, inSystem } from "./area.ts";
 import { format, formatWgs84 } from "@coordinate-toolkit/formatter";
 import { insideUcs2000AreaOfUse } from "./ucs2000AreaOfUse.ts";
+import { PageHeader } from "./PageHeader.tsx";
 import {
   coordinateParser,
   mgrsParser,
@@ -957,7 +958,8 @@ const SECTION_LAYERS: Record<SectionId, { layer: keyof MapLayers; label: string 
   ],
 };
 
-export const ConverterPage = ({ header }: { header: ReactNode }) => {
+// The converter takes the whole width, the form on the left and the map filling the rest.
+export const ConverterPage = () => {
   const [text, setText] = useState("");
   const [input, setInput] = useState<InputChoice>(AUTO);
   const [precision, setPrecision] = useState<1 | 10 | 100 | 1000 | 10000 | 100000>(1);
@@ -1031,207 +1033,212 @@ export const ConverterPage = ({ header }: { header: ReactNode }) => {
   };
 
   return (
-    <div className="lg:grid lg:h-screen lg:grid-cols-[minmax(0,60ch)_1fr]">
-      <div className="p-4 lg:overflow-y-auto">
-        {header}
-        <div className="flex flex-wrap items-center gap-1.5 text-sm">
-          <span className="opacity-60">Приклади:</span>
-          {EXAMPLE_SYSTEMS.map((system) => (
-            <button
-              key={system}
-              type="button"
-              title="Підставити як вхідне значення"
-              className="group inline-flex cursor-pointer overflow-hidden rounded-full border border-black text-xs"
-              onClick={() => pick({ system, value: examples[system] })}
-            >
-              <span className="bg-black px-2 py-0.5 font-bold text-white">
-                {system === "UCS-2000" ? "УСК-2000" : system}
-              </span>
-              <span className="px-2 py-0.5 font-mono group-hover:bg-black/10">
-                {examples[system]}
-              </span>
-            </button>
-          ))}
-        </div>
-        {/* A grid rather than a row, so the error can sit under the coordinates field without
-            lifting it out of line with the select and the button. */}
-        <div className="mt-3 grid grid-cols-[30%_minmax(0,1fr)_auto] items-end gap-x-2 gap-y-1">
-          <FieldLabel htmlFor={SYSTEM_SELECT_ID}>Система</FieldLabel>
-          <FieldLabel htmlFor={COORDINATES_INPUT_ID}>Координати</FieldLabel>
-          <span />
-
-          <SystemSelect
-            value={input}
-            onChange={(value) => {
-              setInput(value);
-              setFitView(true);
-            }}
+    <main>
+      <div className="lg:grid lg:h-screen lg:grid-cols-[minmax(0,60ch)_1fr]">
+        <div className="p-4 lg:overflow-y-auto">
+          <PageHeader
+            title="Конвертер координат"
+            subtitle="WGS 84, MGRS / USNG, UTM і УСК-2000 — в обидва боки, з квадратами на карті."
           />
-          <input
-            id={COORDINATES_INPUT_ID}
-            type="text"
-            className={`field w-full ${
-              inputError === null ? "" : "border-red-600! focus-visible:outline-red-600"
-            }`}
-            placeholder={input === AUTO ? "Enter coordinates" : examples[input]}
-            value={text}
-            aria-invalid={inputError !== null}
-            aria-describedby={inputError === null ? undefined : COORDINATES_ERROR_ID}
-            onChange={(e) => {
-              setText(e.target.value);
-              setFitView(true);
-            }}
-          />
-          <button
-            type="button"
-            aria-pressed={picking}
-            title="Вибрати точку на карті"
-            aria-label="Вибрати точку на карті"
-            className={`field cursor-pointer whitespace-nowrap text-base ${
-              picking ? "border-ink bg-ink" : "hover:border-ink"
-            }`}
-            onClick={() => setPicking(!picking)}
-          >
-            🎯
-          </button>
-
-          <p
-            id={COORDINATES_ERROR_ID}
-            aria-live="polite"
-            className="col-span-2 col-start-2 text-xs text-red-700 empty:hidden"
-          >
-            {inputError}
-          </p>
-        </div>
-
-        <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={followResult}
-            onChange={(e) => {
-              setFollowResult(e.target.checked);
-              setFitView(true);
-            }}
-          />
-          Наближати карту до результату
-        </label>
-
-        <div className="mt-4 text-sm">
-          {outcome.kind === "empty" && (
-            <p className="opacity-60">
-              {input === AUTO
-                ? "Введіть координати в будь-якому підтримуваному форматі."
-                : `Введіть координати в системі ${systemLabel(input)}, наприклад ${examples[input]}`}
-            </p>
-          )}
-          {outcome.kind === "converted" && (
-            <>
-              {/* Plain decimal latitude and longitude needs no telling; any other notation does. */}
-              {(input === AUTO || input === "WGS84") &&
-                !(outcome.written.length === 2 && outcome.written[1] === "WGS84") && (
-                  <p>
-                    Розпізнано як <b>{labelOf(outcome.written)}</b>
-                  </p>
-                )}
-              {outcome.written[0].system === "UCS-2000" &&
-                !insideUcs2000AreaOfUse(outcome.area.centre) && <OutsideAreaOfUse />}
-            </>
-          )}
-        </div>
-
-        <div className="mt-4 flex flex-col gap-2 text-sm">
-          {sections.map((section) => {
-            const result = results.get(section.id) ?? null;
-            return (
-              <Accordion
-                key={section.id}
-                title={section.title}
-                summary={summaryOf(result)}
-                open={open[section.id]}
-                onToggle={() => setOpen({ ...open, [section.id]: !open[section.id] })}
-                shown={shown[section.id]}
-                onShow={(value) => {
-                  setShown({ ...shown, [section.id]: value });
-                  setFitView(true);
-                }}
+          <div className="flex flex-wrap items-center gap-1.5 text-sm">
+            <span className="opacity-60">Приклади:</span>
+            {EXAMPLE_SYSTEMS.map((system) => (
+              <button
+                key={system}
+                type="button"
+                title="Підставити як вхідне значення"
+                className="group inline-flex cursor-pointer overflow-hidden rounded-full border border-black text-xs"
+                onClick={() => pick({ system, value: examples[system] })}
               >
-                {SECTION_LAYERS[section.id].length > 0 && (
-                  <div className="mb-2 flex flex-col gap-1">
-                    {SECTION_LAYERS[section.id].map(({ layer, label }) => (
-                      <label key={layer} className="flex w-fit cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={layers[layer]}
-                          onChange={(e) => setLayers({ ...layers, [layer]: e.target.checked })}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                )}
-                <SectionBody
-                  section={section}
-                  result={result}
-                  precision={precision}
-                  onPrecision={(value) => {
-                    setPrecision(value);
+                <span className="bg-black px-2 py-0.5 font-bold text-white">
+                  {system === "UCS-2000" ? "УСК-2000" : system}
+                </span>
+                <span className="px-2 py-0.5 font-mono group-hover:bg-black/10">
+                  {examples[system]}
+                </span>
+              </button>
+            ))}
+          </div>
+          {/* A grid rather than a row, so the error can sit under the coordinates field without
+              lifting it out of line with the select and the button. */}
+          <div className="mt-3 grid grid-cols-[30%_minmax(0,1fr)_auto] items-end gap-x-2 gap-y-1">
+            <FieldLabel htmlFor={SYSTEM_SELECT_ID}>Система</FieldLabel>
+            <FieldLabel htmlFor={COORDINATES_INPUT_ID}>Координати</FieldLabel>
+            <span />
+
+            <SystemSelect
+              value={input}
+              onChange={(value) => {
+                setInput(value);
+                setFitView(true);
+              }}
+            />
+            <input
+              id={COORDINATES_INPUT_ID}
+              type="text"
+              className={`field w-full ${
+                inputError === null ? "" : "border-red-600! focus-visible:outline-red-600"
+              }`}
+              placeholder={input === AUTO ? "Enter coordinates" : examples[input]}
+              value={text}
+              aria-invalid={inputError !== null}
+              aria-describedby={inputError === null ? undefined : COORDINATES_ERROR_ID}
+              onChange={(e) => {
+                setText(e.target.value);
+                setFitView(true);
+              }}
+            />
+            <button
+              type="button"
+              aria-pressed={picking}
+              title="Вибрати точку на карті"
+              aria-label="Вибрати точку на карті"
+              className={`field cursor-pointer whitespace-nowrap text-base ${
+                picking ? "border-ink bg-ink" : "hover:border-ink"
+              }`}
+              onClick={() => setPicking(!picking)}
+            >
+              🎯
+            </button>
+
+            <p
+              id={COORDINATES_ERROR_ID}
+              aria-live="polite"
+              className="col-span-2 col-start-2 text-xs text-red-700 empty:hidden"
+            >
+              {inputError}
+            </p>
+          </div>
+
+          <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={followResult}
+              onChange={(e) => {
+                setFollowResult(e.target.checked);
+                setFitView(true);
+              }}
+            />
+            Наближати карту до результату
+          </label>
+
+          <div className="mt-4 text-sm">
+            {outcome.kind === "empty" && (
+              <p className="opacity-60">
+                {input === AUTO
+                  ? "Введіть координати в будь-якому підтримуваному форматі."
+                  : `Введіть координати в системі ${systemLabel(input)}, наприклад ${examples[input]}`}
+              </p>
+            )}
+            {outcome.kind === "converted" && (
+              <>
+                {/* Plain decimal latitude and longitude needs no telling; any other notation does. */}
+                {(input === AUTO || input === "WGS84") &&
+                  !(outcome.written.length === 2 && outcome.written[1] === "WGS84") && (
+                    <p>
+                      Розпізнано як <b>{labelOf(outcome.written)}</b>
+                    </p>
+                  )}
+                {outcome.written[0].system === "UCS-2000" &&
+                  !insideUcs2000AreaOfUse(outcome.area.centre) && <OutsideAreaOfUse />}
+              </>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 text-sm">
+            {sections.map((section) => {
+              const result = results.get(section.id) ?? null;
+              return (
+                <Accordion
+                  key={section.id}
+                  title={section.title}
+                  summary={summaryOf(result)}
+                  open={open[section.id]}
+                  onToggle={() => setOpen({ ...open, [section.id]: !open[section.id] })}
+                  shown={shown[section.id]}
+                  onShow={(value) => {
+                    setShown({ ...shown, [section.id]: value });
                     setFitView(true);
                   }}
-                  onPick={pick}
-                />
-              </Accordion>
-            );
-          })}
+                >
+                  {SECTION_LAYERS[section.id].length > 0 && (
+                    <div className="mb-2 flex flex-col gap-1">
+                      {SECTION_LAYERS[section.id].map(({ layer, label }) => (
+                        <label key={layer} className="flex w-fit cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={layers[layer]}
+                            onChange={(e) => setLayers({ ...layers, [layer]: e.target.checked })}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <SectionBody
+                    section={section}
+                    result={result}
+                    precision={precision}
+                    onPrecision={(value) => {
+                      setPrecision(value);
+                      setFitView(true);
+                    }}
+                    onPick={pick}
+                  />
+                </Accordion>
+              );
+            })}
+          </div>
+
+          <section className="prose prose-sm prose-ink mt-8 max-w-none opacity-80">
+            <p>
+              Усе перетворюється через WGS 84: вхідні координати спершу зводяться до широти й
+              довготи, а з них пораховано решту систем. UTM, MGRS і USNG — поперечна проєкція
+              Меркатора на тому ж еліпсоїді WGS 84. УСК-2000 стоїть на іншому датумі, тому перед
+              проєкцією Гаусса-Крюгера точку зсунуто на еліпсоїд Красовського за параметрами
+              EPSG:5840 (точність близько 1 м).
+            </p>
+            <p className="mt-2">
+              Сітки називають квадрат, а не точку. MGRS і USNG — квадрат обраної точності, від 1 м
+              до 100 км, кут якого записаний у самому посиланні. UTM і УСК-2000 записані до метра,
+              тож позначають квадрат 1 м навколо значення. Для кожного квадрата видно центр і чотири
+              кути у WGS 84. Кути взято по сітці, тому далеко від осьового меридіана квадрат трохи
+              повернутий відносно паралелей і меридіанів. У базу зберігається центр.
+            </p>
+          </section>
+
+          <QuestionsAndAnswers />
         </div>
 
-        <section className="prose prose-sm prose-ink mt-8 max-w-none opacity-80">
-          <p>
-            Усе перетворюється через WGS 84: вхідні координати спершу зводяться до широти й довготи,
-            а з них пораховано решту систем. UTM, MGRS і USNG — поперечна проєкція Меркатора на тому
-            ж еліпсоїді WGS 84. УСК-2000 стоїть на іншому датумі, тому перед проєкцією
-            Гаусса-Крюгера точку зсунуто на еліпсоїд Красовського за параметрами EPSG:5840 (точність
-            близько 1 м).
-          </p>
-          <p className="mt-2">
-            Сітки називають квадрат, а не точку. MGRS і USNG — квадрат обраної точності, від 1 м до
-            100 км, кут якого записаний у самому посиланні. UTM і УСК-2000 записані до метра, тож
-            позначають квадрат 1 м навколо значення. Для кожного квадрата видно центр і чотири кути
-            у WGS 84. Кути взято по сітці, тому далеко від осьового меридіана квадрат трохи
-            повернутий відносно паралелей і меридіанів. У базу зберігається центр.
-          </p>
-        </section>
-
-        <QuestionsAndAnswers />
+        <div className="h-[60vh] lg:h-full">
+          <ConverterMap
+            centre={outcome.kind === "converted" ? outcome.area.centre : null}
+            inputArea={outcome.kind === "converted" ? outcome.area : null}
+            outputSquares={sections.flatMap((section) =>
+              shown[section.id] ? squaresForMap(results.get(section.id)?.coverage ?? null) : [],
+            )}
+            outputPoints={outcome.kind === "converted" && shown.WGS84 ? [outcome.area.centre] : []}
+            picking={picking}
+            // A point picked on the map is written in the system chosen for input, so the field reads
+            // as if it had been typed; under auto-detection, as plain WGS 84. A system that cannot
+            // express the point — UCS-2000 outside Ukraine — falls back to WGS 84 as well.
+            onPick={(coords) => {
+              const converted = inSystem(coords, input === AUTO ? "WGS84" : input);
+              if ("error" in converted) {
+                setText(formatWgs84(coords));
+                setInput("WGS84");
+              } else {
+                setText(write(converted));
+              }
+              setFitView(false);
+              setPicking(false);
+            }}
+            fitView={followResult && fitView}
+            layers={layers}
+            onLayersChange={setLayers}
+          />
+        </div>
       </div>
-
-      <div className="h-[60vh] lg:h-full">
-        <ConverterMap
-          centre={outcome.kind === "converted" ? outcome.area.centre : null}
-          inputArea={outcome.kind === "converted" ? outcome.area : null}
-          outputSquares={sections.flatMap((section) =>
-            shown[section.id] ? squaresForMap(results.get(section.id)?.coverage ?? null) : [],
-          )}
-          outputPoints={outcome.kind === "converted" && shown.WGS84 ? [outcome.area.centre] : []}
-          picking={picking}
-          // A point picked on the map is written in the system chosen for input, so the field reads
-          // as if it had been typed; under auto-detection, as plain WGS 84. A system that cannot
-          // express the point — UCS-2000 outside Ukraine — falls back to WGS 84 as well.
-          onPick={(coords) => {
-            const converted = inSystem(coords, input === AUTO ? "WGS84" : input);
-            if ("error" in converted) {
-              setText(formatWgs84(coords));
-              setInput("WGS84");
-            } else {
-              setText(write(converted));
-            }
-            setFitView(false);
-            setPicking(false);
-          }}
-          fitView={followResult && fitView}
-          layers={layers}
-          onLayersChange={setLayers}
-        />
-      </div>
-    </div>
+    </main>
   );
 };

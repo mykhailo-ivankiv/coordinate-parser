@@ -3,6 +3,7 @@ import { parse } from "sugar-high/core";
 import { tokenize } from "sugar-high/lang/typescript";
 import docs from "virtual:api-docs";
 import type { ApiEntry } from "./apiDocsModel.ts";
+import { PageHeader } from "./PageHeader.tsx";
 import { useActiveSection } from "./useActiveSection.ts";
 
 // The API reference, laid out the way ramda, lodash and date-fns lay theirs out: a filterable list
@@ -359,18 +360,18 @@ const Contents = ({ active, className = "" }: { active?: string; className?: str
 const Sidebar = () => <Contents active={useActiveSection(SECTION_IDS)} />;
 
 /**
- * The page's two columns, for App to place in its grid: the list beside the reference on wide
- * screens, and above it, without the reading highlight, on narrow ones.
+ * Laid out like the guide: the list beside the reference on wide screens, and above it, without the
+ * reading highlight, on narrow ones.
  */
-export const ApiPage = ({ header }: { header: ReactNode }) => (
-  <>
+export const ApiPage = () => (
+  <main className="m-auto px-4 py-6 lg:grid lg:grid-cols-[minmax(14rem,1fr)_minmax(0,64ch)_minmax(0,1fr)] lg:gap-x-12">
     <aside className="hidden w-56 justify-self-end lg:block">
       <div className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-1">
         <Sidebar />
       </div>
     </aside>
     <div className="m-auto min-w-0 max-w-[64ch] lg:m-0">
-      {header}
+      <PageHeader title="API" subtitle="Типи, парсер, конвертер і форматер." />
       <Contents className="card mb-6 p-4 lg:hidden" />
       <article className="prose prose-sm prose-ink max-w-none">
         {MODULES.map((module) => (
@@ -393,5 +394,5 @@ export const ApiPage = ({ header }: { header: ReactNode }) => (
         ))}
       </article>
     </div>
-  </>
+  </main>
 );
